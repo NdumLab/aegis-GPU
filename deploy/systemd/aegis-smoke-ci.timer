@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Aegis-GPU smoke CI pipeline periodically
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=6h
+Unit=aegis-smoke-ci.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

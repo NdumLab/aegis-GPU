@@ -1,0 +1,9 @@
+{
+  "title": "NVIDIA XID Error Codes Reference",
+  "last_updated": "2026-03-23 11:21:07.653020",
+  "errors": {
+    "48": "Double Bit ECC Error. Action: Page retirement required. If threshold exceeded, RMA GPU.",
+    "74": "NVLink CRC Flit Error. Action: Physical layer issue. Inspect NVLink bridge or OSFP cable for bent pins or debris.",
+    "79": "GPU Fallen Off the Bus. Action: Check PCIe power cables, reseat GPU, check dmesg for NVRM errors."
+  }
+}

@@ -1,0 +1,10 @@
+[Unit]
+Description=Aegis-GPU smoke CI pipeline
+After=network-online.target aegis-gpu.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/local/bin/aegis-smoke-ci.sh
