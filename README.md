@@ -15,3 +15,7 @@ Monorepo for the Aegis-GPU production deployment.
 - Frontend smoke: `python3 -m unittest discover -s frontend/tests -p "test_*.py"`
 - Backend syntax: `python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py`
 - Backend unittest smoke: `python3 -m unittest discover -s backend/tests -p "test_*unittest.py"`
+
+## CI Templates
+- GitHub Actions templates are staged in `ci/github-actions/`.
+- Move them into `.github/workflows/` after using a token with GitHub `workflow` scope or a repo admin session.
