@@ -55,17 +55,24 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('renderGuidedFlowSteps', APP_JS)
         self.assertIn('renderGuidedStepDetails', APP_JS)
         self.assertIn('Why This Stage Matters', APP_JS)
+        self.assertIn('Reasoning Check', APP_JS)
+        self.assertIn('Conclusion you can justify now', APP_JS)
         self.assertIn('window.AEGIS_LEARNING', LEARNING_JS)
         self.assertIn('ecc:', LEARNING_JS)
         self.assertIn('quickAnswer', LEARNING_JS)
 
     def test_guided_flow_step_content_supports_richer_beginner_instruction(self):
         self.assertIn('deeperContext', LABS_JS)
+        self.assertIn('changedFromPrevious', LABS_JS)
+        self.assertIn('justifiedConclusion', LABS_JS)
+        self.assertIn('stillPremature', LABS_JS)
+        self.assertIn('thresholdCrossed', LABS_JS)
         self.assertIn('lookFor', LABS_JS)
         self.assertIn('takeAction', LABS_JS)
         self.assertIn('avoid', LABS_JS)
         self.assertIn('Field 156 (SBE) staying at 0 across the polling window', LABS_JS)
-        self.assertIn('XID 48 usually indicates a double-bit ECC error', LABS_JS)
+        self.assertIn('The lifecycle crossed from corrected-error trending into an explicit uncorrectable hardware fault', LABS_JS)
+        self.assertIn('The scheduling-control threshold is crossed', LABS_JS)
 
 
 if __name__ == '__main__':

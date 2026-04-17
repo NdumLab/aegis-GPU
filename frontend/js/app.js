@@ -116,11 +116,28 @@ function renderBulletList(items, cssClass) {
   return `<ul class="${cssClass}">${items.map(item => `<li>${escHtml(item)}</li>`).join('')}</ul>`;
 }
 
-function renderGuidedStepDetails(step) {
+function renderGuidedStepDetails(step, prevStep) {
   if (!step) return '';
 
   const deeperContext = beginnerMode && step.deeperContext
     ? `<div class="guided-step-block guided-step-context"><div class="guided-step-title">Why This Stage Matters</div><p>${escHtml(step.deeperContext)}</p></div>`
+    : '';
+  const comparisonItems = [];
+  if (beginnerMode && step.changedFromPrevious) {
+    const prevLabel = prevStep ? ` compared with ${prevStep.label}` : '';
+    comparisonItems.push(`<li><strong>What changed${escHtml(prevLabel)}</strong>: ${escHtml(step.changedFromPrevious)}</li>`);
+  }
+  if (beginnerMode && step.justifiedConclusion) {
+    comparisonItems.push(`<li><strong>Conclusion you can justify now</strong>: ${escHtml(step.justifiedConclusion)}</li>`);
+  }
+  if (beginnerMode && step.stillPremature) {
+    comparisonItems.push(`<li><strong>What is still too early to conclude</strong>: ${escHtml(step.stillPremature)}</li>`);
+  }
+  if (beginnerMode && step.thresholdCrossed) {
+    comparisonItems.push(`<li><strong>Threshold crossed</strong>: ${escHtml(step.thresholdCrossed)}</li>`);
+  }
+  const comparativeReasoning = comparisonItems.length
+    ? `<div class="guided-step-block guided-step-compare"><div class="guided-step-title">Reasoning Check</div><ul class="guided-step-list">${comparisonItems.join('')}</ul></div>`
     : '';
   const lookFor = step.lookFor && step.lookFor.length
     ? `<div class="guided-step-block"><div class="guided-step-title">Look For</div>${renderBulletList(step.lookFor, 'guided-step-list')}</div>`
@@ -135,13 +152,15 @@ function renderGuidedStepDetails(step) {
     ? `<div class="guided-step-block"><div class="guided-step-title">Avoid This</div>${renderBulletList(step.avoid, 'guided-step-list')}</div>`
     : '';
 
-  return [deeperContext, lookFor, meaning, action, avoid].filter(Boolean).join('');
+  return [deeperContext, comparativeReasoning, lookFor, meaning, action, avoid].filter(Boolean).join('');
 }
 
 function renderGuidedFlowSteps(lab) {
   return `
     <div class="guided-steps">
-      ${lab.steps.map((s, i) => `
+      ${lab.steps.map((s, i) => {
+        const prevStep = i > 0 ? lab.steps[i - 1] : null;
+        return `
         <article class="guided-step-card${s.fault ? ' guided-step-card-fault' : ''}">
           <div class="guided-step-top">
             <div class="step-num">${i + 1}</div>
@@ -150,9 +169,10 @@ function renderGuidedFlowSteps(lab) {
               <div class="step-hint">${escHtml(s.cmd).slice(0, 100)}</div>
             </div>
           </div>
-          ${renderGuidedStepDetails(s)}
+          ${renderGuidedStepDetails(s, prevStep)}
         </article>
-      `).join('')}
+      `;
+      }).join('')}
     </div>
   `;
 }

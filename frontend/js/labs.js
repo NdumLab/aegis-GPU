@@ -49,6 +49,9 @@ const LABS = {
           "Stable output that tells you the GPU is not already in a degraded memory state"
         ],
         meaning:"A clean baseline means the card is healthy right now. You are proving that the system starts from corrected-error count 0 and uncorrected-error count 0 before degradation begins.",
+        justifiedConclusion:"The GPU is currently healthy enough to establish a trustworthy reference point for the rest of the lab.",
+        stillPremature:"It is too early to conclude that the card will remain healthy over time, because one clean baseline only describes the current state.",
+        thresholdCrossed:"No fault threshold is crossed yet. This step establishes the baseline you will compare against later.",
         takeAction:[
           "Record the clean SBE and DBE values mentally or in notes before moving on.",
           "Anchor the lesson around the idea that trend matters more than one isolated number.",
@@ -71,6 +74,10 @@ const LABS = {
           "A card that still appears usable even though the memory story is getting worse"
         ],
         meaning:"Rising SBE counts mean the GPU is still catching and fixing bad bits, but the memory path is no longer perfectly clean. Repeated corrected errors are often the warning sign before a more serious uncorrectable event.",
+        changedFromPrevious:"The system moved from a clean baseline to accumulating corrected ECC errors. You are no longer looking at a healthy steady state.",
+        justifiedConclusion:"The card is showing early degradation signals and now deserves active trending instead of passive trust.",
+        stillPremature:"It is still too early to declare the GPU unusable or to call this an uncorrectable hardware incident, because DBE is still 0.",
+        thresholdCrossed:"The monitoring threshold is crossed: you now have a rising corrected-error pattern that justifies deeper observation and preparation for containment.",
         takeAction:[
           "Treat repeated SBE growth as a maintenance signal, not as noise.",
           "Continue polling so you can tell whether the trend is stabilizing or escalating.",
@@ -92,6 +99,10 @@ const LABS = {
           "Whether the error pattern looks stable, worsening, or suddenly accelerating"
         ],
         meaning:"If SBE keeps climbing during repeated polls, the card is trending the wrong way. The important lesson is that the lifecycle is moving from healthy baseline to corrected-error accumulation, which raises concern even before a DBE appears.",
+        changedFromPrevious:"You are no longer seeing a one-step rise. The corrected-error pattern persisted across a longer observation window, which makes the trend more trustworthy.",
+        justifiedConclusion:"The degradation signal is persistent enough to treat as real operational evidence, not a random one-off anomaly.",
+        stillPremature:"It is still too early to say the card has had an uncorrectable ECC failure unless DBE or an XID confirms that escalation.",
+        thresholdCrossed:"The evidence threshold for proactive containment planning is crossed: the trend is now persistent, not just visible once.",
         takeAction:[
           "Compare this poll directly to the first baseline step, not to your intuition.",
           "Use trend language: rising, flat, accelerating, or crossed into DBE.",
@@ -114,6 +125,10 @@ const LABS = {
           "The shift from monitoring mode to immediate containment mode"
         ],
         meaning:"XID 48 usually indicates a double-bit ECC error, which is uncorrectable. The GPU could not safely repair the memory corruption, so this is now a hardware-integrity incident rather than a watch-and-trend situation.",
+        changedFromPrevious:"The lifecycle crossed from corrected-error trending into an explicit uncorrectable hardware fault. This is the moment where the story changes from observe and prepare to contain and escalate.",
+        justifiedConclusion:"The node should now be treated as unsafe for fresh workload placement because the evidence supports a real hardware-integrity incident.",
+        stillPremature:"It is still too early to call the issue resolved or to assume a software tweak will safely return the GPU to service.",
+        thresholdCrossed:"The hard-fault threshold is crossed: XID 48 and DBE-level behavior justify immediate containment, incident handling, and likely vendor escalation.",
         takeAction:[
           "Identify the affected GPU and node clearly before touching cluster state.",
           "Treat the node as unsafe for new workloads until it is contained.",
@@ -135,6 +150,10 @@ const LABS = {
           "The system moving into a safe state while deeper remediation or RMA is prepared"
         ],
         meaning:"Draining the node does not repair the GPU. It protects users and workloads by taking the unstable hardware out of normal service until the incident is fully handled.",
+        changedFromPrevious:"The response moved from diagnosis into containment. Instead of collecting more evidence, the operator is now changing cluster state to protect workloads.",
+        justifiedConclusion:"The correct operational priority is now blast-radius control, not continued observation on an in-service node.",
+        stillPremature:"It is still too early to say the GPU is repaired, healthy again, or ready to return to normal scheduling.",
+        thresholdCrossed:"The scheduling-control threshold is crossed: once an uncorrectable memory incident is confirmed, the node must be removed from normal placement until remediation is complete.",
         takeAction:[
           "Drain the node after confirming the uncorrectable ECC event.",
           "Notify the workload owner or operations channel that the node is being removed from service.",

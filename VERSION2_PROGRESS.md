@@ -236,3 +236,31 @@ Current Version 2 shape:
 - The ECC lab now explains what to watch, how to interpret the signals, what action follows, and what mistakes to avoid
 - Beginner Mode is becoming more like an annotated operations tutor than a simple lab launcher
 
+## 2026-04-17 08:18 EDT
+
+Status: comparative guided explanations deployed
+
+Completed this session:
+- Extended the guided-flow renderer in `frontend/js/app.js` so step teaching is now comparative and stateful instead of only descriptive
+- Added a new `Reasoning Check` block that can explain:
+  - what changed from the previous step
+  - what conclusion is justified now
+  - what is still too early to conclude
+  - what threshold was crossed
+- Deepened the `ECC Error Lifecycle` step data in `frontend/js/labs.js` with the new comparative reasoning fields so the lab now teaches operator judgment thresholds, not only observations and actions
+- Added visual treatment for the new comparative reasoning block in `frontend/css/styles.css`
+- Extended frontend smoke coverage for the comparative explanation structure
+- Bumped frontend asset versions in `frontend/index.html` and redeployed live
+
+Verification completed:
+- `python3 -m unittest -v /home/henry/aegis-gpu/tests/frontend/test_frontend_smoke.py` passed: 8/8
+- `bash /home/henry/aegis-gpu/tests/smoke/smoke_test.sh` passed: 19/19
+- Live `index.html` now serves `labs.js?v=20260417e`, `learning.js?v=20260417e`, and `app.js?v=20260417e`
+- Live `app.js` now serves `Reasoning Check`, `Conclusion you can justify now`, and `Threshold crossed`
+- Live `labs.js` now serves the new comparative ECC reasoning fields
+
+Current Version 2 shape:
+- Guided explanations now teach progression and judgment, not just terminology and actions
+- The ECC flow now explicitly shows when the operator should observe, when they should prepare, and when they must contain
+- Aegis is moving closer to a tutor that explains decision quality, not just decision order
+

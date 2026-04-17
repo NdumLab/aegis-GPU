@@ -302,7 +302,9 @@ header h1 span { color: var(--green); }
 .guided-step-label { font-size: 13px; color: var(--white); font-weight: 600; }
 .guided-step-block { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
 .guided-step-context { background: rgba(74,158,255,.05); border: 1px solid rgba(74,158,255,.14); border-radius: 4px; padding: 10px; }
+.guided-step-compare { background: rgba(240,180,41,.05); border: 1px solid rgba(240,180,41,.16); border-radius: 4px; padding: 10px; }
 .guided-step-title { font-family: var(--font-mono); font-size: 10px; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 7px; }
+.guided-step-compare .guided-step-title { color: var(--yellow); }
 .guided-step-block p { font-size: 11.5px; color: var(--text); line-height: 1.75; margin: 0; }
 .guided-step-list { padding-left: 18px; margin: 0; }
 .guided-step-list li { color: var(--text); font-size: 11px; line-height: 1.7; margin-bottom: 6px; }
