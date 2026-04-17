@@ -257,10 +257,60 @@ def load_kb_entry(fault_code: str) -> Dict[str, str]:
     }
 
 
+def summarize_grounding(context: Dict[str, Any]) -> Dict[str, Any]:
+    preferred_order = ('recent_xids', 'gpu_inventory', 'gpu_health', 'dcgm_discovery', 'dcgm_health', 'topology', 'nvlink', 'fabric', 'fabric_manager', 'nccl_env', 'storage')
+    commands = context.get('commands', {}) or {}
+    status_map = context.get('command_status', {}) or {}
+    grounded_sources: List[str] = []
+    unavailable_sources: List[str] = []
+
+    for key in preferred_order:
+        status_value = status_map.get(key)
+        if status_value is None:
+            value = (commands.get(key) or '').strip()
+            if not value:
+                status_value = 'empty'
+            elif value.startswith('ERROR:'):
+                status_value = 'error'
+            else:
+                status_value = 'ok'
+        if status_value == 'ok':
+            grounded_sources.append(key)
+        else:
+            unavailable_sources.append(key)
+
+    if context.get('error'):
+        status = 'unreachable'
+        note = 'No live node evidence was collected because the target node was unreachable. Diagnosis falls back to the NVIDIA XID knowledge base and static runbooks.'
+    elif grounded_sources and unavailable_sources:
+        status = 'partial'
+        note = (
+            'Partial grounding: live evidence was collected from '
+            + ', '.join(grounded_sources)
+            + '. Missing or unusable checks: '
+            + ', '.join(unavailable_sources)
+            + '. Diagnosis is limited to the available evidence plus the NVIDIA XID knowledge base.'
+        )
+    elif grounded_sources:
+        status = 'grounded'
+        note = 'Grounded against the NVIDIA XID knowledge base and live node evidence from ' + ', '.join(grounded_sources) + '.'
+    else:
+        status = 'kb_only'
+        note = 'No usable live node evidence was collected. Diagnosis falls back to the NVIDIA XID knowledge base and static runbooks.'
+
+    return {
+        'status': status,
+        'grounded_sources': grounded_sources,
+        'unavailable_sources': unavailable_sources,
+        'note': note,
+    }
+
+
 def build_context_summary(context: Dict[str, Any]) -> str:
     commands = context.get('commands', {})
+    grounding = summarize_grounding(context)
     sections = []
-    for key in ('recent_xids', 'gpu_inventory', 'gpu_health', 'topology', 'nvlink', 'fabric', 'storage'):
+    for key in grounding['grounded_sources']:
         value = (commands.get(key) or '').strip()
         if value:
             sections.append(f'[{key}]\n{value[:1200]}')
@@ -270,10 +320,13 @@ def build_context_summary(context: Dict[str, Any]) -> str:
 def build_deterministic_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict[str, Any]) -> str:
     summary = kb_entry.get('entry') or f'XID {fault_code} detected with no vendor KB entry available.'
     context_summary = build_context_summary(context)
+    grounding = summarize_grounding(context)
     lines = [
         f'Fault summary: XID {fault_code}. {summary}',
-        'Grounding sources used: NVIDIA XID KB, live node inspection, kernel log review, and GPU command output.',
+        grounding['note'],
     ]
+    if grounding['unavailable_sources']:
+        lines.append('Unavailable or unusable live checks: ' + ', '.join(grounding['unavailable_sources']))
     lines.extend(node_scraper.RUNBOOKS.get(str(fault_code), node_scraper._DEFAULT_RUNBOOK)['steps'])
     if context_summary:
         lines.append('Observed node context:\n' + context_summary)
@@ -289,10 +342,14 @@ _CLAUDE_SYSTEM_PROMPT = (
 
 
 def maybe_llm_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict[str, Any]) -> Union[Tuple[str, str], dict]:
+    grounding = summarize_grounding(context)
+    context_summary = build_context_summary(context) or 'No usable live node context was collected.'
     user_content = (
         f'Fault code: XID {fault_code}\n'
         f'Vendor reference: {kb_entry.get("entry") or "No vendor KB entry provided."}\n'
-        f'Node context:\n{build_context_summary(context)}'
+        f'Grounding status: {grounding["status"]}\n'
+        f'Unavailable checks: {", ".join(grounding["unavailable_sources"] or ["none"])}\n'
+        f'Node context:\n{context_summary}'
     )
 
     def _call_llm():
@@ -403,6 +460,7 @@ def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(ve
     audit(request, 'diagnose_requested', f'xid={fault_code}', user=payload['sub'])
     kb_entry = load_kb_entry(fault_code)
     context = get_engine().collect_fault_context(fault_code)
+    grounding = summarize_grounding(context)
     diagnosis = maybe_llm_diagnosis(fault_code, kb_entry, context)
     if isinstance(diagnosis, dict) and diagnosis.get('error'):
         DIAGNOSE_REQUESTS.labels(fault_code=fault_code, source='timeout').inc()
@@ -416,9 +474,11 @@ def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(ve
         'fault': f'XID {fault_code}',
         'diagnosis_source': source,
         'remediation_plan': remediation_plan,
-        'hallucination_check': 'Grounded against local host inspection and the NVIDIA XID knowledge base.',
+        'hallucination_check': grounding['note'],
         'kb_last_updated': kb_entry.get('last_updated', 'unknown'),
-        'grounded_sources': list(context.get('commands', {}).keys()),
+        'grounded_sources': grounding['grounded_sources'],
+        'unavailable_sources': grounding['unavailable_sources'],
+        'grounding_status': grounding['status'],
     }
 
 

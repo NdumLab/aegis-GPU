@@ -39,6 +39,14 @@ if [ ! -f /etc/aegis-gpu/aegis.env ]; then
   echo 'Created /etc/aegis-gpu/aegis.env from example; replace placeholder secrets before production use.'
 fi
 
+echo '==> Provision runtime state paths'
+if id -u aegis >/dev/null 2>&1; then
+  install -d -m 750 -o aegis -g aegis /var/log/aegis-gpu /var/lib/aegis-gpu
+else
+  install -d -m 750 /var/log/aegis-gpu /var/lib/aegis-gpu
+  echo "WARNING: user 'aegis' does not exist yet; runtime directories were created without aegis ownership."
+fi
+
 echo '==> Validate and reload services'
 nginx -t
 systemctl daemon-reload
