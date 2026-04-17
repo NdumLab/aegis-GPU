@@ -159,3 +159,23 @@ Current Version 2 shape:
 Next logical steps:
 1. Commit and push the accumulated Version 2 work
 2. If Version 2 content expansion continues after that, deepen the remaining secondary modules and add more runtime-specific teaching cues where raw metrics still appear
+
+
+## 2026-04-17 07:16 EDT
+
+Status: Version 2 committed and pushed
+
+Published commits:
+- `d96953a` `Build beginner-friendly Version 2 learning mode`
+
+Push result:
+- `master` -> `origin/master` succeeded
+
+Release summary:
+- Added the Beginner Mode learning system and curated lesson data module
+- Added live telemetry and diagnosis teaching overlays that explain evidence quality and grounding
+- Added beginner annotations to parser and incident history
+- Deepened the highest-value non-ECC lesson modules so Version 2 is no longer ECC-heavy only
+
+Repository state at time of logging:
+- local `master` matched `origin/master` before this log entry was appended
