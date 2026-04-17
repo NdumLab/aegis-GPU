@@ -18,6 +18,9 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('js/explain.js', INDEX)
         self.assertIn('js/app.js?v=', INDEX)
         self.assertIn('js/render.js', INDEX)
+        self.assertIn('id="quiz-panel"', INDEX)
+        self.assertIn('quiz-panel-header', INDEX)
+        self.assertNotIn('display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;', INDEX)
 
     def test_deploy_script_syncs_explanation_asset(self):
         self.assertIn('frontend/js/explain.js', DEPLOY_SH)

@@ -127,10 +127,10 @@
       <div class="nav-item" id="nav-k8s"><span class="icon">☸️</span> Kubernetes GPU Ops <span class="badge" id="b-k8s">OPS</span></div>
 
       <div class="sidebar-section" style="margin-top:8px">
-<div style="display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;">
-  <button class="btn-sm primary" id="sidebar-btn-quiz" style="width:100%;margin:4px 0;border-radius:3px;font-size:11px;padding:6px">📋 Take Quiz</button>
+        <div class="sidebar-action-row">
+          <button class="btn-sm primary" id="sidebar-btn-quiz">📋 Take Quiz</button>
+        </div>
       </div>
-    </div>
   </nav>
 
   <div class="main">
@@ -237,11 +237,12 @@
 </div>
 
 <div class="overlay" id="quiz-overlay">
-  <div class="panel" id="quiz-panel" style="width:760px">
-<div style="display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;">
-  <button class="close-btn" id="btn-quiz-close">✕</button>
-    <h2>NCA-AIIO Practice Quiz</h2>
-    <p style="color:var(--dim);font-size:12px;margin-bottom:20px">20 scenario-based questions covering all simulator labs. Answer all questions then click Submit.</p>
+  <div class="panel quiz-panel" id="quiz-panel">
+    <button class="close-btn" id="btn-quiz-close">✕</button>
+    <div class="quiz-panel-header">
+      <h2>NCA-AIIO Practice Quiz</h2>
+      <p>20 scenario-based questions covering all simulator labs. Answer all questions then click Submit.</p>
+    </div>
     <div id="quiz-content"></div>
   </div>
 </div>

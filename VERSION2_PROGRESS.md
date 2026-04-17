@@ -359,3 +359,29 @@ Current Version 2 shape:
 - The lab intro no longer carries all the teaching burden by itself
 - Beginners now get runtime help while they are looking at terminal output, not just before the lab starts
 - The terminal, metrics sidebar, and event log are now explained as one guided reading surface instead of three disconnected UI areas
+
+
+## 2026-04-17 10:27 EDT
+
+Status: frontend presentation cleanup deployed
+
+Completed this session:
+- Audited the live frontend for presentation regressions after the lab-coach rollout
+- Found and fixed malformed HTML structure in `frontend/index.html`, specifically:
+  - the sidebar quiz action wrapper
+  - the quiz overlay panel header/content wrapper
+- Replaced the broken inline-flex wrappers with proper structural containers: `sidebar-action-row`, `quiz-panel`, and `quiz-panel-header`
+- Added supporting presentation rules in `frontend/css/styles.css` so the repaired markup renders cleanly instead of depending on brittle inline styles
+- Extended frontend smoke coverage so this exact markup regression is now caught automatically
+- Redeployed the corrected frontend live
+
+Verification completed:
+- `python3 -m unittest -v /home/henry/aegis-gpu/tests/frontend/test_frontend_smoke.py` passed: 9/9
+- `bash /home/henry/aegis-gpu/tests/smoke/smoke_test.sh` passed: 19/19
+- Live `index.html` now serves `sidebar-action-row`, `quiz-panel`, and `quiz-panel-header`
+- The old malformed inline-flex wrapper is no longer present in the served frontend
+
+Current Version 2 shape:
+- The beginner-focused lab UX is still live
+- The surrounding presentation shell is cleaner and structurally safer
+- The frontend now has regression coverage for this repaired overlay/sidebar markup path
