@@ -10,6 +10,7 @@ echo '=== Aegis-GPU Smoke Tests ==='
 
 python3 -m py_compile backend/log-analizer.py backend/node_scraper.py >/dev/null 2>&1 && ok 'backend syntax' || fail 'backend syntax'
 [ -f frontend/index.html ] && ok 'frontend index present' || fail 'frontend index missing'
+[ -f frontend/js/learning.js ] && ok 'frontend learning module present' || fail 'frontend learning module missing'
 [ -f deploy/aegis-gpu.conf ] && ok 'nginx config present' || fail 'nginx config missing'
 [ -f deploy/aegis-gpu.service ] && ok 'systemd unit present' || fail 'systemd unit missing'
 [ -f deploy/aegis.env.example ] && ok 'env template present' || fail 'env template missing'

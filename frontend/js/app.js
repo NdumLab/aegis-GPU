@@ -19,6 +19,9 @@ let _appInitialized = false;
 let USER_ROLE  = sessionStorage.getItem('aegis_role') || '';
 let currentFaultNode = 0;
 let _uiHandlersBound = false;
+let lastLiveTelemetry = null;
+let beginnerMode = localStorage.getItem('gpusim_beginner_mode');
+beginnerMode = beginnerMode === null ? true : beginnerMode === 'true';
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -77,6 +80,259 @@ function aegisLogout() {
 function handle401() {
   logTerm([{t:'err', v:'[AUTH] Session expired or unauthorised. Please log in again.'}]);
   setTimeout(aegisLogout, 1500);
+}
+
+function escHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getLearningGuide(id) {
+  const guides = window.AEGIS_LEARNING || {};
+  return guides[id] || null;
+}
+
+function syncBeginnerModeUI() {
+  const toggle = document.getElementById('toggle-beginner');
+  if (toggle) toggle.checked = beginnerMode;
+  const learnBtn = document.getElementById('btn-learn');
+  if (learnBtn) learnBtn.textContent = beginnerMode ? '📘 Learning Guide' : '📘 Lab Brief';
+}
+
+function setBeginnerMode(enabled) {
+  beginnerMode = !!enabled;
+  localStorage.setItem('gpusim_beginner_mode', beginnerMode ? 'true' : 'false');
+  syncBeginnerModeUI();
+  if (currentLab && document.getElementById('intro-overlay')?.classList.contains('show')) showIntro(currentLab);
+  if (appMode === 'live') renderBeginnerTelemetryExplanation(lastLiveTelemetry);
+}
+
+function renderBulletList(items, cssClass) {
+  if (!items || !items.length) return '';
+  return `<ul class="${cssClass}">${items.map(item => `<li>${escHtml(item)}</li>`).join('')}</ul>`;
+}
+
+function renderLearningGuide(id) {
+  const guide = getLearningGuide(id);
+  if (!guide) return '';
+
+  const sections = [];
+  sections.push(`
+    <section class="learn-section learn-callout">
+      <h4>Quick Answer</h4>
+      <p>${escHtml(guide.quickAnswer || '')}</p>
+    </section>
+  `);
+
+  if (beginnerMode && guide.whyItMatters) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Why This Matters</h4>
+        <p>${escHtml(guide.whyItMatters)}</p>
+      </section>
+    `);
+  }
+
+  if (guide.coreTerms && guide.coreTerms.length) {
+    sections.push(`
+      <section class="learn-section">
+        <div class="learn-heading-row">
+          <h4>Key Terms</h4>
+          <span class="learn-mode-tag">${beginnerMode ? 'Annotated jargon' : 'Core vocabulary'}</span>
+        </div>
+        <div class="term-grid">
+          ${guide.coreTerms.map(term => `
+            <article class="term-card">
+              <div class="term-name">${escHtml(term.term)}</div>
+              <p>${escHtml(term.plain)}</p>
+              ${beginnerMode && term.why ? `<div class="term-why">Why it matters: ${escHtml(term.why)}</div>` : ''}
+            </article>
+          `).join('')}
+        </div>
+      </section>
+    `);
+  }
+
+  if (beginnerMode && guide.lifecycle && guide.lifecycle.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Lifecycle</h4>
+        <ol class="learn-timeline">
+          ${guide.lifecycle.map(step => `
+            <li>
+              <div class="timeline-title">${escHtml(step.title)}</div>
+              <div class="timeline-body">${escHtml(step.detail)}</div>
+            </li>
+          `).join('')}
+        </ol>
+      </section>
+    `);
+  }
+
+  if (beginnerMode && guide.watchFor && guide.watchFor.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>What To Watch</h4>
+        ${renderBulletList(guide.watchFor, 'learn-list')}
+      </section>
+    `);
+  }
+
+  if (guide.safeActions && guide.safeActions.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Safe Beginner Actions</h4>
+        ${renderBulletList(guide.safeActions, 'learn-list')}
+      </section>
+    `);
+  }
+
+  if (beginnerMode && guide.whatNotToDo && guide.whatNotToDo.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>What Not To Do</h4>
+        ${renderBulletList(guide.whatNotToDo, 'learn-list')}
+      </section>
+    `);
+  }
+
+  if (beginnerMode && guide.escalateWhen && guide.escalateWhen.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Escalate When</h4>
+        ${renderBulletList(guide.escalateWhen, 'learn-list')}
+      </section>
+    `);
+  }
+
+  if (beginnerMode && guide.readMore && guide.readMore.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Read This Slowly</h4>
+        ${guide.readMore.map(item => `<p>${escHtml(item)}</p>`).join('')}
+      </section>
+    `);
+  }
+
+  return sections.join('');
+}
+
+function describeCollectionError(code) {
+  const messages = {
+    dcgm_unavailable: 'DCGM is unavailable, so advanced GPU health counters and deeper fleet metrics are missing.',
+    nvidia_smi_unavailable: 'nvidia-smi is unavailable or returned unusable data, so direct GPU telemetry could not be collected.',
+    nvlink_status_unavailable: 'NVLink status could not be collected, so link-health conclusions are limited.',
+  };
+  return messages[code] || `${code} means one expected evidence source could not be collected.`;
+}
+
+function describeGroundingStatus(status) {
+  const messages = {
+    grounded: 'Grounded means the diagnosis is strongly backed by live evidence collected from the node.',
+    partial: 'Partial grounding means some evidence was collected, but important sources were still missing.',
+    kb_only: 'Knowledge-base only means the system is explaining the fault from trusted runbooks and fault references, not from live node evidence.',
+  };
+  return messages[status] || 'Grounding status explains how much of the diagnosis is backed by live machine evidence.';
+}
+
+function renderBeginnerTelemetryExplanation(liveData) {
+  const body = document.getElementById('live-explainer-body');
+  if (!body) return;
+
+  if (!liveData) {
+    body.innerHTML = '<p>Turn on Live Telemetry to see a beginner-friendly explanation of the current hardware state and evidence quality.</p>';
+    return;
+  }
+
+  if (!beginnerMode) {
+    const source = escHtml(liveData.source || 'unknown-source');
+    const quality = liveData.degraded ? 'best-effort' : 'direct';
+    body.innerHTML = `<p><strong>Compact view:</strong> this telemetry is coming from <strong>${source}</strong> using a <strong>${quality}</strong> evidence path. Turn on Beginner Mode for deeper explanations of telemetry scope, missing evidence, and diagnosis trust.</p>`;
+    return;
+  }
+
+  const scopeText = liveData.telemetry_scope === 'host'
+    ? 'Telemetry scope is <strong>host</strong>, which means the backend is reading machine-level fallback data instead of direct GPU counters.'
+    : `Telemetry scope is <strong>${escHtml(liveData.telemetry_scope || 'unknown')}</strong>, which means the backend has more direct hardware visibility.`;
+
+  const sourceText = (liveData.telemetry_sources && liveData.telemetry_sources.length)
+    ? `Sources in use: ${liveData.telemetry_sources.map(escHtml).join(', ')}.`
+    : 'No telemetry source list was provided.';
+
+  const degradedText = liveData.degraded
+    ? `<p><strong>Degraded mode</strong> means the system is still showing you useful signals, but the best hardware evidence was not available. ${escHtml(liveData.degraded_reason || '')}</p>`
+    : '<p><strong>Healthy evidence path</strong> means the backend is collecting its preferred hardware telemetry sources.</p>';
+
+  const collectionErrors = (liveData.collection_errors || []).map(code => `<li><strong>${escHtml(code)}</strong>: ${escHtml(describeCollectionError(code))}</li>`).join('');
+  const fabricSummary = liveData.fabric_summary
+    ? `<li><strong>fabric_summary</strong>: NVLink is ${escHtml(liveData.fabric_summary.nvlink || 'unknown')}, DCGM is ${escHtml(liveData.fabric_summary.dcgm || 'unknown')}.</li>`
+    : '';
+  const perGpu = Array.isArray(liveData.per_gpu) && liveData.per_gpu.length
+    ? `<li><strong>per_gpu</strong>: ${liveData.per_gpu.length} GPU-specific snapshots are available.</li>`
+    : '<li><strong>per_gpu</strong>: no per-GPU snapshots were collected.</li>';
+
+  body.innerHTML = `
+    <p>${scopeText}</p>
+    ${degradedText}
+    <p><strong>telemetry_sources</strong> is the system's way of telling you where the numbers came from. ${sourceText}</p>
+    <ul class="live-explainer-list">
+      ${fabricSummary}
+      ${perGpu}
+    </ul>
+    ${collectionErrors ? `<div class="live-explainer-block"><div class="live-explainer-title">Missing evidence sources</div><ul class="live-explainer-list">${collectionErrors}</ul></div>` : ''}
+  `;
+}
+
+function renderDiagnosisExplanation(data) {
+  if (!beginnerMode) return '';
+
+  const grounding = describeGroundingStatus(data.grounding_status);
+  const grounded = (data.grounded_sources || []).length
+    ? `<li><strong>grounded_sources</strong>: ${data.grounded_sources.map(escHtml).join(', ')}</li>`
+    : '<li><strong>grounded_sources</strong>: none were collected for this diagnosis.</li>';
+  const unavailable = (data.unavailable_sources || []).length
+    ? `<li><strong>unavailable_sources</strong>: ${data.unavailable_sources.map(escHtml).join(', ')}</li>`
+    : '<li><strong>unavailable_sources</strong>: none were reported.</li>';
+
+  return `
+    <div class="diag-block">
+      <div class="diag-title">Beginner Explanation</div>
+      <p><strong>diagnosis_source</strong> tells you where the explanation came from. Here it is <strong>${escHtml(data.diagnosis_source || 'unknown')}</strong>.</p>
+      <p><strong>grounding_status</strong> is <strong>${escHtml(data.grounding_status || 'unknown')}</strong>. ${escHtml(grounding)}</p>
+      <ul class="diag-list">
+        ${grounded}
+        ${unavailable}
+      </ul>
+      <p><strong>hallucination_check</strong> is the system's honesty note about whether the diagnosis had live evidence or relied on runbooks.</p>
+    </div>
+  `;
+}
+
+function setLiveExplainerIdle(message) {
+  const body = document.getElementById('live-explainer-body');
+  if (!body) return;
+  body.innerHTML = `<p>${escHtml(message)}</p>`;
+}
+
+function describeIncidentKind(kind) {
+  const messages = {
+    diagnose: 'A diagnose entry means the system analyzed a fault and produced a remediation recommendation.',
+    remediate: 'A remediate entry means the system tried to act on a runbook or recovery workflow.',
+  };
+  return messages[kind] || 'This incident entry records one step in the fault response workflow.';
+}
+
+function explainParsedXid(xid) {
+  const messages = {
+    '48': 'XID 48 usually points to an uncorrectable ECC memory event, which is a hardware-integrity problem rather than just a performance warning.',
+    '74': 'XID 74 usually points to NVLink link trouble such as CRC errors, which means GPU-to-GPU communication may be degraded.',
+    '79': 'XID 79 usually means the GPU became unreachable on the bus, which is a severe stability failure and often requires reset or reboot.',
+  };
+  return messages[xid] || 'The parser found a known NVIDIA fault code, but this code does not yet have a beginner-specific explanation in the UI.';
 }
 
 
@@ -398,22 +654,38 @@ function handleCustomCommand(cmd) {
 
 function showIntro(id) {
   const lab = LABS[id];
+  const guide = getLearningGuide(id);
   const el = document.getElementById('intro-content');
+  if (!lab || !el) return;
+
+  const guideMarkup = renderLearningGuide(id);
+  const modeNote = beginnerMode
+    ? '<div class="learn-banner"><div class="learn-banner-title">Beginner Mode is on</div><p>Real operator jargon stays visible, but each term is explained in plain language so you build vocabulary while you learn.</p></div>'
+    : '<div class="learn-banner learn-banner-compact"><div class="learn-banner-title">Compact lab brief</div><p>Turn on Beginner Mode for deeper explanations, lifecycle context, and slower reading material.</p></div>';
+
   el.innerHTML = `
     <h2>${lab.icon} ${lab.name}</h2>
+    ${modeNote}
     <div class="objective">
       <h4>Objective</h4>
-      <p>${lab.objective}</p>
+      <p>${escHtml(lab.objective)}</p>
     </div>
-    <ul class="steps-list">
-      ${lab.steps.map((s,i)=>`<li>
-        <div class="step-num">${i+1}</div>
-        <div>
-          <div>${s.label}</div>
-          <div class="step-hint">${s.cmd.replace(/</g,'&lt;').slice(0,60)}</div>
-        </div>
-      </li>`).join('')}
-    </ul>
+    ${guide ? guideMarkup : ''}
+    <section class="learn-section">
+      <div class="learn-heading-row">
+        <h4>Lab Steps</h4>
+        <span class="learn-mode-tag">Guided flow</span>
+      </div>
+      <ul class="steps-list">
+        ${lab.steps.map((s,i)=>`<li>
+          <div class="step-num">${i+1}</div>
+          <div>
+            <div>${escHtml(s.label)}</div>
+            <div class="step-hint">${escHtml(s.cmd).slice(0, 80)}</div>
+          </div>
+        </li>`).join('')}
+      </ul>
+    </section>
   `;
   document.getElementById('intro-overlay').classList.add('show');
 }
@@ -688,6 +960,13 @@ function renderIncidentHistory(body, rows) {
       item.appendChild(summary);
     }
 
+    if (beginnerMode) {
+      const explain = document.createElement('div');
+      explain.className = 'incident-explain';
+      explain.textContent = describeIncidentKind(row.kind || 'unknown');
+      item.appendChild(explain);
+    }
+
     body.appendChild(item);
   });
 }
@@ -729,8 +1008,10 @@ function bindUIHandlers() {
   // Header
   on('btn-quiz',    'click', openQuiz);
   on('btn-blueprint', 'click', () => { document.getElementById('recon-overlay').style.display = 'flex'; });
+  on('btn-learn',   'click', () => { if (currentLab) showIntro(currentLab); });
   on('btn-logout',  'click', aegisLogout);
   on('btn-reset',   'click', resetAll);
+  on('toggle-beginner', 'change', e => setBeginnerMode(e.target.checked));
 
   // Sidebar
   on('sidebar-btn-quiz', 'click', openQuiz);
@@ -806,6 +1087,7 @@ function bindUIHandlers() {
 // --- INIT BOOTSTRAP ---
 function initApp() {
   bindUIHandlers();
+  syncBeginnerModeUI();
   // Always show the cluster chooser after login instead of auto-entering a saved rack.
   const savedBp  = localStorage.getItem('gpusim_blueprint');
   const savedFab = localStorage.getItem('gpusim_fabric');
@@ -934,6 +1216,11 @@ function analyzeLog() {
             else if (xid === '74') logTerm([{t:'err', v:`[DECODE] XID 74 = NVLink CRC Flit Error (Cable or Switch failure).`}]);
             else logTerm([{t:'err', v:`[DECODE] Unrecognized hardware fault.`}]);
 
+            if (beginnerMode) {
+                logTerm([{t:'info', v:`[BEGINNER] ${explainParsedXid(xid)}`}]);
+                logTerm([{t:'dim', v:'[BEGINNER] XID is the NVIDIA driver fault code. The parser keeps the real code visible so you learn the operator vocabulary while reading the explanation.'}]);
+            }
+
             let failingNodeIndex = 0; 
             if (gpuNum) {
                 failingNodeIndex = parseInt(gpuNum);
@@ -953,6 +1240,9 @@ function analyzeLog() {
             }
 
             logTerm([{t:'info', v:`[MAPPING] PCIe Address maps to physical node index: 0${failingNodeIndex + 1}`}]);
+            if (beginnerMode) {
+                logTerm([{t:'dim', v:'[BEGINNER] Mapping means the parser is translating a low-level bus or GPU identifier into the physical machine you would inspect or drain.'}]);
+            }
             logTerm([{t:'warn', v:`[ACTION] Pushing CRITICAL fault telemetry to Rack Digital Twin...`}]);
 
             const svg = document.getElementById('diagram-canvas');
@@ -1015,6 +1305,7 @@ async function toggleAppMode(forcedState) {
     } else {
         logTerm([{t:'info', v:'[SYSTEM] Connection severed. Reverting to Student Simulation Mode.'}]);
         document.querySelectorAll('.nav-item').forEach(el => el.style.opacity = '1');
+        setLiveExplainerIdle('Live Telemetry is off. Turn it on to see beginner explanations of evidence quality, telemetry scope, and diagnosis trust level.');
         resetAll();
         if(liveInterval) clearInterval(liveInterval);
     }
@@ -1049,6 +1340,7 @@ async function fetchLiveMetrics() {
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
 
         const liveData = await res.json();
+        lastLiveTelemetry = liveData;
         const source = liveData.source || 'unknown-source';
         const modeMsg = liveData.degraded
             ? `Connected in degraded mode (${source}). Displaying best-effort host telemetry.`
@@ -1068,8 +1360,10 @@ async function fetchLiveMetrics() {
         setBar('mb-vram', liveData.vram_total ? (liveData.vram_used / liveData.vram_total) * 100 : 0, 'var(--blue)');
         setBar('mb-temp', (liveData.temp / 100) * 100, liveData.temp > 80 ? 'var(--yellow)' : 'var(--blue)');
         setBar('mb-power', liveData.power > 0 ? (liveData.power / 700) * 100 : 0, 'var(--copper)');
+        renderBeginnerTelemetryExplanation(liveData);
 
     } catch (e) {
+        setLiveExplainerIdle('Live telemetry polling failed, so the beginner explainer cannot interpret the current hardware state.');
         logTerm([{t:'err', v:`[POLLING ERROR] ${e.message}`}]);
         scrollTerminal();
     }
@@ -1218,9 +1512,26 @@ function captureStaticDiagnosis(data) {
     if (!overlay || !btn) return;
 
     if (data.remediation_plan) {
-        const fault  = data.fault ? "FAULT : " + data.fault + "\n" : "";
-        const source = data.diagnosis_source ? "SOURCE: " + data.diagnosis_source + "\n" : "";
-        overlay.innerText = fault + source + "\n" + data.remediation_plan;
+        const beginnerExplain = renderDiagnosisExplanation(data);
+        overlay.innerHTML = `
+          <div class="diag-block">
+            <div class="diag-title">Fault</div>
+            <p>${escHtml(data.fault || 'Unknown fault')}</p>
+          </div>
+          <div class="diag-block">
+            <div class="diag-title">Diagnosis Source</div>
+            <p>${escHtml(data.diagnosis_source || 'unknown')}</p>
+          </div>
+          ${beginnerExplain}
+          <div class="diag-block">
+            <div class="diag-title">Remediation Plan</div>
+            ${data.remediation_plan.split('\n').filter(Boolean).map(line => `<p>${escHtml(line)}</p>`).join('')}
+          </div>
+          <div class="diag-block">
+            <div class="diag-title">Honesty Check</div>
+            <p>${escHtml(data.hallucination_check || 'No explanation provided.')}</p>
+          </div>
+        `;
 
         overlay.style.display = "none";
         btn.style.display = "inline-block";

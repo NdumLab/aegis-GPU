@@ -23,6 +23,7 @@ install -m 644 "$ROOT/frontend/css/styles.css" /var/www/html/css/styles.css
 install -m 644 "$ROOT/frontend/js/app.js" /var/www/html/js/app.js
 install -m 644 "$ROOT/frontend/js/hardware.js" /var/www/html/js/hardware.js
 install -m 644 "$ROOT/frontend/js/labs.js" /var/www/html/js/labs.js
+install -m 644 "$ROOT/frontend/js/learning.js" /var/www/html/js/learning.js
 install -m 644 "$ROOT/frontend/js/render.js" /var/www/html/js/render.js
 install -m 644 "$ROOT/tests/frontend/test_frontend_smoke.py" /var/www/html/tests/test_frontend_smoke.py
 install -m 644 "$ROOT/tests/frontend/test_frontend_browser_smoke.py" /var/www/html/tests/test_frontend_browser_smoke.py

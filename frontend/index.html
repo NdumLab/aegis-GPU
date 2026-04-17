@@ -8,7 +8,8 @@
 <script src="js/hardware.js"></script>
 <script src="js/render.js"></script>
 <script src="js/labs.js"></script>
-<script src="js/app.js?v=20260417b" defer></script>
+<script src="js/learning.js"></script>
+<script src="js/app.js?v=20260417c" defer></script>
 </head>
 <body>
 
@@ -44,8 +45,10 @@
 <div style="display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;">
   <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="toggle-live"> Live Telemetry</label>
   <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="toggle-thermal"> Thermal Map</label>
+  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="toggle-beginner" checked> Beginner Mode</label>
 </div>
     <button class="btn-sm" id="btn-blueprint" style="margin-left:8px">🖥 Blueprint</button>
+    <button class="btn-sm" id="btn-learn" style="margin-left:8px">📘 Learn</button>
     <button class="btn-sm" id="btn-quiz" style="margin-left:8px">📋 Quiz</button>
     <button class="btn-sm" id="btn-incidents" style="margin-left:4px">🕐 Incidents</button>
     <button class="btn-sm" id="btn-logout" style="margin-left:4px;background:#1a2030;border-color:#f4a261;color:#f4a261">⏻ Logout</button>
@@ -163,6 +166,10 @@
           <div id="xid-log-entries">
             <div class="xid-entry">System ready.</div>
           </div>
+        </div>
+        <div class="metric-group live-explainer" id="live-explainer">
+          <div class="metric-group-title">Live Explain</div>
+          <div id="live-explainer-body" class="live-explainer-body">Turn on Live Telemetry to see a beginner-friendly explanation of the current hardware state and evidence quality.</div>
         </div>
       </div>
     </div>
