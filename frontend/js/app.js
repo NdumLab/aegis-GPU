@@ -24,6 +24,7 @@ let beginnerMode = localStorage.getItem('gpusim_beginner_mode');
 beginnerMode = beginnerMode === null ? true : beginnerMode === 'true';
 let explanationLevel = localStorage.getItem('gpusim_explain_level') || 'beginner';
 let explanationRole = localStorage.getItem('gpusim_explain_role') || 'cluster_operator';
+let labCoachOpen = localStorage.getItem('gpusim_lab_coach_open') === 'true';
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -117,6 +118,8 @@ function syncBeginnerModeUI() {
   if (levelSel) levelSel.value = explanationLevel;
   const roleSel = document.getElementById('sel-explain-role');
   if (roleSel) roleSel.value = explanationRole;
+  const coachBtn = document.getElementById('btn-toggle-coach');
+  if (coachBtn) coachBtn.classList.toggle('active', labCoachOpen);
   const learnBtn = document.getElementById('btn-learn');
   if (learnBtn) {
     const engine = getExplainEngine();
@@ -150,6 +153,17 @@ function setExplanationRole(role) {
   localStorage.setItem('gpusim_explain_role', explanationRole);
   syncBeginnerModeUI();
   refreshExplanationSurfaces();
+}
+
+function setLabCoachOpen(open) {
+  labCoachOpen = !!open;
+  localStorage.setItem('gpusim_lab_coach_open', labCoachOpen ? 'true' : 'false');
+  syncBeginnerModeUI();
+  renderLabStepCoach();
+}
+
+function toggleLabCoach() {
+  setLabCoachOpen(!labCoachOpen);
 }
 
 function renderBulletList(items, cssClass) {
@@ -245,18 +259,18 @@ function getMetricsToWatch(labId, step) {
 
 function renderLabStepCoach() {
   const el = document.getElementById('lab-step-coach');
-  if (!el) return;
+  const content = document.getElementById('lab-step-coach-content');
+  if (!el || !content) return;
 
   if (activeTab === 'parser') {
-    el.style.display = 'none';
+    el.classList.add('is-hidden');
     return;
   }
-  el.style.display = 'block';
+
+  el.classList.toggle('is-hidden', !labCoachOpen);
 
   if (!currentLab) {
-    el.innerHTML = `
-      <div class="lab-step-coach-kicker">Lab Coach</div>
-      <div class="lab-step-coach-title">How To Use Labs</div>
+    content.innerHTML = `
       <p>Select a lab, read the intro, then start the first step. This panel stays beside the terminal so beginners do not have to remember what they are looking at.</p>
       <div class="lab-step-coach-section">
         <div class="lab-step-coach-section-title">How To Work</div>
@@ -274,10 +288,11 @@ function renderLabStepCoach() {
   if (!lab) return;
 
   if (currentStep < 0 || !lab.steps[currentStep]) {
-    el.innerHTML = `
-      <div class="lab-step-coach-kicker">${escHtml(lab.name)}</div>
-      <div class="lab-step-coach-title">Before You Start</div>
-      <p>${beginnerMode ? 'This lab is guided. Start with step 1 and let the simulator show you the evidence in order.' : 'Use the step buttons to replay the scenario in order.'}</p>
+    content.innerHTML = `
+      <div class="lab-step-coach-section">
+        <div class="lab-step-coach-section-title">Before You Start</div>
+        <p>${beginnerMode ? 'This lab is guided. Start with step 1 and let the simulator show you the evidence in order.' : 'Use the step buttons to replay the scenario in order.'}</p>
+      </div>
       <div class="lab-step-coach-section">
         <div class="lab-step-coach-section-title">How To Use This Lab</div>
         <ul class="lab-step-coach-list">
@@ -308,9 +323,12 @@ function renderLabStepCoach() {
       : 'You are on dcgm, which is useful for counter and health correlation.';
   const calloutClass = step.fault ? 'lab-step-coach-callout err' : 'lab-step-coach-callout';
 
-  el.innerHTML = `
-    <div class="lab-step-coach-kicker">${escHtml(lab.name)} • Step ${currentStep + 1}/${lab.steps.length}</div>
-    <div class="lab-step-coach-title">${escHtml(step.label)}</div>
+  const topKicker = document.querySelector('#lab-step-coach .lab-step-coach-kicker');
+  const topTitle = document.querySelector('#lab-step-coach .lab-step-coach-title');
+  if (topKicker) topKicker.textContent = `${lab.name} • Step ${currentStep + 1}/${lab.steps.length}`;
+  if (topTitle) topTitle.textContent = step.label;
+
+  content.innerHTML = `
     <div class="${calloutClass}">
       <p><strong>What this step is for:</strong> ${escHtml(describeStepCommand(step))}</p>
       <p>${escHtml(useTip)}</p>
@@ -1327,6 +1345,8 @@ function bindUIHandlers() {
   on('toggle-beginner', 'change', e => setBeginnerMode(e.target.checked));
   on('sel-explain-level', 'change', e => setExplanationLevel(e.target.value));
   on('sel-explain-role', 'change', e => setExplanationRole(e.target.value));
+  on('btn-toggle-coach', 'click', toggleLabCoach);
+  on('btn-close-coach', 'click', () => setLabCoachOpen(false));
 
   // Sidebar
   on('sidebar-btn-quiz', 'click', openQuiz);

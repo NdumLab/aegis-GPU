@@ -385,3 +385,28 @@ Current Version 2 shape:
 - The beginner-focused lab UX is still live
 - The surrounding presentation shell is cleaner and structurally safer
 - The frontend now has regression coverage for this repaired overlay/sidebar markup path
+
+
+## 2026-04-17 10:39 EDT
+
+Status: lab guide made toggleable and better spaced
+
+Completed this session:
+- Reworked the in-lab `Lab Coach` into a hideable floating panel instead of a permanently visible side column
+- Added a `📘 Guide` toggle button in the terminal toolbar and a close button inside the guide panel
+- Added persisted UI state with `gpusim_lab_coach_open` so the guide can stay hidden unless the learner wants it
+- Reorganized the guide layout into a top bar plus scrollable content area so it fits the terminal space better
+- Improved section spacing, list spacing, paragraph rhythm, and card grouping in `frontend/css/styles.css` so the explanation text is easier to scan
+- Kept the guide content intact while making it much less intrusive in the terminal workflow
+- Redeployed the updated frontend live
+
+Verification completed:
+- `python3 -m unittest -v /home/henry/aegis-gpu/tests/frontend/test_frontend_smoke.py` passed: 9/9
+- `bash /home/henry/aegis-gpu/tests/smoke/smoke_test.sh` passed: 19/19
+- Live `index.html` now serves `btn-toggle-coach`, `btn-close-coach`, `lab-step-coach-shell`, and `lab-step-coach-content`
+- Live `app.js` now serves `toggleLabCoach` and persisted `gpusim_lab_coach_open` state
+
+Current Version 2 shape:
+- Lab explanations no longer consume fixed terminal width by default
+- The learner can open the guide only when needed and scroll it independently
+- The explanation layout is more organized and readable under the actual terminal-space constraints
