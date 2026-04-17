@@ -1,0 +1,12 @@
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.log
+.env
+.env.*
+*.crt
+*.key
+node_modules/
+coverage/
+.DS_Store

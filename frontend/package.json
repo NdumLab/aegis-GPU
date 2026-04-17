@@ -1,0 +1,9 @@
+{
+  "name": "aegis-gpu-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Deployed static frontend for Aegis-GPU",
+  "scripts": {
+    "test": "python3 -m unittest discover -s tests -p 'test_*.py'"
+  }
+}

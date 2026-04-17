@@ -1,0 +1,30 @@
+[Unit]
+Description=Aegis-GPU AIOps Backend API
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=aegis
+Group=aegis
+WorkingDirectory=/opt/aegis-gpu
+EnvironmentFile=/etc/aegis-gpu/aegis.env
+Environment=PYTHONUNBUFFERED=1
+UMask=0027
+
+ExecStart=/usr/local/bin/uvicorn log-analizer:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aegis-gpu
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/aegis-gpu /var/lib/aegis-gpu
+ReadOnlyPaths=/opt/aegis-gpu /etc/aegis-gpu
+
+[Install]
+WantedBy=multi-user.target

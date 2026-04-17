@@ -1,0 +1,4 @@
+NVIDIA GB200 NVL72 Maintenance Guide
+====================================
+Thermal Constraints: Compute trays must not exceed 85C. If temp > 85C, the BMC will throttle power draw to 700W.
+Fabric: NDR InfiniBand switches require subnet manager restart if topology changes.

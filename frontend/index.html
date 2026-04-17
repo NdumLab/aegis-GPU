@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aegis-GPU | NCA-AIIO</title>
+<link rel="stylesheet" href="css/styles.css">
+<script src="js/hardware.js"></script>
+<script src="js/render.js"></script>
+<script src="js/labs.js"></script>
+<script src="js/app.js?v=20260417b" defer></script>
+</head>
+<body>
+
+<!-- Sprint 16: Login Overlay — shown until JWT validated -->
+<div id="login-overlay" style="position:fixed;inset:0;background:#060d16;display:flex;align-items:center;justify-content:center;z-index:10001;">
+  <div style="width:360px;background:#0d1117;border:1px solid #1e2d40;border-radius:8px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.8);">
+    <div style="text-align:center;margin-bottom:32px;">
+      <h1 style="font-family:'DM Serif Display',serif;font-size:28px;color:#e8f0fe;margin:0">Aegis<span style="color:#f4a261">-GPU</span></h1>
+      <div style="font-size:10px;color:#4a5568;font-family:'JetBrains Mono',monospace;margin-top:8px;letter-spacing:0.12em">NCA-AIIO &nbsp;|&nbsp; ENTERPRISE AIOPS PLATFORM</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <input id="login-user" type="text" placeholder="Username" autocomplete="username"
+        style="width:100%;box-sizing:border-box;background:#0a1220;border:1px solid #2a3347;color:#c8d4e8;padding:11px 14px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <input id="login-pass" type="password" placeholder="Password" autocomplete="current-password"
+        style="width:100%;box-sizing:border-box;background:#0a1220;border:1px solid #2a3347;color:#c8d4e8;padding:11px 14px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
+    </div>
+    <div id="login-err" style="display:none;color:#ff5252;font-size:11px;font-family:'JetBrains Mono',monospace;margin-bottom:14px;text-align:center;padding:8px;background:rgba(255,82,82,0.08);border-radius:4px;"></div>
+    <button id="btn-login"
+      style="width:100%;padding:12px;background:#f4a261;border:none;border-radius:4px;color:#060d16;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.08em;transition:opacity .2s">AUTHENTICATE</button>
+  </div>
+</div>
+
+
+<header>
+  <h1>Aegis<span>-GPU</span></h1>
+  <div class="hdr-badge">NCA-AIIO</div>
+  <div class="hdr-right">
+    <div class="hdr-stat" id="sys-status" style="margin-right:15px">SYSTEM: <span>UNPROVISIONED</span></div>
+    <div class="hdr-stat">Labs completed: <span id="h-done">0</span>/16</div>
+    <div class="hdr-stat" style="margin-left:8px">Score: <span id="h-score">—</span></div>
+<div style="display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;">
+  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="toggle-live"> Live Telemetry</label>
+  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="toggle-thermal"> Thermal Map</label>
+</div>
+    <button class="btn-sm" id="btn-blueprint" style="margin-left:8px">🖥 Blueprint</button>
+    <button class="btn-sm" id="btn-quiz" style="margin-left:8px">📋 Quiz</button>
+    <button class="btn-sm" id="btn-incidents" style="margin-left:4px">🕐 Incidents</button>
+    <button class="btn-sm" id="btn-logout" style="margin-left:4px;background:#1a2030;border-color:#f4a261;color:#f4a261">⏻ Logout</button>
+    <button class="btn-sm" id="btn-reset" style="margin-left:4px">↺ Reset</button>
+  </div>
+</header>
+
+<div id="recon-overlay" class="modal-overlay" style="display:none">
+  <div class="recon-box">
+    <h2 style="margin:0 0 8px 0; font-family:var(--font-disp); color:var(--white);">Rack Reconstitution</h2>
+    <p style="font-size:11px; color:var(--dim); margin-bottom:20px; font-family:var(--font-mono);">[SYSTEM UNPROVISIONED: SELECT BLUEPRINT]</p>
+    
+    <label style="font-size:10px; font-weight:bold; color:var(--dim); text-transform:uppercase;">Chassis Architecture</label>
+    <select id="sel-blueprint" style="width:100%; padding:10px; background:var(--bg); color:var(--text); border:1px solid var(--border); margin:5px 0 15px 0; font-family:var(--font-mono);">
+        <option value="H100_HGX">NVIDIA HGX H100 (8-GPU)</option>
+        <option value="A100_HGX">NVIDIA HGX A100 (8-GPU)</option>
+        <option value="L40S_OVX">NVIDIA OVX L40S (4-GPU)</option>
+        <option value="GB200_NVL72">NVIDIA GB200 NVL72 (72-GPU)</option>
+    </select>
+
+    <label style="font-size:10px; font-weight:bold; color:var(--dim); text-transform:uppercase;">Fabric Topology</label>
+    <select id="sel-fabric" style="width:100%; padding:10px; background:var(--bg); color:var(--text); border:1px solid var(--border); margin-top:5px; font-family:var(--font-mono);">
+        <option value="IB_NDR">InfiniBand NDR (400Gb/s)</option>
+        <option value="IB_HDR">InfiniBand HDR (200 Gb/s)</option>
+        <option value="ETH_RoCE">Ethernet RoCEv2 (200Gb/s)</option>
+    </select>
+
+    <div id="sentinel-warning" style="display:none; margin-top:20px; padding:12px; background:rgba(224,82,82,0.1); border:1px solid var(--red); color:var(--red); font-family:var(--font-mono); font-size:10px; line-height:1.4;"></div>
+
+    <button id="btn-apply" style="width:100%; margin-top:25px; padding:12px; background:var(--green); border:none; font-weight:700; cursor:pointer; font-family:var(--font-mono);">APPLY BLUEPRINT</button>
+  </div>
+</div>
+
+<div class="app">
+  <nav class="sidebar">
+    <div class="sidebar-scroll">
+      <div class="sidebar-section">Hardware</div>
+      <div class="nav-item" id="nav-nvlink"><span class="icon">🔗</span> NVLink Topology <span class="badge" id="b-nvlink">HW</span></div>
+      <div class="nav-item" id="nav-mig"><span class="icon">🍕</span> MIG Partitioning <span class="badge" id="b-mig">HW</span></div>
+      <div class="nav-item" id="nav-ecc"><span class="icon">🔬</span> ECC Error Lifecycle <span class="badge" id="b-ecc">HW</span></div>
+      <div class="nav-item" id="nav-nvlink_fault"><span class="icon">⚡</span> XID Fault Drill <span class="badge" id="b-nvlink_fault">FLT</span></div>
+
+      <div class="sidebar-section">Software Stack</div>
+      <div class="nav-item" id="nav-cuda_stack"><span class="icon">⚙️</span> CUDA Stack Verify <span class="badge" id="b-cuda_stack">SW</span></div>
+      <div class="nav-item" id="nav-container"><span class="icon">📦</span> NGC Container Flow <span class="badge" id="b-container">SW</span></div>
+      <div class="nav-item" id="nav-training"><span class="icon">🧠</span> DDP Training Flow <span class="badge" id="b-training">NET</span></div>
+      <div class="nav-item" id="nav-allreduce"><span class="icon">🔄</span> AllReduce / NCCL <span class="badge" id="b-allreduce">NET</span></div>
+
+      <div class="sidebar-section">Networking</div>
+      <div class="nav-item" id="nav-ib_fabric"><span class="icon">🌐</span> InfiniBand Fabric <span class="badge" id="b-ib_fabric">NET</span></div>
+      <div class="nav-item" id="nav-roce"><span class="icon">📡</span> RoCEv2 + PFC/ECN <span class="badge" id="b-roce">NET</span></div>
+      <div class="nav-item" id="nav-nccl_fallback"><span class="icon">🛠️</span> NCCL Fallback Drill <span class="badge" id="b-nccl_fallback">FLT</span></div>
+
+      <div class="sidebar-section">Storage</div>
+      <div class="nav-item" id="nav-storage"><span class="icon">💾</span> Storage Bottleneck <span class="badge" id="b-storage">IO</span></div>
+      <div class="nav-item" id="nav-gds"><span class="icon">⚡</span> GPUDirect Storage <span class="badge" id="b-gds">IO</span></div>
+
+      <div class="sidebar-section">Operations</div>
+      <div class="nav-item" id="nav-monitoring"><span class="icon">📊</span> DCGM Monitoring <span class="badge" id="b-monitoring">OPS</span></div>
+      <div class="nav-item" id="nav-slurm"><span class="icon">📋</span> Slurm Scheduler <span class="badge" id="b-slurm">OPS</span></div>
+      <div class="nav-item" id="nav-k8s"><span class="icon">☸️</span> Kubernetes GPU Ops <span class="badge" id="b-k8s">OPS</span></div>
+
+      <div class="sidebar-section" style="margin-top:8px">
+<div style="display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;">
+  <button class="btn-sm primary" id="sidebar-btn-quiz" style="width:100%;margin:4px 0;border-radius:3px;font-size:11px;padding:6px">📋 Take Quiz</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="scenario-bar" id="scenario-bar">
+      <span class="scen-title" id="scen-title">GPU Infrastructure Simulator</span>
+      <span class="scen-desc" id="scen-desc">Select a lab from the sidebar to begin</span>
+      <span class="scen-step" id="scen-step" style="display:none"></span>
+    </div>
+
+    <div class="step-controls" id="step-controls"></div>
+
+    <div id="canvas-row" style="flex:1;display:flex;overflow:hidden;min-height:0">
+      <div class="diagram-pane">
+        <svg id="diagram-canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="metrics-sidebar" id="metrics-sidebar">
+        <div class="metric-group">
+          <div class="metric-group-title">GPU Cluster</div>
+          <div class="metric-row"><span class="metric-label">GPU Util</span><span class="metric-value ok" id="m-util">82%</span></div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="mb-util" style="width:82%;background:var(--green)"></div></div>
+          <div class="metric-row"><span class="metric-label">VRAM Used</span><span class="metric-value ok" id="m-vram">54/80GB</span></div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="mb-vram" style="width:68%;background:var(--blue)"></div></div>
+          <div class="metric-row"><span class="metric-label">Temp</span><span class="metric-value ok" id="m-temp">71°C</span></div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="mb-temp" style="width:71%;background:var(--yellow)"></div></div>
+          <div class="metric-row"><span class="metric-label">Power</span><span class="metric-value ok" id="m-power">420W</span></div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="mb-power" style="width:60%;background:var(--copper)"></div></div>
+        </div>
+        <div class="metric-group">
+          <div class="metric-group-title">ECC Status</div>
+          <div class="metric-row"><span class="metric-label">SBE (156)</span><span class="metric-value ok" id="m-sbe">0</span></div>
+          <div class="metric-row"><span class="metric-label">DBE (157)</span><span class="metric-value ok" id="m-dbe">0</span></div>
+          <div class="metric-row"><span class="metric-label">XID Event</span><span class="metric-value dim" id="m-xid">none</span></div>
+        </div>
+        <div class="metric-group">
+          <div class="metric-group-title">Network</div>
+          <div class="metric-row"><span class="metric-label">IB State</span><span class="metric-value ok" id="m-ib">Active</span></div>
+          <div class="metric-row"><span class="metric-label">NCCL</span><span class="metric-value ok" id="m-nccl">IB</span></div>
+          <div class="metric-row"><span class="metric-label">AllReduce</span><span class="metric-value ok" id="m-ar">180 GB/s</span></div>
+        </div>
+        <div class="metric-group">
+          <div class="metric-group-title">Storage</div>
+          <div class="metric-row"><span class="metric-label">%util</span><span class="metric-value ok" id="m-sutil">24%</span></div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="mb-sutil" style="width:24%;background:var(--cyan)"></div></div>
+          <div class="metric-row"><span class="metric-label">rMB/s</span><span class="metric-value ok" id="m-srw">890</span></div>
+        </div>
+        <div class="xid-log">
+          <div class="xid-title">Event Log</div>
+          <div id="xid-log-entries">
+            <div class="xid-entry">System ready.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="terminal-pane">
+      <div class="terminal-tabs">
+        <div class="terminal-tab active" id="tab-term"><div class="tab-dot"></div> Terminal</div>
+        <div class="terminal-tab" id="tab-dmesg"><div class="tab-dot"></div> dmesg</div>
+        <div class="terminal-tab" id="tab-dcgm"><div class="tab-dot"></div> dcgm</div>
+        <div class="terminal-tab" id="tab-parser"><div class="tab-dot"></div> Log Parser</div>
+        
+        <div class="terminal-actions">
+          <button class="btn-sm" id="btn-clear-term">Clear</button>
+          <button class="btn-sm" id="toggle-ai-btn" style="display:none; background:#f4a261; color:#000; font-weight:bold;">&#128194; VIEW FULL AI DIAGNOSIS</button>
+          <button class="btn-sm primary" id="run-btn">▶ Run</button>
+        </div>
+      </div>
+      
+      <div class="terminal-body">
+        <div class="terminal-output" id="terminal-output"></div>
+        <div id="parser-ui" style="display:none; padding:15px; width:100%; flex-direction:column; gap:10px;">
+            <div style="color:var(--dim); font-size:11px;">Paste raw dmesg or syslog output below to reverse-engineer hardware faults. The parser extracts PCIe IDs and maps them to the physical Rack Elevation.</div>
+            <textarea id="log-input" style="flex:1; background:var(--bg); color:var(--text); border:1px solid var(--border); padding:10px; font-family:var(--font-mono); font-size:11px; resize:none;" placeholder="[86423.441] NVRM: Xid (PCI:0000:43:00): 79, pid=14823, name=python3..."></textarea>
+            <button class="btn-sm primary" id="btn-analyze" style="padding:8px; width:150px;">ANALYZE INCIDENT</button>
+        </div>
+      </div>
+      
+      <div class="terminal-input-row" id="terminal-input-row">
+        <span>$</span>
+        <input type="text" id="cmd-input" placeholder="Type a command or click ▶ Run to execute the current step..." autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="intro-overlay">
+  <div class="panel lab-intro" id="intro-panel">
+    <button class="close-btn" id="btn-intro-close">✕</button>
+    <div id="intro-content"></div>
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn-sm" id="btn-intro-skip">Skip Intro</button>
+      <button class="btn-sm primary" id="btn-intro-start">▶ Start Lab</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="quiz-overlay">
+  <div class="panel" id="quiz-panel" style="width:760px">
+<div style="display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;">
+  <button class="close-btn" id="btn-quiz-close">✕</button>
+    <h2>NCA-AIIO Practice Quiz</h2>
+    <p style="color:var(--dim);font-size:12px;margin-bottom:20px">20 scenario-based questions covering all simulator labs. Answer all questions then click Submit.</p>
+    <div id="quiz-content"></div>
+  </div>
+</div>
+
+
+<!-- AI Static Overlay: captures full remediation plan for slow reading -->
+<div id="ai-static-overlay" style="display:none; position:fixed; top:70px; right:20px; width:420px; max-height:75vh; overflow-y:auto; background:#0d1117; border:2px solid var(--gold,#f4a261); border-radius:6px; padding:20px; z-index:2000; font-family:monospace; font-size:11px; line-height:1.7; color:#c8d4e8; white-space:pre-wrap; box-shadow:0 4px 24px rgba(0,0,0,0.7);"></div>
+
+
+<!-- Remediation Status Panel: persistent success banner, persists until dismissed -->
+<div id="remediation-status-panel" data-border-id="remediation-status-border" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#071f0f; border-top:3px solid #00e676; padding:14px 20px; z-index:3000; font-family:monospace; font-size:12px; color:#e0ffe0; align-items:flex-start; gap:20px; box-shadow:0 -4px 20px rgba(0,230,118,0.15);">
+  <div style="flex:1; min-width:0;">
+    <div id="remediation-status-title" style="font-weight:bold; font-size:13px; margin-bottom:6px; letter-spacing:0.05em;">&#10003; AUTONOMOUS RUNBOOK &mdash; SUCCESS</div>
+    <div id="remediation-msg" style="margin-bottom:4px; color:#c8ffd4;"></div>
+    <div id="remediation-log" style="color:#5dbf80; font-size:11px; word-break:break-word;"></div>
+  </div>
+  <button id="btn-dismiss-remediation" style="flex-shrink:0; background:#00e676; color:#000; border:none; padding:8px 18px; font-weight:bold; cursor:pointer; border-radius:3px; font-family:monospace; font-size:12px;">Dismiss</button>
+</div>
+
+<!-- Incident History Overlay -->
+<div id="incident-overlay" style="display:none; position:fixed; inset:0; background:rgba(6,13,22,0.85); z-index:4000; align-items:center; justify-content:center;">
+  <div style="width:680px; max-height:80vh; background:#0d1117; border:1px solid #1e2d40; border-radius:8px; padding:28px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,0.8);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h2 style="margin:0; font-family:'DM Serif Display',serif; color:#e8f0fe; font-size:20px;">Incident History</h2>
+      <button id="btn-incidents-close" style="background:none; border:none; color:#4a5568; font-size:20px; cursor:pointer; line-height:1;">✕</button>
+    </div>
+    <div id="incident-body" style="overflow-y:auto; flex:1; color:#c8d4e8;"></div>
+  </div>
+</div>
+
+</body>
+</html>
