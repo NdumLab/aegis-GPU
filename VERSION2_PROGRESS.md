@@ -326,3 +326,36 @@ Current Version 2 shape:
 - Explanations are no longer only lab-authored text blocks; there is now a reusable explanation layer with shared reasoning patterns
 - The UI can explain the same signal differently for a beginner, intermediate learner, or operator without hiding the real GPU-ops terminology
 - Guided flows, live telemetry, and diagnosis overlays are now moving toward one explanation system instead of separate one-off explanations
+
+
+## 2026-04-17 10:19 EDT
+
+Status: in-lab beginner coaching deployed
+
+Completed this session:
+- Added a persistent `Lab Coach` panel beside the terminal in `frontend/index.html` so beginners keep getting guidance after the intro overlay closes
+- Extended `frontend/js/app.js` so each active lab step now explains:
+  - what the command is for
+  - how to use the step
+  - what to look for in the output
+  - how to read the most important output lines
+  - what the result means
+  - how to tell the step is done
+  - which side metrics and event signals matter
+  - what action to take next
+- Prefilled the terminal input with the current step command so the active command stays visible while the learner works through the lab
+- Added line-level output explanations for common beginner pain points such as `NV4`, `PHB`, `XID 48`, `XID 79`, `Using network Socket`, `100% util`, and `stripe_count: 1`
+- Added responsive styling for the new in-lab coaching panel in `frontend/css/styles.css`
+- Extended frontend smoke coverage so the new lab-coach surface and its core teaching strings are part of the regression path
+- Deployed the updated frontend live
+
+Verification completed:
+- `python3 -m unittest -v /home/henry/aegis-gpu/tests/frontend/test_frontend_smoke.py` passed: 9/9
+- `bash /home/henry/aegis-gpu/tests/smoke/smoke_test.sh` passed: 19/19
+- Live `index.html` now serves `app.js?v=20260417i` and the `lab-step-coach` panel shell
+- Live `/var/www/html/js/app.js` now serves `renderLabStepCoach`, `How To Read This Output`, and `How To Tell You Are Done`
+
+Current Version 2 shape:
+- The lab intro no longer carries all the teaching burden by itself
+- Beginners now get runtime help while they are looking at terminal output, not just before the lab starts
+- The terminal, metrics sidebar, and event log are now explained as one guided reading surface instead of three disconnected UI areas

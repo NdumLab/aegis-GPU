@@ -201,6 +201,26 @@ header h1 span { color: var(--green); }
 .terminal-output::-webkit-scrollbar { width: 4px; }
 .terminal-output::-webkit-scrollbar-thumb { background: var(--border); }
 
+.lab-step-coach { width: 340px; border-left: 1px solid var(--border); background: var(--bg2); padding: 12px; overflow-y: auto; flex-shrink: 0; }
+.lab-step-coach::-webkit-scrollbar { width: 4px; }
+.lab-step-coach::-webkit-scrollbar-thumb { background: var(--border); }
+.lab-step-coach-kicker { font-family: var(--font-mono); font-size: 10px; color: var(--blue); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; }
+.lab-step-coach-title { font-family: var(--font-disp); font-size: 18px; color: var(--white); margin-bottom: 8px; }
+.lab-step-coach p { font-size: 11px; line-height: 1.7; color: var(--text); margin-bottom: 10px; }
+.lab-step-coach p:last-child { margin-bottom: 0; }
+.lab-step-coach-code { display: block; background: var(--bg4); border: 1px solid rgba(255,255,255,.08); border-radius: 4px; padding: 8px 10px; font-family: var(--font-mono); font-size: 10px; color: var(--green2); margin-bottom: 10px; white-space: pre-wrap; word-break: break-word; }
+.lab-step-coach-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); }
+.lab-step-coach-section-title { font-family: var(--font-mono); font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+.lab-step-coach-list { list-style: disc; padding-left: 18px; margin: 0; }
+.lab-step-coach-list li { color: var(--text); font-size: 11px; line-height: 1.65; margin-bottom: 6px; }
+.lab-step-coach-list li:last-child { margin-bottom: 0; }
+.lab-step-coach-clue { background: var(--bg4); border: 1px solid rgba(74,158,255,.12); border-radius: 4px; padding: 8px 10px; margin-bottom: 8px; }
+.lab-step-coach-clue:last-child { margin-bottom: 0; }
+.lab-step-coach-clue-line { font-family: var(--font-mono); font-size: 10px; color: var(--white); margin-bottom: 4px; white-space: pre-wrap; word-break: break-word; }
+.lab-step-coach-clue-meaning { font-size: 11px; color: var(--dim); line-height: 1.6; }
+.lab-step-coach-callout { border-left: 3px solid var(--green); padding-left: 10px; }
+.lab-step-coach-callout.warn { border-color: var(--yellow); }
+.lab-step-coach-callout.err { border-color: var(--red); }
 .t-cmd    { color: var(--green); }
 .t-comment{ color: #3d7a2c; }
 .t-good   { color: var(--green2); }
@@ -464,6 +484,8 @@ header h1 span { color: var(--green); }
   .xid-log      { display: none; }
 
   .terminal-pane { height: auto; min-height: 200px; flex-shrink: 0; }
+  .terminal-body { flex-direction: column; }
+  .lab-step-coach { width: 100%; border-left: none; border-top: 1px solid var(--border); max-height: 260px; }
 
   .terminal-tabs  { flex-wrap: wrap; }
   .terminal-tab   { font-size: 9px; padding: 5px 10px; }

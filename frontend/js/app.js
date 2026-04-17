@@ -128,6 +128,7 @@ function syncBeginnerModeUI() {
 function refreshExplanationSurfaces() {
   if (currentLab && document.getElementById('intro-overlay')?.classList.contains('show')) showIntro(currentLab);
   if (appMode === 'live') renderBeginnerTelemetryExplanation(lastLiveTelemetry);
+  renderLabStepCoach();
 }
 
 function setBeginnerMode(enabled) {
@@ -154,6 +155,203 @@ function setExplanationRole(role) {
 function renderBulletList(items, cssClass) {
   if (!items || !items.length) return '';
   return `<ul class="${cssClass}">${items.map(item => `<li>${escHtml(item)}</li>`).join('')}</ul>`;
+}
+
+function getStepOutput(step) {
+  if (!step || typeof TERMINAL_OUTPUT === 'undefined') return [];
+  return TERMINAL_OUTPUT[step.type] || [];
+}
+
+function describeStepCommand(step) {
+  const cmd = step?.cmd || '';
+  if (!cmd || cmd.startsWith('#')) {
+    return 'This stage simulates a state change so you can focus on the operational effect before and after it appears in logs, metrics, and topology views.';
+  }
+
+  const lower = cmd.toLowerCase();
+  if (lower.includes('topo -m')) return 'Shows the GPU-to-GPU connectivity map so you can compare the intended fast path against the path the node is actually using.';
+  if (lower.includes('nvlink -e')) return 'Reads NVLink error counters so you can decide whether the visible links are electrically clean or already degraded.';
+  if (lower.includes('dcgmi dmon')) return 'Polls DCGM counters over time so you can spot trends instead of trusting one isolated sample.';
+  if (lower.includes('dmesg') && lower.includes('xid')) return 'Searches kernel logs for NVIDIA XID fault codes so you can confirm whether the issue crossed into an explicit driver-reported fault.';
+  if (lower.includes('kubectl drain') || lower.includes('state=drain')) return 'Removes a node from scheduling so new work does not land on hardware that is no longer safe to trust.';
+  if (lower.includes('all_reduce_perf') || lower.includes('./perf')) return 'Runs a collective benchmark so you can see whether the fabric is performing at the level the workload expects.';
+  if (lower.includes('nccl_debug=info')) return 'Turns on NCCL path logging so you can see whether collective traffic is using IB, NVLink, or a slower fallback path.';
+  if (lower.includes('env | grep nccl')) return 'Lists NCCL-related environment variables so you can catch configuration mistakes before blaming the network.';
+  if (lower.includes('ibstat')) return 'Shows InfiniBand adapter and port state so you can confirm whether the fabric is physically up.';
+  if (lower.includes('perfquery') || lower.includes('ib_write_bw')) return 'Checks InfiniBand error or bandwidth behavior so you can tell whether the fabric is healthy enough to trust.';
+  if (lower.includes('iostat')) return 'Shows storage utilization and latency so you can tell whether the GPUs are waiting on data instead of compute.';
+  if (lower.includes('lfs getstripe')) return 'Shows how a Lustre dataset is striped across storage targets so you can judge whether reads are parallel enough.';
+  if (lower.includes('lfs setstripe')) return 'Changes the Lustre striping layout so reads can spread across more OSTs and feed the GPUs faster.';
+  if (lower.includes('nvidia-smi dmon')) return 'Shows live GPU utilization and health counters so you can correlate workload behavior with hardware signals.';
+  if (lower.includes('kubectl describe pod') || lower.includes('kubectl describe node')) return 'Describes Kubernetes scheduling state so you can see why a workload did or did not land on a node.';
+  if (lower.includes('squeue') || lower.includes('scontrol') || lower.includes('sshare')) return 'Shows scheduler state so you can distinguish policy delay from hardware failure.';
+  return 'Runs the operator command for this stage so you can inspect the evidence it produces.';
+}
+
+function explainOutputLineText(text) {
+  const lower = String(text || '').toLowerCase();
+  if (lower.includes('nv4')) return 'NV4 means the GPUs are using a direct NVLink relationship, which is the fast path you want in this scenario.';
+  if (lower.includes('phb')) return 'PHB means traffic is going through the PCIe host bridge instead of direct NVLink, which is much slower for collectives.';
+  if (lower.includes('crc flit error count:       0') || lower.includes('crc errs: 0')) return 'Zero CRC or flit errors means the link looks clean right now.';
+  if (lower.includes('crc flit error count') || lower.includes('crc')) return 'A rising CRC or flit error count points to link-integrity trouble rather than a software-only issue.';
+  if (lower.includes('using network socket') || lower.includes('tcp fallback')) return 'This means NCCL is not using the preferred high-speed fabric path and has fallen back to TCP.';
+  if (lower.includes('using network ib')) return 'This means NCCL is using InfiniBand as intended, which is the healthy fast path in this scenario.';
+  if (lower.includes('xid 48')) return 'XID 48 is an uncorrectable ECC event, which means the card crossed from warning signs into a hardware fault.';
+  if (lower.includes('xid 74')) return 'XID 74 points to NVLink trouble, so GPU-to-GPU communication is now suspect.';
+  if (lower.includes('xid 79')) return 'XID 79 means the GPU fell off the bus or hung badly enough that reset or reboot is usually required.';
+  if (lower.includes('dbe')) return 'DBE means double-bit ECC. Unlike corrected single-bit errors, this is treated as an immediate hardware-integrity problem.';
+  if (lower.includes('sawtooth')) return 'A sawtooth utilization pattern usually means the GPUs are repeatedly waiting for storage or input data.';
+  if (lower.includes('100% util')) return 'A storage device at 100% utilization is saturated and can starve the GPUs.';
+  if (lower.includes('stripe_count: 1')) return 'A stripe count of 1 means reads are concentrated on one storage target instead of being spread out.';
+  if (lower.includes('insufficient nvidia.com/gpu')) return 'Kubernetes is telling you no schedulable GPU resource is free for this pod right now.';
+  if (lower.includes('fairshare')) return 'This is a scheduler policy clue: the job is delayed by user-share rules, not necessarily by broken hardware.';
+  if (lower.includes('state: active')) return 'Active means the fabric or port is up, so the next question is performance or configuration, not basic link existence.';
+  if (lower.includes('state: down')) return 'Down means the fabric path itself is unavailable, so this is a physical or low-level connectivity problem.';
+  if (lower.includes('187') || lower.includes('180 gb/s')) return 'This is the kind of high collective bandwidth you expect from a healthy fast-path configuration in this simulator.';
+  if (lower.includes('3 gb/s') || lower.includes('8 gb/s')) return 'This is a degraded throughput clue, not just a cosmetic number change.';
+  if (lower.includes('ready 1/1') || lower.includes('running (16/16)')) return 'This is the success signal that the control plane or gang-scheduled workload reached the expected ready state.';
+  if (lower.includes('gpu accessible') || lower.includes('available: true')) return 'This output confirms the container or runtime can actually see CUDA devices.';
+  return 'Treat this line as one of the important clues for the current stage and compare it with the step goal before moving on.';
+}
+
+function getKeyOutputClues(step) {
+  return getStepOutput(step)
+    .filter(line => line && line.v && line.t !== 'cmd' && line.t !== 'dim')
+    .slice(0, 3)
+    .map(line => ({
+      text: line.v,
+      meaning: explainOutputLineText(line.v),
+    }));
+}
+
+function getMetricsToWatch(labId, step) {
+  if (['ecc', 'nvlink_fault'].includes(labId) || ['ecc_healthy', 'ecc_sbe', 'ecc_trend', 'ecc_xid', 'xid48', 'xid48_confirm', 'xid79', 'xid74'].includes(step?.type)) {
+    return ['ECC Status: watch SBE, DBE, and XID together.', 'Event Log: treat new XID entries as fault-lifecycle milestones, not cosmetic text.'];
+  }
+  if (['nvlink', 'allreduce', 'nccl_fallback', 'ib_fabric', 'roce'].includes(labId)) {
+    return ['Network: compare IB State, NCCL path, and AllReduce bandwidth together.', 'Event Log: use fault entries to confirm whether the slowdown has a hardware-side explanation.'];
+  }
+  if (['storage', 'training', 'gds'].includes(labId)) {
+    return ['GPU Cluster + Storage: compare GPU util against storage %util and read throughput.', 'Sawtooth GPU utilization usually means the data path is the bottleneck, not the SMs themselves.'];
+  }
+  if (['monitoring'].includes(labId)) {
+    return ['ECC Status and Event Log: use them as the example alert signals for this observability lab.', 'The goal here is not only to see data, but to understand what operators would alert on.'];
+  }
+  if (['slurm', 'k8s'].includes(labId)) {
+    return ['Event Log and scheduler output: these labs are about control-plane state more than GPU counters.', 'The important question is why work did or did not schedule, not whether the GPU temperature changed.'];
+  }
+  return ['Use the terminal output as the primary clue, then compare it with the metrics sidebar and event log before deciding what the step means.'];
+}
+
+function renderLabStepCoach() {
+  const el = document.getElementById('lab-step-coach');
+  if (!el) return;
+
+  if (activeTab === 'parser') {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'block';
+
+  if (!currentLab) {
+    el.innerHTML = `
+      <div class="lab-step-coach-kicker">Lab Coach</div>
+      <div class="lab-step-coach-title">How To Use Labs</div>
+      <p>Select a lab, read the intro, then start the first step. This panel stays beside the terminal so beginners do not have to remember what they are looking at.</p>
+      <div class="lab-step-coach-section">
+        <div class="lab-step-coach-section-title">How To Work</div>
+        <ul class="lab-step-coach-list">
+          <li>Use the step buttons or the Run button. You are not expected to memorize every command.</li>
+          <li>Read the terminal, metrics sidebar, and event log together.</li>
+          <li>Move on only when you can explain what changed and why it matters.</li>
+        </ul>
+      </div>
+    `;
+    return;
+  }
+
+  const lab = LABS[currentLab];
+  if (!lab) return;
+
+  if (currentStep < 0 || !lab.steps[currentStep]) {
+    el.innerHTML = `
+      <div class="lab-step-coach-kicker">${escHtml(lab.name)}</div>
+      <div class="lab-step-coach-title">Before You Start</div>
+      <p>${beginnerMode ? 'This lab is guided. Start with step 1 and let the simulator show you the evidence in order.' : 'Use the step buttons to replay the scenario in order.'}</p>
+      <div class="lab-step-coach-section">
+        <div class="lab-step-coach-section-title">How To Use This Lab</div>
+        <ul class="lab-step-coach-list">
+          <li>Each step represents one operator question: what am I checking, and what answer do I expect?</li>
+          <li>Use the terminal output as the main clue, then confirm the story in the side metrics.</li>
+          <li>Fault steps are supposed to look bad. The lesson is learning what that bad output means.</li>
+        </ul>
+      </div>
+    `;
+    return;
+  }
+
+  const step = lab.steps[currentStep];
+  const outputClues = getKeyOutputClues(step);
+  const useTip = step.cmd?.startsWith('#')
+    ? 'This step is a simulated transition. You are meant to study the new state it creates, not to memorize a literal shell command.'
+    : 'Click Run to replay this step. The command is shown for realism, but the learning goal is understanding the evidence it produces, not memorizing the syntax.';
+  const completion = step.fault
+    ? (step.justifiedConclusion || step.meaning || 'This fault step is complete once you can explain why the degraded signal is significant.')
+    : (step.justifiedConclusion || step.meaning || 'This step is complete once the expected healthy signal is visible and you can explain why it matters.');
+  const nextAction = step.takeAction && step.takeAction.length ? step.takeAction[0] : 'Compare this step with the previous one before you move on.';
+  const observationList = step.lookFor && step.lookFor.length ? step.lookFor : ['Use the key output clues below to decide what changed and whether the step looks healthy or degraded.'];
+  const sidePanels = getMetricsToWatch(currentLab, step);
+  const tabNote = activeTab === 'term'
+    ? 'You are on the main Terminal tab, which is the primary output for the active step.'
+    : activeTab === 'dmesg'
+      ? 'You are on dmesg, which is useful for kernel and NVIDIA fault confirmation.'
+      : 'You are on dcgm, which is useful for counter and health correlation.';
+  const calloutClass = step.fault ? 'lab-step-coach-callout err' : 'lab-step-coach-callout';
+
+  el.innerHTML = `
+    <div class="lab-step-coach-kicker">${escHtml(lab.name)} • Step ${currentStep + 1}/${lab.steps.length}</div>
+    <div class="lab-step-coach-title">${escHtml(step.label)}</div>
+    <div class="${calloutClass}">
+      <p><strong>What this step is for:</strong> ${escHtml(describeStepCommand(step))}</p>
+      <p>${escHtml(useTip)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">Command In Focus</div>
+      <code class="lab-step-coach-code">${escHtml(step.cmd || '# simulated stage')}</code>
+      <p>${escHtml(tabNote)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">What To Look For</div>
+      ${renderBulletList(observationList, 'lab-step-coach-list')}
+    </div>
+    ${outputClues.length ? `
+      <div class="lab-step-coach-section">
+        <div class="lab-step-coach-section-title">How To Read This Output</div>
+        ${outputClues.map(clue => `
+          <div class="lab-step-coach-clue">
+            <div class="lab-step-coach-clue-line">${escHtml(clue.text)}</div>
+            <div class="lab-step-coach-clue-meaning">${escHtml(clue.meaning)}</div>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">What It Means</div>
+      <p>${escHtml(step.meaning || completion)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">How To Tell You Are Done</div>
+      <p>${escHtml(completion)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">Watch These Side Panels</div>
+      ${renderBulletList(sidePanels, 'lab-step-coach-list')}
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">Next Action</div>
+      <p>${escHtml(nextAction)}</p>
+    </div>
+  `;
 }
 
 function renderGuidedStepDetails(step, prevStep) {
@@ -532,6 +730,7 @@ function loadLab(id) {
   termLines.dcgm  = typeof DCGM_CLEAN !== 'undefined' ? DCGM_CLEAN : [];
   if(activeTab==='dmesg') renderTab('dmesg');
   if(activeTab==='dcgm')  renderTab('dcgm');
+  renderLabStepCoach();
 
   showIntro(id);
 
@@ -554,6 +753,8 @@ function runStep(labId, stepIdx) {
   document.getElementById('scen-step').style.display = '';
   document.getElementById('scen-step').textContent = `Step ${stepIdx+1}/${lab.steps.length}`;
   document.getElementById('scen-desc').textContent = step.label;
+  const cmdInput = document.getElementById('cmd-input');
+  if (cmdInput) cmdInput.value = step.cmd || '';
 
   switchTab('term');
   clearTerminal();
@@ -576,6 +777,7 @@ function runStep(labId, stepIdx) {
 
   updateMetrics(labId, stepIdx, step);
   addXIDLog(labId, stepIdx, step);
+  renderLabStepCoach();
 
   // Sprint 18: Surface AIOps Engine for fault steps
   const aiFaultTargets = {
@@ -742,6 +944,7 @@ function switchTab(tab) {
         });
       }
   }
+  renderLabStepCoach();
 }
 
 function renderTab(tab) {
@@ -766,7 +969,7 @@ function handleCustomCommand(cmd) {
   } else if(c.includes('kubectl get pods')) {
     if(typeof TERMINAL_OUTPUT !== 'undefined') TERMINAL_OUTPUT.k8s_operator?.forEach(l=>logTerm([l]));
   } else {
-    logTerm([{t:'dim',v:'# Tip: use the step buttons above for guided lab output'}]);
+    logTerm([{t:'dim',v:'# Tip: use the step buttons above for guided lab output and read the Lab Coach panel on the right for what to look for.'}]);
   }
 }
 
