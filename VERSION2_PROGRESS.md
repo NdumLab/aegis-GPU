@@ -179,3 +179,31 @@ Release summary:
 
 Repository state at time of logging:
 - local `master` matched `origin/master` before this log entry was appended
+
+## 2026-04-17 07:26 EDT
+
+Status: secondary lesson modules deepened and deployed
+
+Completed this session:
+- Deepened the remaining thinner Version 2 lesson modules in `frontend/js/learning.js`, specifically:
+  - `allreduce`
+  - `ib_fabric`
+  - `roce`
+  - `storage`
+  - `gds`
+  - `slurm`
+  - `k8s`
+- Expanded those modules with stronger beginner-teaching structure, including richer `coreTerms`, `lifecycle`, `watchFor`, `safeActions`, `whatNotToDo`, `escalateWhen`, and `readMore` content
+- Preserved the real operator vocabulary while adding clearer beginner context around terms like `Bandwidth baseline`, `Fabric sweep`, `PFC storm`, `I/O bottleneck`, `Data path`, and `Pending reason`
+- Deployed the updated lesson content to the live site
+
+Verification completed:
+- `python3 -m unittest -v /home/henry/aegis-gpu/tests/frontend/test_frontend_smoke.py` passed: 7/7
+- `bash /home/henry/aegis-gpu/tests/smoke/smoke_test.sh` passed: 19/19
+- Live `learning.js` now serves the deeper secondary-module content and `whatNotToDo` sections
+
+Current Version 2 shape:
+- Beginner Mode now has meaningful teaching depth across primary and secondary lesson modules
+- The learning system keeps real GPU-ops jargon visible while explaining it in plain language
+- Common beginner mistakes are now called out more consistently across lessons
+

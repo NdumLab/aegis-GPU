@@ -271,41 +271,119 @@ window.AEGIS_LEARNING = {
   },
   allreduce: {
     quickAnswer: "AllReduce is how distributed training makes every GPU agree on the same gradient update. When it breaks or slows down, training still looks alive but performance collapses.",
+    whyItMatters: "Beginners often focus on whether the job started. AllReduce teaches them to care about whether the distributed system is synchronizing efficiently.",
     coreTerms: [
       { term: "Ring algorithm", plain: "A pattern where each rank passes data to neighbors in stages until the reduction is complete.", why: "It helps beginners picture why one weak link hurts the whole group." },
       { term: "Collective", plain: "An operation involving many ranks at once, not just one sender and one receiver.", why: "Many GPU communication failures are collective failures." },
-      { term: "NCCL", plain: "NVIDIA's library for multi-GPU communication collectives.", why: "It is the common tool behind AllReduce performance and failures." }
+      { term: "NCCL", plain: "NVIDIA's library for multi-GPU communication collectives.", why: "It is the common tool behind AllReduce performance and failures." },
+      { term: "Bandwidth baseline", plain: "The expected healthy throughput range for a given rack design and transport path.", why: "Without a baseline, beginners cannot tell whether a job is slow or normal." }
+    ],
+    lifecycle: [
+      { title: "Choose the communication path", detail: "NCCL selects the path it believes is best for the cluster topology and transport configuration." },
+      { title: "Reduce the partial results", detail: "Each rank contributes data into the collective so the group can compute one shared update." },
+      { title: "Distribute the final result", detail: "The synchronized value is sent back out so every rank can keep training from the same state." },
+      { title: "Performance exposes weak links", detail: "If one path, rank, or transport is unhealthy, the collective still runs but its throughput drops sharply." }
+    ],
+    watchFor: [
+      "Large gap between expected and observed collective throughput",
+      "One communication phase dominating the training timeline",
+      "Topology or transport changes lining up with bandwidth collapse"
     ],
     safeActions: [
       "Use throughput numbers to confirm whether the collective path is healthy.",
       "Check whether NCCL is using the intended transport path.",
       "Do not assume a code bug until the communication path is verified."
+    ],
+    whatNotToDo: [
+      "Do not judge AllReduce health by uptime alone; the collective can be alive and still badly degraded.",
+      "Do not compare bandwidth numbers without knowing the expected rack baseline."
+    ],
+    escalateWhen: [
+      "Collective throughput stays far below the healthy design target",
+      "The same collective slowdown appears across repeated runs or multiple jobs",
+      "The transport path flips unexpectedly after a cluster or environment change"
+    ],
+    readMore: [
+      "AllReduce is one of the best places to teach that distributed systems can fail softly. The operation still completes, but the job loses most of its efficiency.",
+      "That is why operator vocabulary includes not just faults and outages, but path selection and throughput verification."
     ]
   },
   ib_fabric: {
     quickAnswer: "InfiniBand fabric health determines whether multi-node GPU jobs can move data fast enough. The beginner lesson is that link state and error counters matter as much as raw bandwidth numbers.",
+    whyItMatters: "InfiniBand problems often look like training or NCCL problems until someone checks the fabric itself.",
     coreTerms: [
       { term: "InfiniBand", plain: "A high-performance network technology used for low-latency cluster communication.", why: "Many GPU clusters depend on it for distributed training." },
       { term: "Port state", plain: "Whether a network port is active, down, or otherwise unhealthy.", why: "A single bad port can collapse an entire path." },
-      { term: "perfquery", plain: "A tool that reads InfiniBand performance counters and error counters.", why: "It turns a vague network suspicion into evidence." }
+      { term: "perfquery", plain: "A tool that reads InfiniBand performance counters and error counters.", why: "It turns a vague network suspicion into evidence." },
+      { term: "Fabric sweep", plain: "A broader inspection of multiple links and devices across the interconnect.", why: "This helps distinguish one bad node from a wider network problem." }
+    ],
+    lifecycle: [
+      { title: "Verify the link comes up", detail: "Before testing performance, confirm the expected ports are active and visible." },
+      { title: "Read the counters", detail: "Error counters reveal whether the path is merely present or actually clean enough for production traffic." },
+      { title: "Measure the workload impact", detail: "Bandwidth and job behavior tell you whether the network problem is theoretical or already hurting training." },
+      { title: "Expand from local to fabric-wide", detail: "If one path looks bad, the next step is deciding whether the issue is isolated or systemic." }
+    ],
+    watchFor: [
+      "Ports that are down or unstable when the cluster expects them to be active",
+      "Error counters increasing under traffic",
+      "Collective or RDMA performance collapsing even though nodes are otherwise healthy"
     ],
     safeActions: [
       "Check link state before tuning anything.",
       "Use counters to see whether the fabric is clean or noisy.",
       "Document the exact host and port that is unhealthy."
+    ],
+    whatNotToDo: [
+      "Do not assume a port is healthy just because the node itself is reachable.",
+      "Do not jump into application tuning before verifying the underlying fabric path."
+    ],
+    escalateWhen: [
+      "Multiple ports or nodes show the same unhealthy pattern",
+      "The fabric issue affects production job throughput",
+      "Counter growth suggests a recurring physical or switch-side problem"
+    ],
+    readMore: [
+      "A fabric problem often feels mysterious because jobs still start and nodes still ping. Counters and link state are how operators turn that mystery into a concrete network story.",
+      "For beginners, the important mental shift is to treat the interconnect as a first-class part of the AI system, not just background plumbing."
     ]
   },
   roce: {
     quickAnswer: "RoCEv2 runs RDMA over Ethernet, so correct lossless-network configuration matters. Beginners should learn that the network can look up while still behaving badly for GPU traffic.",
+    whyItMatters: "RoCE incidents are a strong lesson in how congestion control, not just link speed, determines whether distributed training is healthy.",
     coreTerms: [
       { term: "RoCEv2", plain: "RDMA over Converged Ethernet version 2, a way to get low-latency remote memory access over Ethernet.", why: "It is common in Ethernet-based AI clusters." },
       { term: "PFC", plain: "Priority Flow Control, a pause mechanism meant to prevent packet loss for important traffic classes.", why: "Misconfiguration can create serious congestion behavior." },
-      { term: "ECN", plain: "Explicit Congestion Notification, a way for the network to signal congestion before packet loss occurs.", why: "It helps keep performance stable without overusing pause frames." }
+      { term: "ECN", plain: "Explicit Congestion Notification, a way for the network to signal congestion before packet loss occurs.", why: "It helps keep performance stable without overusing pause frames." },
+      { term: "PFC storm", plain: "A feedback loop of pause traffic that spreads congestion instead of containing it.", why: "This is one of the most important bad outcomes beginners should recognize." }
+    ],
+    lifecycle: [
+      { title: "Set the lossless assumptions", detail: "MTU, PFC, and ECN must align across the path before the cluster behaves as intended." },
+      { title: "Carry RDMA traffic under load", detail: "The network only proves itself when real traffic and congestion arrive." },
+      { title: "Watch congestion signals", detail: "Pause frames and ECN behavior tell you whether the fabric is controlling congestion or amplifying it." },
+      { title: "Tune or isolate the problem", detail: "The operator decides whether the issue is a host setting, a switch policy, or a topology-level problem." }
+    ],
+    watchFor: [
+      "Pause counters rising quickly under training load",
+      "RDMA jobs slowing down while ordinary connectivity still looks fine",
+      "Symptoms that appear only during congestion or multi-node traffic"
     ],
     safeActions: [
       "Check MTU, PFC, and ECN together rather than in isolation.",
       "Treat a rising pause-frame count as a clue, not a final diagnosis.",
       "Document switch-side counters when network problems affect training."
+    ],
+    whatNotToDo: [
+      "Do not assume Ethernet link-up means the RoCE path is healthy for RDMA.",
+      "Do not change only one congestion-control knob without understanding the rest of the path."
+    ],
+    escalateWhen: [
+      "Pause storms or congestion patterns affect multiple jobs or racks",
+      "Switch-side counters confirm the issue is beyond one host",
+      "Fabric tuning changes could affect many tenants or production users"
+    ],
+    readMore: [
+      "RoCE teaches beginners that performance depends on policy and congestion control, not just cable speed.",
+      "A fabric can be technically up and still operationally wrong for GPU traffic."
     ]
   },
   nccl_fallback: {
@@ -349,28 +427,80 @@ window.AEGIS_LEARNING = {
   },
   storage: {
     quickAnswer: "A storage bottleneck means GPUs spend time waiting for data instead of computing. Beginners often misread this as a GPU issue because the slow symptom shows up in GPU utilization.",
+    whyItMatters: "Storage is where beginners learn that the GPU can be innocent while still looking underutilized.",
     coreTerms: [
       { term: "Sawtooth utilization", plain: "A repeated pattern where GPU utilization spikes and then falls because data arrives in bursts.", why: "It is a classic sign of an input pipeline problem." },
       { term: "Stripe count", plain: "How many storage targets a file or directory spreads data across.", why: "Low stripe count can limit read bandwidth." },
-      { term: "DataLoader", plain: "The part of a training pipeline that feeds data batches to the GPU workload.", why: "Storage issues often appear through the DataLoader first." }
+      { term: "DataLoader", plain: "The part of a training pipeline that feeds data batches to the GPU workload.", why: "Storage issues often appear through the DataLoader first." },
+      { term: "I/O bottleneck", plain: "A point where storage throughput or latency limits the whole workload.", why: "This is the key operational story behind a storage-bound training job." }
+    ],
+    lifecycle: [
+      { title: "GPU finishes its batch", detail: "The accelerator is ready for more work and waits for the input pipeline." },
+      { title: "Storage cannot keep up", detail: "The dataset path, stripe layout, or loader settings deliver data too slowly." },
+      { title: "Utilization turns into a sawtooth", detail: "The GPU alternates between busy bursts and idle waiting, which creates the visible pattern beginners often notice first." },
+      { title: "Pipeline tuning restores flow", detail: "Storage layout and input-pipeline changes are used to feed the GPU continuously again." }
+    ],
+    watchFor: [
+      "GPU utilization oscillating instead of staying consistently high",
+      "High storage utilization or poor dataset striping at the same time as slow training",
+      "More waiting in the data path than in the model compute path"
     ],
     safeActions: [
       "Look at storage counters at the same time as GPU utilization.",
       "Treat low GPU utilization as a symptom, not always the root cause.",
       "Change one bottleneck-control knob at a time, such as stripe count or worker count."
+    ],
+    whatNotToDo: [
+      "Do not assume low GPU utilization means the GPU itself is failing.",
+      "Do not tune many loader and storage settings at once if you want to know what actually helped."
+    ],
+    escalateWhen: [
+      "Multiple jobs show the same storage-starvation pattern",
+      "Storage counters indicate the shared data path itself is saturated",
+      "Fixes at the application layer are not enough to restore expected throughput"
+    ],
+    readMore: [
+      "Storage bottlenecks are a good beginner lesson because they break the habit of blaming the most visible component. The visible component is the GPU, but the limiting component is elsewhere.",
+      "A good operator asks which stage is starving which other stage."
     ]
   },
   gds: {
     quickAnswer: "GPUDirect Storage shortens the data path by reducing CPU involvement in moving data from storage to GPU memory. Beginners should think of it as removing extra copies and extra stops.",
+    whyItMatters: "GDS is a clean teaching example of how architecture choices, not just device speed, affect end-to-end throughput.",
     coreTerms: [
       { term: "GPUDirect Storage", plain: "A technology that allows data to move more directly between storage and GPU memory.", why: "It can reduce CPU overhead and improve throughput." },
       { term: "DMA", plain: "Direct Memory Access, a hardware-assisted way to move data without constant CPU handling.", why: "It is the mechanism that makes direct paths efficient." },
-      { term: "cufile", plain: "The software interface commonly used for GPUDirect Storage operations.", why: "It is a practical sign that the feature is available in the environment." }
+      { term: "cufile", plain: "The software interface commonly used for GPUDirect Storage operations.", why: "It is a practical sign that the feature is available in the environment." },
+      { term: "Data path", plain: "The route data takes from storage to the GPU.", why: "GDS only makes sense if beginners can picture the path it is shortening." }
+    ],
+    lifecycle: [
+      { title: "Start with the traditional path", detail: "Data moves through more software and CPU-managed steps before reaching the GPU." },
+      { title: "Enable the direct path", detail: "The system uses GPUDirect Storage to reduce unnecessary handling and copies." },
+      { title: "Verify the feature is real", detail: "The operator confirms the environment actually supports the needed interfaces before trusting any benchmark." },
+      { title: "Compare end-to-end results", detail: "The value of GDS is proven by the throughput and CPU-overhead change, not by the acronym alone." }
+    ],
+    watchFor: [
+      "Whether the environment actually exposes the interfaces needed for GDS",
+      "Reduced CPU involvement alongside improved storage-to-GPU throughput",
+      "Benchmarks that improve only after the direct path is confirmed"
     ],
     safeActions: [
       "Verify the feature exists before benchmarking it.",
       "Compare the old path and new path with the same workload.",
       "Treat GDS as an optimization, not a default assumption."
+    ],
+    whatNotToDo: [
+      "Do not assume GDS is active just because the cluster uses NVIDIA GPUs.",
+      "Do not compare different workloads and call it a valid before-and-after benchmark."
+    ],
+    escalateWhen: [
+      "The direct path is expected by design but missing in production",
+      "Benchmark gains do not appear even after the feature is supposedly enabled",
+      "Changes to enable GDS would affect shared storage or driver policy"
+    ],
+    readMore: [
+      "GDS is useful educationally because it teaches that throughput is often about path design, not just device specs.",
+      "A shorter path is only valuable if it is real, measurable, and stable under workload."
     ]
   },
   monitoring: {
@@ -414,28 +544,81 @@ window.AEGIS_LEARNING = {
   },
   slurm: {
     quickAnswer: "Slurm decides who gets cluster resources and when. Beginners should understand that not every delayed job is broken; sometimes it is waiting because of policy or resource pressure.",
+    whyItMatters: "Slurm is where beginners learn the difference between a healthy busy cluster and a broken cluster.",
     coreTerms: [
       { term: "Scheduler", plain: "The system that decides when jobs start and where they run.", why: "It explains why a healthy cluster can still make you wait." },
       { term: "Fairshare", plain: "A policy signal showing how a user's recent resource usage affects new job priority.", why: "It helps explain queue behavior without blaming hardware." },
-      { term: "Drain", plain: "A scheduler state that stops new jobs from landing on a node.", why: "It is a safe containment tool during incidents." }
+      { term: "Drain", plain: "A scheduler state that stops new jobs from landing on a node.", why: "It is a safe containment tool during incidents." },
+      { term: "Pending reason", plain: "The scheduler's explanation for why a job is waiting instead of running.", why: "This is often the first clue that the delay is policy, not failure." }
+    ],
+    lifecycle: [
+      { title: "Submit the job", detail: "The scheduler records the request and decides how it fits into cluster policy and available resources." },
+      { title: "Wait or start", detail: "A job may run immediately or remain pending based on priority, availability, and scheduling rules." },
+      { title: "Protect unhealthy nodes", detail: "During incidents, operators drain nodes so the scheduler stops sending fresh work there." },
+      { title: "Return the node to service", detail: "Once the issue is resolved, the scheduler state is restored so jobs can land there again." }
+    ],
+    watchFor: [
+      "Pending reasons that point to policy, not hardware",
+      "Nodes that remain drained longer than expected",
+      "Fairshare or priority signals changing queue behavior"
     ],
     safeActions: [
       "Check why a job is pending before changing cluster state.",
       "Use drain as a protective step during hardware incidents.",
       "Record policy-driven delays differently from hardware failures."
+    ],
+    whatNotToDo: [
+      "Do not call the scheduler broken just because your job is waiting.",
+      "Do not resume a drained node until the hardware or software incident is actually understood."
+    ],
+    escalateWhen: [
+      "The scheduler reason does not match observed cluster behavior",
+      "Nodes remain drained without a clear owner or remediation path",
+      "Policy behavior is causing repeated user confusion or production pain"
+    ],
+    readMore: [
+      "A good beginner habit is to separate scheduling policy from system failure. They can feel similar to a user but require very different responses.",
+      "Drain is one of the most important operational verbs in cluster management because it turns diagnosis into safe containment."
     ]
   },
   k8s: {
     quickAnswer: "Kubernetes GPU operations combine container orchestration with accelerator scheduling. The beginner lesson is that a pod being pending does not automatically mean the GPU is broken.",
+    whyItMatters: "Kubernetes adds another control plane between the user and the hardware, so beginners need help separating scheduling, operator, and node-level issues.",
     coreTerms: [
       { term: "GPU Operator", plain: "A Kubernetes-managed package that helps install and manage NVIDIA GPU software components on cluster nodes.", why: "It automates many cluster-side GPU dependencies." },
       { term: "Extended resource", plain: "A schedulable resource type like nvidia.com/gpu that Kubernetes tracks in integer quantities.", why: "It explains why GPU requests and availability behave differently from CPU and memory." },
-      { term: "Gang scheduling", plain: "A scheduling approach that waits until all pods in a distributed job can start together.", why: "It prevents partially started training jobs from hanging." }
+      { term: "Gang scheduling", plain: "A scheduling approach that waits until all pods in a distributed job can start together.", why: "It prevents partially started training jobs from hanging." },
+      { term: "Pending", plain: "A pod state meaning the workload has been accepted but not yet placed and started successfully.", why: "This is where beginners often misread orchestration delay as hardware failure." }
+    ],
+    lifecycle: [
+      { title: "Advertise GPU resources", detail: "Nodes and operators expose the GPU resources Kubernetes can schedule." },
+      { title: "Schedule the workload", detail: "Kubernetes decides where the pod can land based on requested resources and policy." },
+      { title: "Start the GPU environment", detail: "The container, runtime, and node-level GPU stack all have to line up for the pod to work." },
+      { title: "Coordinate distributed jobs", detail: "For tightly coupled training, scheduling all pods together may matter as much as launching one pod successfully." }
+    ],
+    watchFor: [
+      "Pods stuck in Pending because resources are exhausted or not advertised",
+      "Operator health problems that prevent GPUs from being exposed correctly",
+      "Distributed jobs partially starting when they really need gang scheduling"
     ],
     safeActions: [
       "Read the scheduling reason before changing nodes or workloads.",
       "Check both operator health and node resource advertisement.",
       "Use gang scheduling for tightly coupled distributed jobs."
+    ],
+    whatNotToDo: [
+      "Do not assume a Pending pod means the physical GPU is broken.",
+      "Do not troubleshoot only the pod manifest if the operator or node advertisement is unhealthy."
+    ],
+    escalateWhen: [
+      "GPU resources disappear from multiple nodes unexpectedly",
+      "The operator stack itself is unhealthy or crash-looping",
+      "Scheduling behavior is blocking distributed jobs cluster-wide"
+    ],
+    readMore: [
+      "Kubernetes incidents are often about translation: the user asks for GPUs, the control plane decides placement, and the node stack has to make that request real.",
+      "A beginner gets much stronger when they can ask: is this problem in the request, the scheduler, the operator, or the node?"
     ]
   }
+
 };
