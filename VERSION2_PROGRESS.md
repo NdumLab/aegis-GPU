@@ -264,3 +264,33 @@ Current Version 2 shape:
 - The ECC flow now explicitly shows when the operator should observe, when they should prepare, and when they must contain
 - Aegis is moving closer to a tutor that explains decision quality, not just decision order
 
+## 2026-04-17 08:32 EDT
+
+Status: comparative explanations expanded beyond ECC
+
+Completed this session:
+- Deepened the comparative guided-explanation model in `frontend/js/labs.js` across additional high-value labs:
+  - `nvlink`
+  - `nvlink_fault`
+  - `nccl_fallback`
+  - `storage`
+- Added richer step-by-step reasoning in those labs for:
+  - what changed from the previous step
+  - what conclusion is justified now
+  - what is still too early to conclude
+  - what threshold was crossed
+- Extended the teaching depth so the guided flows now cover topology degradation, XID fault-family differentiation, TCP fallback diagnosis, and storage-starvation reasoning with the same comparative structure used in ECC
+- Expanded frontend smoke coverage to look for the new broader comparative-reasoning strings
+- Bumped frontend asset versions in `frontend/index.html` and redeployed live
+
+Verification completed:
+- `python3 -m unittest -v /home/henry/aegis-gpu/tests/frontend/test_frontend_smoke.py` passed: 8/8
+- `bash /home/henry/aegis-gpu/tests/smoke/smoke_test.sh` passed: 19/19
+- Live `index.html` now serves `labs.js?v=20260417f`, `learning.js?v=20260417f`, and `app.js?v=20260417f`
+- Live `labs.js` now serves comparative reasoning for NVLink topology degradation, XID drill reset/escalation, NCCL config-vs-fabric diagnosis, and storage bottleneck progression
+
+Current Version 2 shape:
+- Comparative reasoning is no longer ECC-only
+- Guided explanations now teach fault-family differences and cross-layer reasoning across multiple major workflows
+- Aegis is moving from a strong single exemplar toward a system-wide explanation model
+

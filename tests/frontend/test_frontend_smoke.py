@@ -73,6 +73,10 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('Field 156 (SBE) staying at 0 across the polling window', LABS_JS)
         self.assertIn('The lifecycle crossed from corrected-error trending into an explicit uncorrectable hardware fault', LABS_JS)
         self.assertIn('The scheduling-control threshold is crossed', LABS_JS)
+        self.assertIn('The topology-integrity threshold is crossed', LABS_JS)
+        self.assertIn('The configuration-cause threshold is crossed', LABS_JS)
+        self.assertIn('The storage-suspicion threshold is crossed', LABS_JS)
+        self.assertIn('A reset attempt is now the right next move', LABS_JS)
 
 
 if __name__ == '__main__':
