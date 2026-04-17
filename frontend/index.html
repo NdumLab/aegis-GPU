@@ -9,7 +9,8 @@
 <script src="js/render.js"></script>
 <script src="js/labs.js?v=20260417f"></script>
 <script src="js/learning.js?v=20260417f"></script>
-<script src="js/app.js?v=20260417f" defer></script>
+<script src="js/explain.js?v=20260417g"></script>
+<script src="js/app.js?v=20260417g" defer></script>
 </head>
 <body>
 
@@ -42,10 +43,24 @@
     <div class="hdr-stat" id="sys-status" style="margin-right:15px">SYSTEM: <span>UNPROVISIONED</span></div>
     <div class="hdr-stat">Labs completed: <span id="h-done">0</span>/16</div>
     <div class="hdr-stat" style="margin-left:8px">Score: <span id="h-score">—</span></div>
-<div style="display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;">
-  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="toggle-live"> Live Telemetry</label>
-  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="toggle-thermal"> Thermal Map</label>
-  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="toggle-beginner" checked> Beginner Mode</label>
+<div class="explain-toolbar">
+  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-live"> Live Telemetry</label>
+  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-thermal"> Thermal Map</label>
+  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-beginner" checked> Beginner Mode</label>
+  <label class="explain-toolbar-select">Depth
+    <select id="sel-explain-level">
+      <option value="beginner">Beginner</option>
+      <option value="intermediate">Intermediate</option>
+      <option value="operator">Operator</option>
+    </select>
+  </label>
+  <label class="explain-toolbar-select">Role
+    <select id="sel-explain-role">
+      <option value="cluster_operator">Cluster Operator</option>
+      <option value="sre">SRE</option>
+      <option value="ml_engineer">ML Engineer</option>
+    </select>
+  </label>
 </div>
     <button class="btn-sm" id="btn-blueprint" style="margin-left:8px">🖥 Blueprint</button>
     <button class="btn-sm" id="btn-learn" style="margin-left:8px">📘 Learn</button>

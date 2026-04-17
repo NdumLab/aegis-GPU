@@ -21,6 +21,7 @@ install -m 644 "$ROOT/frontend/index.html" /var/www/html/index.html
 install -m 644 "$ROOT/frontend/package.json" /var/www/html/package.json
 install -m 644 "$ROOT/frontend/css/styles.css" /var/www/html/css/styles.css
 install -m 644 "$ROOT/frontend/js/app.js" /var/www/html/js/app.js
+install -m 644 "$ROOT/frontend/js/explain.js" /var/www/html/js/explain.js
 install -m 644 "$ROOT/frontend/js/hardware.js" /var/www/html/js/hardware.js
 install -m 644 "$ROOT/frontend/js/labs.js" /var/www/html/js/labs.js
 install -m 644 "$ROOT/frontend/js/learning.js" /var/www/html/js/learning.js

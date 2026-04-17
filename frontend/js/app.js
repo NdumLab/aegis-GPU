@@ -22,6 +22,8 @@ let _uiHandlersBound = false;
 let lastLiveTelemetry = null;
 let beginnerMode = localStorage.getItem('gpusim_beginner_mode');
 beginnerMode = beginnerMode === null ? true : beginnerMode === 'true';
+let explanationLevel = localStorage.getItem('gpusim_explain_level') || 'beginner';
+let explanationRole = localStorage.getItem('gpusim_explain_role') || 'cluster_operator';
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -96,19 +98,57 @@ function getLearningGuide(id) {
   return guides[id] || null;
 }
 
+function getExplainEngine() {
+  return window.AEGIS_EXPLAINER || null;
+}
+
+function getExplanationOptions() {
+  return {
+    beginnerMode,
+    level: explanationLevel,
+    role: explanationRole,
+  };
+}
+
 function syncBeginnerModeUI() {
   const toggle = document.getElementById('toggle-beginner');
   if (toggle) toggle.checked = beginnerMode;
+  const levelSel = document.getElementById('sel-explain-level');
+  if (levelSel) levelSel.value = explanationLevel;
+  const roleSel = document.getElementById('sel-explain-role');
+  if (roleSel) roleSel.value = explanationRole;
   const learnBtn = document.getElementById('btn-learn');
-  if (learnBtn) learnBtn.textContent = beginnerMode ? '📘 Learning Guide' : '📘 Lab Brief';
+  if (learnBtn) {
+    const engine = getExplainEngine();
+    const level = engine ? engine.getLevel(explanationLevel).label : explanationLevel;
+    learnBtn.textContent = beginnerMode ? `📘 ${level} Guide` : '📘 Lab Brief';
+  }
+}
+
+function refreshExplanationSurfaces() {
+  if (currentLab && document.getElementById('intro-overlay')?.classList.contains('show')) showIntro(currentLab);
+  if (appMode === 'live') renderBeginnerTelemetryExplanation(lastLiveTelemetry);
 }
 
 function setBeginnerMode(enabled) {
   beginnerMode = !!enabled;
   localStorage.setItem('gpusim_beginner_mode', beginnerMode ? 'true' : 'false');
   syncBeginnerModeUI();
-  if (currentLab && document.getElementById('intro-overlay')?.classList.contains('show')) showIntro(currentLab);
-  if (appMode === 'live') renderBeginnerTelemetryExplanation(lastLiveTelemetry);
+  refreshExplanationSurfaces();
+}
+
+function setExplanationLevel(level) {
+  explanationLevel = level || 'beginner';
+  localStorage.setItem('gpusim_explain_level', explanationLevel);
+  syncBeginnerModeUI();
+  refreshExplanationSurfaces();
+}
+
+function setExplanationRole(role) {
+  explanationRole = role || 'cluster_operator';
+  localStorage.setItem('gpusim_explain_role', explanationRole);
+  syncBeginnerModeUI();
+  refreshExplanationSurfaces();
 }
 
 function renderBulletList(items, cssClass) {
@@ -151,8 +191,10 @@ function renderGuidedStepDetails(step, prevStep) {
   const avoid = step.avoid && step.avoid.length
     ? `<div class="guided-step-block"><div class="guided-step-title">Avoid This</div>${renderBulletList(step.avoid, 'guided-step-list')}</div>`
     : '';
+  const engine = getExplainEngine();
+  const coach = engine ? engine.renderStepCoach(step, prevStep, getExplanationOptions()) : '';
 
-  return [deeperContext, comparativeReasoning, lookFor, meaning, action, avoid].filter(Boolean).join('');
+  return [deeperContext, comparativeReasoning, lookFor, meaning, action, avoid, coach].filter(Boolean).join('');
 }
 
 function renderGuidedFlowSteps(lab) {
@@ -181,7 +223,10 @@ function renderLearningGuide(id) {
   const guide = getLearningGuide(id);
   if (!guide) return '';
 
+  const engine = getExplainEngine();
+  const explainOptions = getExplanationOptions();
   const sections = [];
+  if (engine) sections.push(engine.renderProfileBanner(explainOptions));
   sections.push(`
     <section class="learn-section learn-callout">
       <h4>Quick Answer</h4>
@@ -279,6 +324,11 @@ function renderLearningGuide(id) {
     `);
   }
 
+  if (engine) {
+    const glossaryNetwork = engine.renderGlossaryNetwork(guide.coreTerms || [], explainOptions);
+    if (glossaryNetwork) sections.push(glossaryNetwork);
+  }
+
   return sections.join('');
 }
 
@@ -309,10 +359,13 @@ function renderBeginnerTelemetryExplanation(liveData) {
     return;
   }
 
+  const engine = getExplainEngine();
+  const runtimeCoach = engine ? engine.renderRuntimeCoach('telemetry', liveData, getExplanationOptions()) : '';
+
   if (!beginnerMode) {
     const source = escHtml(liveData.source || 'unknown-source');
     const quality = liveData.degraded ? 'best-effort' : 'direct';
-    body.innerHTML = `<p><strong>Compact view:</strong> this telemetry is coming from <strong>${source}</strong> using a <strong>${quality}</strong> evidence path. Turn on Beginner Mode for deeper explanations of telemetry scope, missing evidence, and diagnosis trust.</p>`;
+    body.innerHTML = `<p><strong>Compact view:</strong> this telemetry is coming from <strong>${source}</strong> using a <strong>${quality}</strong> evidence path. Turn on Beginner Mode for deeper explanations of telemetry scope, missing evidence, diagnosis trust, and action confidence.</p>`;
     return;
   }
 
@@ -337,6 +390,7 @@ function renderBeginnerTelemetryExplanation(liveData) {
     : '<li><strong>per_gpu</strong>: no per-GPU snapshots were collected.</li>';
 
   body.innerHTML = `
+    ${runtimeCoach}
     <p>${scopeText}</p>
     ${degradedText}
     <p><strong>telemetry_sources</strong> is the system's way of telling you where the numbers came from. ${sourceText}</p>
@@ -358,10 +412,13 @@ function renderDiagnosisExplanation(data) {
   const unavailable = (data.unavailable_sources || []).length
     ? `<li><strong>unavailable_sources</strong>: ${data.unavailable_sources.map(escHtml).join(', ')}</li>`
     : '<li><strong>unavailable_sources</strong>: none were reported.</li>';
+  const engine = getExplainEngine();
+  const runtimeCoach = engine ? engine.renderRuntimeCoach('diagnosis', data, getExplanationOptions()) : '';
 
   return `
     <div class="diag-block">
       <div class="diag-title">Beginner Explanation</div>
+      ${runtimeCoach}
       <p><strong>diagnosis_source</strong> tells you where the explanation came from. Here it is <strong>${escHtml(data.diagnosis_source || 'unknown')}</strong>.</p>
       <p><strong>grounding_status</strong> is <strong>${escHtml(data.grounding_status || 'unknown')}</strong>. ${escHtml(grounding)}</p>
       <ul class="diag-list">
@@ -1065,6 +1122,8 @@ function bindUIHandlers() {
   on('btn-logout',  'click', aegisLogout);
   on('btn-reset',   'click', resetAll);
   on('toggle-beginner', 'change', e => setBeginnerMode(e.target.checked));
+  on('sel-explain-level', 'change', e => setExplanationLevel(e.target.value));
+  on('sel-explain-role', 'change', e => setExplanationRole(e.target.value));
 
   // Sidebar
   on('sidebar-btn-quiz', 'click', openQuiz);

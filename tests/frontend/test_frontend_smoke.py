@@ -8,14 +8,20 @@ INDEX = (ROOT / 'index.html').read_text(encoding='utf-8')
 APP_JS = (ROOT / 'js' / 'app.js').read_text(encoding='utf-8')
 LABS_JS = (ROOT / 'js' / 'labs.js').read_text(encoding='utf-8')
 LEARNING_JS = (ROOT / 'js' / 'learning.js').read_text(encoding='utf-8')
+DEPLOY_SH = (ROOT.parent / 'scripts' / 'deploy.sh').read_text(encoding='utf-8')
 
 
 class FrontendSmokeTest(unittest.TestCase):
     def test_expected_assets_are_referenced(self):
         self.assertIn('css/styles.css', INDEX)
         self.assertIn('js/learning.js', INDEX)
+        self.assertIn('js/explain.js', INDEX)
         self.assertIn('js/app.js?v=', INDEX)
         self.assertIn('js/render.js', INDEX)
+
+    def test_deploy_script_syncs_explanation_asset(self):
+        self.assertIn('frontend/js/explain.js', DEPLOY_SH)
+        self.assertIn('/var/www/html/js/explain.js', DEPLOY_SH)
 
     def test_frontend_uses_same_origin_api_prefix(self):
         self.assertIn('/api/v1', APP_JS)
@@ -46,18 +52,26 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('toggle-beginner', INDEX)
         self.assertIn('btn-learn', INDEX)
         self.assertIn('Beginner Mode', INDEX)
+        self.assertIn('sel-explain-level', INDEX)
+        self.assertIn('sel-explain-role', INDEX)
         self.assertIn('live-explainer-body', INDEX)
         self.assertIn('gpusim_beginner_mode', APP_JS)
+        self.assertIn('gpusim_explain_level', APP_JS)
+        self.assertIn('gpusim_explain_role', APP_JS)
         self.assertIn('renderBeginnerTelemetryExplanation', APP_JS)
         self.assertIn('renderDiagnosisExplanation', APP_JS)
         self.assertIn('describeIncidentKind', APP_JS)
         self.assertIn('explainParsedXid', APP_JS)
         self.assertIn('renderGuidedFlowSteps', APP_JS)
         self.assertIn('renderGuidedStepDetails', APP_JS)
+        self.assertIn('getExplainEngine', APP_JS)
         self.assertIn('Why This Stage Matters', APP_JS)
         self.assertIn('Reasoning Check', APP_JS)
         self.assertIn('Conclusion you can justify now', APP_JS)
         self.assertIn('window.AEGIS_LEARNING', LEARNING_JS)
+        self.assertIn('window.AEGIS_EXPLAINER', (ROOT / 'js' / 'explain.js').read_text(encoding='utf-8'))
+        self.assertIn('Counterfactual Check', (ROOT / 'js' / 'explain.js').read_text(encoding='utf-8'))
+        self.assertIn('Glossary Network', (ROOT / 'js' / 'explain.js').read_text(encoding='utf-8'))
         self.assertIn('ecc:', LEARNING_JS)
         self.assertIn('quickAnswer', LEARNING_JS)
 

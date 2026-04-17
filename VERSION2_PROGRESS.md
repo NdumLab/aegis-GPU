@@ -294,3 +294,35 @@ Current Version 2 shape:
 - Guided explanations now teach fault-family differences and cross-layer reasoning across multiple major workflows
 - Aegis is moving from a strong single exemplar toward a system-wide explanation model
 
+
+
+## 2026-04-17 08:44 EDT
+
+Status: shared explanation engine deployed
+
+Completed this session:
+- Added a new shared explanation engine at `frontend/js/explain.js` so Version 2 can reuse the same teaching primitives across guided labs, learning cards, live telemetry, and diagnosis overlays
+- Added persistent explanation controls in `frontend/index.html` for both depth and role, including:
+  - `Explanation Depth`: `Beginner`, `Intermediate`, `Operator`
+  - `Role Lens`: `Cluster Operator`, `SRE`, `ML Engineer`
+- Extended `frontend/js/app.js` so Beginner Mode now uses the shared engine to render:
+  - profile-aware banners
+  - glossary-network links between related terms
+  - guided-step coaching with confidence, action-risk, decision-stage, misconception, counterfactual, and self-check blocks
+  - runtime coaching for live telemetry and diagnosis payloads
+- Added the shared explanation styling in `frontend/css/styles.css`
+- Fixed `scripts/deploy.sh` so the new `frontend/js/explain.js` asset is installed into `/var/www/html/js/explain.js` during live deployment
+- Extended frontend smoke coverage so the explanation engine asset, learner-profile state, core explanation primitives, and deploy-path regression are part of the regression path
+- Deployed the updated frontend live
+
+Verification completed:
+- `python3 -m unittest -v /home/henry/aegis-gpu/tests/frontend/test_frontend_smoke.py` passed: 8/8
+- `bash /home/henry/aegis-gpu/tests/smoke/smoke_test.sh` passed: 19/19
+- Live `index.html` now serves `js/explain.js?v=20260417g`, `js/app.js?v=20260417g`, `sel-explain-level`, and `sel-explain-role`
+- Live `/var/www/html/js/explain.js` now serves `window.AEGIS_EXPLAINER` after the deploy-path fix
+- Live `app.js` now serves `getExplanationOptions`, `renderStepCoach`, and `renderRuntimeCoach`
+
+Current Version 2 shape:
+- Explanations are no longer only lab-authored text blocks; there is now a reusable explanation layer with shared reasoning patterns
+- The UI can explain the same signal differently for a beginner, intermediate learner, or operator without hiding the real GPU-ops terminology
+- Guided flows, live telemetry, and diagnosis overlays are now moving toward one explanation system instead of separate one-off explanations
