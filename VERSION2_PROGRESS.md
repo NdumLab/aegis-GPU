@@ -207,3 +207,32 @@ Current Version 2 shape:
 - The learning system keeps real GPU-ops jargon visible while explaining it in plain language
 - Common beginner mistakes are now called out more consistently across lessons
 
+## 2026-04-17 07:51 EDT
+
+Status: guided flow upgraded with richer step-by-step teaching
+
+Completed this session:
+- Reworked the lab intro guided-flow renderer in `frontend/js/app.js` so each step can now show structured teaching blocks instead of only a label and command snippet
+- Added richer guided-step support for:
+  - `Why This Stage Matters`
+  - `Look For`
+  - `What It Means`
+  - `Do This`
+  - `Avoid This`
+- Deepened the `ECC Error Lifecycle` steps in `frontend/js/labs.js` so the guided flow now teaches the full progression from healthy baseline to SBE trend, XID 48, and containment
+- Added new guided-step card styling in `frontend/css/styles.css`
+- Bumped frontend asset versions in `frontend/index.html` so the live site picks up the new guided-flow content immediately
+- Extended frontend smoke coverage for the richer guided-flow structure and ECC step content
+- Deployed the updated frontend live
+
+Verification completed:
+- `python3 -m unittest -v /home/henry/aegis-gpu/tests/frontend/test_frontend_smoke.py` passed: 8/8
+- `bash /home/henry/aegis-gpu/tests/smoke/smoke_test.sh` passed: 19/19
+- Live `index.html` now serves `labs.js?v=20260417d`, `learning.js?v=20260417d`, and `app.js?v=20260417d`
+- Live `labs.js` now serves the richer ECC guided-step fields and explanations
+
+Current Version 2 shape:
+- Guided flows can now teach each step instead of only sequencing it
+- The ECC lab now explains what to watch, how to interpret the signals, what action follows, and what mistakes to avoid
+- Beginner Mode is becoming more like an annotated operations tutor than a simple lab launcher
+

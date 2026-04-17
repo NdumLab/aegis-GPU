@@ -38,11 +38,113 @@ const LABS = {
     color: "#f0b429",
     objective: "Observe GPU memory error lifecycle.",
     steps: [
-      { label:"Healthy Baseline", cmd:"dcgmi dmon -e 156,157 -c 5", type:"ecc_healthy" },
-      { label:"SBE Trend Rising", cmd:"# Simulating degradation", type:"ecc_sbe", fault:true },
-      { label:"Poll ECC Trend", cmd:"dcgmi dmon -e 156,157 -c 10", type:"ecc_trend" },
-      { label:"XID 48 Appears", cmd:"dmesg | grep -i xid", type:"ecc_xid", fault:true },
-      { label:"Drain Node", cmd:"kubectl drain gpu-node-03", type:"ecc_drain" }
+      {
+        label:"Healthy Baseline",
+        cmd:"dcgmi dmon -e 156,157 -c 5",
+        type:"ecc_healthy",
+        deeperContext:"This opening step establishes the healthy reference point. Beginners need to see that ECC work starts with a baseline, because later counts only mean something if you know what normal looked like first.",
+        lookFor:[
+          "Field 156 (SBE) staying at 0 across the polling window",
+          "Field 157 (DBE) staying at 0 with no sudden jumps",
+          "Stable output that tells you the GPU is not already in a degraded memory state"
+        ],
+        meaning:"A clean baseline means the card is healthy right now. You are proving that the system starts from corrected-error count 0 and uncorrected-error count 0 before degradation begins.",
+        takeAction:[
+          "Record the clean SBE and DBE values mentally or in notes before moving on.",
+          "Anchor the lesson around the idea that trend matters more than one isolated number.",
+          "Use this step as the comparison point for every later poll in the lab."
+        ],
+        avoid:[
+          "Do not skip the baseline and then guess later whether the card worsened.",
+          "Do not treat one clean poll as permanent proof that the GPU will stay healthy."
+        ]
+      },
+      {
+        label:"SBE Trend Rising",
+        cmd:"# Simulating degradation",
+        type:"ecc_sbe",
+        fault:true,
+        deeperContext:"This is the early-warning phase. Single-bit ECC errors are usually corrected automatically, so the workload may keep running. That is exactly why beginners need to learn that corrected does not mean harmless forever.",
+        lookFor:[
+          "The SBE counter climbing while DBE is still 0",
+          "A pattern of repeat corrected errors instead of one random blip",
+          "A card that still appears usable even though the memory story is getting worse"
+        ],
+        meaning:"Rising SBE counts mean the GPU is still catching and fixing bad bits, but the memory path is no longer perfectly clean. Repeated corrected errors are often the warning sign before a more serious uncorrectable event.",
+        takeAction:[
+          "Treat repeated SBE growth as a maintenance signal, not as noise.",
+          "Continue polling so you can tell whether the trend is stabilizing or escalating.",
+          "Start thinking in terms of proactive containment before the job experiences an uncorrectable failure."
+        ],
+        avoid:[
+          "Do not say 'the GPU fixed it, so there is no issue.'",
+          "Do not jump straight to RMA on one tiny corrected event without checking the trend."
+        ]
+      },
+      {
+        label:"Poll ECC Trend",
+        cmd:"dcgmi dmon -e 156,157 -c 10",
+        type:"ecc_trend",
+        deeperContext:"This step teaches that operations work is about observing the direction of change. A longer poll window helps beginners see whether the SBE rise is a persistent pattern instead of a one-time event.",
+        lookFor:[
+          "Whether field 156 keeps increasing over repeated samples",
+          "Whether field 157 remains 0 or begins to change",
+          "Whether the error pattern looks stable, worsening, or suddenly accelerating"
+        ],
+        meaning:"If SBE keeps climbing during repeated polls, the card is trending the wrong way. The important lesson is that the lifecycle is moving from healthy baseline to corrected-error accumulation, which raises concern even before a DBE appears.",
+        takeAction:[
+          "Compare this poll directly to the first baseline step, not to your intuition.",
+          "Use trend language: rising, flat, accelerating, or crossed into DBE.",
+          "Prepare to contain the node if the lifecycle moves from corrected to uncorrected errors."
+        ],
+        avoid:[
+          "Do not stare at one row of output and ignore the time dimension.",
+          "Do not wait for a catastrophic failure before acknowledging that the memory story is worsening."
+        ]
+      },
+      {
+        label:"XID 48 Appears",
+        cmd:"dmesg | grep -i xid",
+        type:"ecc_xid",
+        fault:true,
+        deeperContext:"This is the inflection point where the lifecycle stops being just a warning trend and becomes a hard fault. XID 48 is the moment beginners must connect the jargon, the ECC counters, and the operational consequence.",
+        lookFor:[
+          "An XID 48 entry in dmesg tied to the affected GPU",
+          "Evidence that the event is now an uncorrectable memory failure, not only corrected SBEs",
+          "The shift from monitoring mode to immediate containment mode"
+        ],
+        meaning:"XID 48 usually indicates a double-bit ECC error, which is uncorrectable. The GPU could not safely repair the memory corruption, so this is now a hardware-integrity incident rather than a watch-and-trend situation.",
+        takeAction:[
+          "Identify the affected GPU and node clearly before touching cluster state.",
+          "Treat the node as unsafe for new workloads until it is contained.",
+          "Move from observation to containment: the next correct step is draining the node."
+        ],
+        avoid:[
+          "Do not keep scheduling fresh jobs on a node that just raised XID 48.",
+          "Do not explain XID 48 as 'just another ECC warning'; it is materially more serious than rising SBEs."
+        ]
+      },
+      {
+        label:"Drain Node",
+        cmd:"kubectl drain gpu-node-03",
+        type:"ecc_drain",
+        deeperContext:"This final step teaches containment. The beginner lesson is that the job of an operator is not only to diagnose the bad card, but also to protect the rest of the cluster from landing new work on a known-bad node.",
+        lookFor:[
+          "The scheduler stopping new workloads from landing on the affected node",
+          "A clear separation between diagnosis and containment responsibilities",
+          "The system moving into a safe state while deeper remediation or RMA is prepared"
+        ],
+        meaning:"Draining the node does not repair the GPU. It protects users and workloads by taking the unstable hardware out of normal service until the incident is fully handled.",
+        takeAction:[
+          "Drain the node after confirming the uncorrectable ECC event.",
+          "Notify the workload owner or operations channel that the node is being removed from service.",
+          "Escalate into hardware remediation or vendor process after containment is complete."
+        ],
+        avoid:[
+          "Do not confuse draining with fixing the card.",
+          "Do not return the node to normal scheduling until the hardware issue has been resolved and validated."
+        ]
+      }
     ],
     draw: drawECC
   },

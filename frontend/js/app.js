@@ -116,6 +116,47 @@ function renderBulletList(items, cssClass) {
   return `<ul class="${cssClass}">${items.map(item => `<li>${escHtml(item)}</li>`).join('')}</ul>`;
 }
 
+function renderGuidedStepDetails(step) {
+  if (!step) return '';
+
+  const deeperContext = beginnerMode && step.deeperContext
+    ? `<div class="guided-step-block guided-step-context"><div class="guided-step-title">Why This Stage Matters</div><p>${escHtml(step.deeperContext)}</p></div>`
+    : '';
+  const lookFor = step.lookFor && step.lookFor.length
+    ? `<div class="guided-step-block"><div class="guided-step-title">Look For</div>${renderBulletList(step.lookFor, 'guided-step-list')}</div>`
+    : '';
+  const meaning = step.meaning
+    ? `<div class="guided-step-block"><div class="guided-step-title">What It Means</div><p>${escHtml(step.meaning)}</p></div>`
+    : '';
+  const action = step.takeAction && step.takeAction.length
+    ? `<div class="guided-step-block"><div class="guided-step-title">Do This</div>${renderBulletList(step.takeAction, 'guided-step-list')}</div>`
+    : '';
+  const avoid = step.avoid && step.avoid.length
+    ? `<div class="guided-step-block"><div class="guided-step-title">Avoid This</div>${renderBulletList(step.avoid, 'guided-step-list')}</div>`
+    : '';
+
+  return [deeperContext, lookFor, meaning, action, avoid].filter(Boolean).join('');
+}
+
+function renderGuidedFlowSteps(lab) {
+  return `
+    <div class="guided-steps">
+      ${lab.steps.map((s, i) => `
+        <article class="guided-step-card${s.fault ? ' guided-step-card-fault' : ''}">
+          <div class="guided-step-top">
+            <div class="step-num">${i + 1}</div>
+            <div class="guided-step-header">
+              <div class="guided-step-label">${escHtml(s.label)}</div>
+              <div class="step-hint">${escHtml(s.cmd).slice(0, 100)}</div>
+            </div>
+          </div>
+          ${renderGuidedStepDetails(s)}
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
 function renderLearningGuide(id) {
   const guide = getLearningGuide(id);
   if (!guide) return '';
@@ -676,15 +717,7 @@ function showIntro(id) {
         <h4>Lab Steps</h4>
         <span class="learn-mode-tag">Guided flow</span>
       </div>
-      <ul class="steps-list">
-        ${lab.steps.map((s,i)=>`<li>
-          <div class="step-num">${i+1}</div>
-          <div>
-            <div>${escHtml(s.label)}</div>
-            <div class="step-hint">${escHtml(s.cmd).slice(0, 80)}</div>
-          </div>
-        </li>`).join('')}
-      </ul>
+      ${renderGuidedFlowSteps(lab)}
     </section>
   `;
   document.getElementById('intro-overlay').classList.add('show');
