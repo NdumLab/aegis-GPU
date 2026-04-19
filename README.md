@@ -49,7 +49,13 @@ bash tests/smoke/smoke_test.sh
 
 ## Deployment
 
-Use the deploy helper to copy the canonical repo into the live system paths and reload services:
+For a fresh host, run the interactive bootstrap helper first. It discovers missing prerequisites, prompts for runtime values, prepares `/etc/aegis-gpu/aegis.env`, can generate a self-signed TLS certificate for testing, and can hand off to deployment automatically:
+
+```bash
+make setup
+```
+
+For already-prepared hosts, use the deploy helper to copy the canonical repo into the live system paths and reload services:
 
 ```bash
 sudo bash scripts/deploy.sh
