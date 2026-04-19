@@ -410,3 +410,10 @@ Current Version 2 shape:
 - Lab explanations no longer consume fixed terminal width by default
 - The learner can open the guide only when needed and scroll it independently
 - The explanation layout is more organized and readable under the actual terminal-space constraints
+
+## 2026-04-17 10:58 EDT
+- fixed floating Lab Guide clipping and close-control reliability after runtime feedback
+- changed the guide shell to a full-height flex column so the content region can scroll instead of being clipped by the terminal pane
+- raised the close control above the content layer and added delegated click handling as a fallback path
+- redeployed live and verified the served markup/CSS includes the repaired guide container, close button, and scrollable content region
+- verification: `python3 -m unittest -v tests/frontend/test_frontend_smoke.py` passed; `bash tests/smoke/smoke_test.sh` passed

@@ -24,7 +24,8 @@ let beginnerMode = localStorage.getItem('gpusim_beginner_mode');
 beginnerMode = beginnerMode === null ? true : beginnerMode === 'true';
 let explanationLevel = localStorage.getItem('gpusim_explain_level') || 'beginner';
 let explanationRole = localStorage.getItem('gpusim_explain_role') || 'cluster_operator';
-let labCoachOpen = localStorage.getItem('gpusim_lab_coach_open') === 'true';
+let labCoachOpen = localStorage.getItem('gpusim_lab_coach_open');
+labCoachOpen = labCoachOpen === null ? true : labCoachOpen === 'true';
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -166,6 +167,14 @@ function toggleLabCoach() {
   setLabCoachOpen(!labCoachOpen);
 }
 
+function handleLabCoachClick(event) {
+  if (event.target.closest('#btn-close-coach') || event.target.closest('.lab-step-coach-close')) {
+    event.preventDefault();
+    event.stopPropagation();
+    setLabCoachOpen(false);
+  }
+}
+
 function renderBulletList(items, cssClass) {
   if (!items || !items.length) return '';
   return `<ul class="${cssClass}">${items.map(item => `<li>${escHtml(item)}</li>`).join('')}</ul>`;
@@ -281,6 +290,7 @@ function renderLabStepCoach() {
         </ul>
       </div>
     `;
+    content.scrollTop = 0;
     return;
   }
 
@@ -302,6 +312,7 @@ function renderLabStepCoach() {
         </ul>
       </div>
     `;
+    content.scrollTop = 0;
     return;
   }
 
@@ -370,6 +381,7 @@ function renderLabStepCoach() {
       <p>${escHtml(nextAction)}</p>
     </div>
   `;
+  content.scrollTop = 0;
 }
 
 function renderGuidedStepDetails(step, prevStep) {
@@ -725,6 +737,7 @@ function loadLab(id) {
   clearTerminal();
   currentLab = id;
   currentStep = -1;
+  if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
 
   const lab = LABS[id];
   document.getElementById('scen-title').textContent = lab.name;
@@ -761,6 +774,7 @@ function loadLab(id) {
 function runStep(labId, stepIdx) {
   if(currentLab !== labId) return;
   currentStep = stepIdx;
+  if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
   const lab = LABS[labId];
   const step = lab.steps[stepIdx];
 
@@ -1347,6 +1361,8 @@ function bindUIHandlers() {
   on('sel-explain-role', 'change', e => setExplanationRole(e.target.value));
   on('btn-toggle-coach', 'click', toggleLabCoach);
   on('btn-close-coach', 'click', () => setLabCoachOpen(false));
+  const coachEl = document.getElementById('lab-step-coach');
+  if (coachEl) coachEl.addEventListener('click', handleLabCoachClick);
 
   // Sidebar
   on('sidebar-btn-quiz', 'click', openQuiz);
