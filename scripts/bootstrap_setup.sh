@@ -152,7 +152,11 @@ read_env_value() {
   if [ ! -f "$ENV_PATH" ]; then
     return 0
   fi
-  run_as_root awk -F= -v key="$key" '$1 == key {print substr($0, index($0, "=") + 1)}' "$ENV_PATH" 2>/dev/null || true
+  if [ -r "$ENV_PATH" ]; then
+    awk -F= -v key="$key" '$1 == key {print substr($0, index($0, "=") + 1)}' "$ENV_PATH" 2>/dev/null || true
+  else
+    run_as_root awk -F= -v key="$key" '$1 == key {print substr($0, index($0, "=") + 1)}' "$ENV_PATH" 2>/dev/null || true
+  fi
 }
 
 write_env_file() {
@@ -253,6 +257,12 @@ path.write_text("\n".join(lines) + "\n")
 PY
 
   run_as_root mkdir -p /etc/aegis-gpu
+  if [ -f "$ENV_PATH" ]; then
+    local backup_path
+    backup_path="${ENV_PATH}.bak.$(date +%Y%m%d%H%M%S)"
+    run_as_root cp "$ENV_PATH" "$backup_path"
+    printf "Backed up existing env file to %s\n" "$backup_path"
+  fi
   run_as_root install -m 640 "$tmp_env" "$ENV_PATH"
   if getent group "$AEGIS_USER" >/dev/null 2>&1; then
     run_as_root chown root:"$AEGIS_USER" "$ENV_PATH"
@@ -264,7 +274,6 @@ PY
 preflight() {
   say "Running preflight checks"
   need_cmd awk
-  need_cmd sed
   need_cmd python3
   need_cmd nginx
   need_cmd systemctl
