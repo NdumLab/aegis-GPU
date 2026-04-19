@@ -7,7 +7,7 @@ import os
 import re
 import sqlite3
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -232,7 +232,7 @@ class RemediateRequest(BaseModel):
 
 
 def create_token(username: str, role: str) -> str:
-    exp = datetime.utcnow() + timedelta(hours=JWT_HOURS)
+    exp = datetime.now(timezone.utc) + timedelta(hours=JWT_HOURS)
     return jwt.encode({'sub': username, 'role': role, 'exp': exp}, JWT_SECRET, algorithm=JWT_ALGO)
 
 

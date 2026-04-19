@@ -12,7 +12,7 @@ EnvironmentFile=/etc/aegis-gpu/aegis.env
 Environment=PYTHONUNBUFFERED=1
 UMask=0027
 
-ExecStart=/usr/local/bin/uvicorn log-analizer:app --host 127.0.0.1 --port 8000 --workers 1
+ExecStart=/usr/local/bin/uvicorn log-analizer:app --host 127.0.0.1 --port 8000 --workers 4
 Restart=always
 RestartSec=5
 StandardOutput=journal
