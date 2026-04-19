@@ -101,12 +101,42 @@ def test_diagnose_returns_grounded_plan(monkeypatch):
     module = load_module(monkeypatch)
     client = TestClient(module.app)
 
+    class FakeEngine:
+        def collect_fault_context(self, fault_code):
+            return {
+                'fault_code': fault_code,
+                'node': 'unit.test',
+                'collected_at': 1,
+                'commands': {
+                    'recent_xids': 'NVRM: Xid 48, DBE detected',
+                    'gpu_inventory': 'GPU 0: H100 SXM5',
+                    'gpu_health': 'ECC mode: enabled',
+                    'topology': '',
+                    'nvlink': '',
+                    'fabric': '',
+                    'nccl_env': '',
+                    'storage': '',
+                },
+                'command_status': {
+                    'recent_xids': 'ok',
+                    'gpu_inventory': 'ok',
+                    'gpu_health': 'ok',
+                    'topology': 'empty',
+                    'nvlink': 'empty',
+                    'fabric': 'empty',
+                    'nccl_env': 'empty',
+                    'storage': 'empty',
+                },
+            }
+
+    monkeypatch.setattr(module, 'get_engine', lambda: FakeEngine())
     res = client.post('/api/v1/diagnose/48', headers=auth_header(client))
     assert res.status_code == 200
     payload = res.json()
     assert payload['diagnosis_source'] == 'deterministic-runbook'
     assert 'XID 48' in payload['remediation_plan']
     assert payload['grounded_sources']
+    assert payload['fault_alignment'] == 'confirmed'
 
 
 def test_diagnose_reports_partial_grounding_truthfully(monkeypatch):
@@ -150,6 +180,47 @@ def test_diagnose_reports_partial_grounding_truthfully(monkeypatch):
     assert 'gpu_health' in payload['unavailable_sources']
     assert 'Partial grounding' in payload['hallucination_check']
 
+
+def test_diagnose_reports_fault_alignment_mismatch(monkeypatch):
+    module = load_module(monkeypatch)
+    client = TestClient(module.app)
+
+    class FakeEngine:
+        def collect_fault_context(self, fault_code):
+            return {
+                'fault_code': fault_code,
+                'node': 'unit.test',
+                'collected_at': 1,
+                'commands': {
+                    'recent_xids': 'NVRM: Xid 79, GPU has fallen off the bus',
+                    'gpu_inventory': 'GPU 0: H100 SXM5',
+                    'gpu_health': 'GPU 0 healthy',
+                    'topology': '',
+                    'nvlink': '',
+                    'fabric': '',
+                    'nccl_env': '',
+                    'storage': '',
+                },
+                'command_status': {
+                    'recent_xids': 'ok',
+                    'gpu_inventory': 'ok',
+                    'gpu_health': 'ok',
+                    'topology': 'empty',
+                    'nvlink': 'empty',
+                    'fabric': 'empty',
+                    'nccl_env': 'empty',
+                    'storage': 'empty',
+                },
+            }
+
+    monkeypatch.setattr(module, 'get_engine', lambda: FakeEngine())
+    res = client.post('/api/v1/diagnose/48', headers=auth_header(client))
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload['fault_alignment'] == 'mismatch'
+    assert payload['observed_fault_codes'] == ['79']
+    assert 'did not show XID 48' in payload['fault_alignment_note']
+    assert 'observed XIDs: 79' in payload['remediation_plan']
 
 def test_admin_role_required_for_remediation(monkeypatch):
     module = load_module(monkeypatch)

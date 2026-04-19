@@ -136,12 +136,46 @@ class BackendSmokeTest(unittest.TestCase):
         self.assertEqual(payload['collection_errors'], ['nvidia_smi_unavailable'])
 
     def test_diagnose_returns_grounded_plan(self):
-        res = self.client.post('/api/v1/diagnose/48', headers=self.auth_header())
+        class FakeEngine:
+            def collect_fault_context(self, fault_code):
+                return {
+                    'fault_code': fault_code,
+                    'node': 'unit.test',
+                    'collected_at': 1,
+                    'commands': {
+                        'recent_xids': 'NVRM: Xid 48, DBE detected',
+                        'gpu_inventory': 'GPU 0: H100 SXM5',
+                        'gpu_health': 'ECC mode: enabled',
+                        'topology': '',
+                        'nvlink': '',
+                        'fabric': '',
+                        'nccl_env': '',
+                        'storage': '',
+                    },
+                    'command_status': {
+                        'recent_xids': 'ok',
+                        'gpu_inventory': 'ok',
+                        'gpu_health': 'ok',
+                        'topology': 'empty',
+                        'nvlink': 'empty',
+                        'fabric': 'empty',
+                        'nccl_env': 'empty',
+                        'storage': 'empty',
+                    },
+                }
+
+        original = self.module.get_engine
+        self.module.get_engine = lambda: FakeEngine()
+        try:
+            res = self.client.post('/api/v1/diagnose/48', headers=self.auth_header())
+        finally:
+            self.module.get_engine = original
         self.assertEqual(res.status_code, 200)
         payload = res.json()
         self.assertEqual(payload['diagnosis_source'], 'deterministic-runbook')
         self.assertIn('XID 48', payload['remediation_plan'])
         self.assertTrue(payload['grounded_sources'])
+        self.assertEqual(payload['fault_alignment'], 'confirmed')
 
     def test_diagnose_reports_partial_grounding_truthfully(self):
         class FakeEngine:
@@ -184,6 +218,48 @@ class BackendSmokeTest(unittest.TestCase):
         self.assertIn('recent_xids', payload['grounded_sources'])
         self.assertIn('gpu_health', payload['unavailable_sources'])
         self.assertIn('Partial grounding', payload['hallucination_check'])
+
+    def test_diagnose_reports_fault_alignment_mismatch(self):
+        class FakeEngine:
+            def collect_fault_context(self, fault_code):
+                return {
+                    'fault_code': fault_code,
+                    'node': 'unit.test',
+                    'collected_at': 1,
+                    'commands': {
+                        'recent_xids': 'NVRM: Xid 79, GPU has fallen off the bus',
+                        'gpu_inventory': 'GPU 0: H100 SXM5',
+                        'gpu_health': 'GPU 0 healthy',
+                        'topology': '',
+                        'nvlink': '',
+                        'fabric': '',
+                        'nccl_env': '',
+                        'storage': '',
+                    },
+                    'command_status': {
+                        'recent_xids': 'ok',
+                        'gpu_inventory': 'ok',
+                        'gpu_health': 'ok',
+                        'topology': 'empty',
+                        'nvlink': 'empty',
+                        'fabric': 'empty',
+                        'nccl_env': 'empty',
+                        'storage': 'empty',
+                    },
+                }
+
+        original = self.module.get_engine
+        self.module.get_engine = lambda: FakeEngine()
+        try:
+            res = self.client.post('/api/v1/diagnose/48', headers=self.auth_header())
+        finally:
+            self.module.get_engine = original
+        self.assertEqual(res.status_code, 200)
+        payload = res.json()
+        self.assertEqual(payload['fault_alignment'], 'mismatch')
+        self.assertEqual(payload['observed_fault_codes'], ['79'])
+        self.assertIn('did not show XID 48', payload['fault_alignment_note'])
+        self.assertIn('observed XIDs: 79', payload['remediation_plan'])
 
     def test_admin_role_required_for_remediation(self):
         res = self.client.post('/api/v1/remediate/79', headers=self.auth_header(username='analyst', password='unit-test-analyst'))

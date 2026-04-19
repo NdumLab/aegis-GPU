@@ -58,16 +58,24 @@ DEFAULT_ENV_CANDIDATES = [
     str(APP_ROOT / '.env'),
     '/etc/aegis-gpu/aegis.env',
 ]
-for candidate in DEFAULT_ENV_CANDIDATES:
-    if not candidate:
-        continue
-    try:
-        candidate_exists = Path(candidate).exists()
-    except PermissionError:
-        candidate_exists = False
-    if candidate_exists:
-        load_dotenv(candidate, override=False)
-        break
+
+
+def load_first_available_env(candidates: List[str]) -> Optional[str]:
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate)
+        try:
+            if not path.exists():
+                continue
+            load_dotenv(path, override=False)
+            return str(path)
+        except (OSError, PermissionError):
+            continue
+    return None
+
+
+LOADED_ENV_FILE = load_first_available_env(DEFAULT_ENV_CANDIDATES)
 
 JWT_SECRET = os.getenv('JWT_SECRET', '')
 if not JWT_SECRET or JWT_SECRET == 'change-me' or len(JWT_SECRET) < 32:
@@ -257,6 +265,58 @@ def load_kb_entry(fault_code: str) -> Dict[str, str]:
     }
 
 
+def extract_xid_codes(text: str) -> List[str]:
+    matches = re.findall(r'\bXid[^0-9]*(\d{1,4})\b', text or '', flags=re.IGNORECASE)
+    ordered: List[str] = []
+    for match in matches:
+        if match not in ordered:
+            ordered.append(match)
+    return ordered
+
+
+def summarize_fault_alignment(fault_code: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    commands = context.get('commands', {}) or {}
+    recent_xids = commands.get('recent_xids', '') or ''
+    observed_fault_codes = extract_xid_codes(recent_xids)
+
+    if context.get('error'):
+        return {
+            'status': 'unknown',
+            'observed_fault_codes': observed_fault_codes,
+            'note': 'Fault alignment could not be checked because the target node was unreachable.',
+        }
+
+    if not recent_xids.strip():
+        return {
+            'status': 'unknown',
+            'observed_fault_codes': observed_fault_codes,
+            'note': 'Fault alignment could not be checked because no recent XID log evidence was available.',
+        }
+
+    if fault_code in observed_fault_codes:
+        return {
+            'status': 'confirmed',
+            'observed_fault_codes': observed_fault_codes,
+            'note': f'Recent XID log evidence includes XID {fault_code}.',
+        }
+
+    if observed_fault_codes:
+        return {
+            'status': 'mismatch',
+            'observed_fault_codes': observed_fault_codes,
+            'note': (
+                f'Recent XID log evidence did not show XID {fault_code}; '
+                f'observed XIDs: {", ".join(observed_fault_codes)}.'
+            ),
+        }
+
+    return {
+        'status': 'not_found',
+        'observed_fault_codes': observed_fault_codes,
+        'note': f'Recent XID log evidence was collected but did not contain XID {fault_code}.',
+    }
+
+
 def summarize_grounding(context: Dict[str, Any]) -> Dict[str, Any]:
     preferred_order = ('recent_xids', 'gpu_inventory', 'gpu_health', 'dcgm_discovery', 'dcgm_health', 'topology', 'nvlink', 'fabric', 'fabric_manager', 'nccl_env', 'storage')
     commands = context.get('commands', {}) or {}
@@ -321,9 +381,11 @@ def build_deterministic_diagnosis(fault_code: str, kb_entry: Dict[str, str], con
     summary = kb_entry.get('entry') or f'XID {fault_code} detected with no vendor KB entry available.'
     context_summary = build_context_summary(context)
     grounding = summarize_grounding(context)
+    alignment = summarize_fault_alignment(fault_code, context)
     lines = [
         f'Fault summary: XID {fault_code}. {summary}',
         grounding['note'],
+        alignment['note'],
     ]
     if grounding['unavailable_sources']:
         lines.append('Unavailable or unusable live checks: ' + ', '.join(grounding['unavailable_sources']))
@@ -343,11 +405,14 @@ _CLAUDE_SYSTEM_PROMPT = (
 
 def maybe_llm_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict[str, Any]) -> Union[Tuple[str, str], dict]:
     grounding = summarize_grounding(context)
+    alignment = summarize_fault_alignment(fault_code, context)
     context_summary = build_context_summary(context) or 'No usable live node context was collected.'
     user_content = (
         f'Fault code: XID {fault_code}\n'
         f'Vendor reference: {kb_entry.get("entry") or "No vendor KB entry provided."}\n'
         f'Grounding status: {grounding["status"]}\n'
+        f'Fault alignment: {alignment["status"]}\n'
+        f'Observed XIDs: {", ".join(alignment["observed_fault_codes"] or ["none"])}\n'
         f'Unavailable checks: {", ".join(grounding["unavailable_sources"] or ["none"])}\n'
         f'Node context:\n{context_summary}'
     )
@@ -461,6 +526,7 @@ def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(ve
     kb_entry = load_kb_entry(fault_code)
     context = get_engine().collect_fault_context(fault_code)
     grounding = summarize_grounding(context)
+    alignment = summarize_fault_alignment(fault_code, context)
     diagnosis = maybe_llm_diagnosis(fault_code, kb_entry, context)
     if isinstance(diagnosis, dict) and diagnosis.get('error'):
         DIAGNOSE_REQUESTS.labels(fault_code=fault_code, source='timeout').inc()
@@ -479,6 +545,9 @@ def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(ve
         'grounded_sources': grounding['grounded_sources'],
         'unavailable_sources': grounding['unavailable_sources'],
         'grounding_status': grounding['status'],
+        'fault_alignment': alignment['status'],
+        'fault_alignment_note': alignment['note'],
+        'observed_fault_codes': alignment['observed_fault_codes'],
     }
 
 
