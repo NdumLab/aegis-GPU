@@ -1,4 +1,8 @@
-.PHONY: test backend-test frontend-test smoke deploy
+.PHONY: clean test backend-test frontend-test smoke deploy
+
+clean:
+	find . -depth -type d \( -name __pycache__ -o -name .pytest_cache \) -exec rm -rf {} +
+	find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 
 backend-test:
 	python3 -m py_compile backend/log-analizer.py backend/node_scraper.py

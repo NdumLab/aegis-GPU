@@ -2,6 +2,20 @@
 
 Canonical source repository for the Aegis-GPU backend, frontend, deploy configuration, and smoke coverage.
 
+## Source Of Truth
+
+Edit code in `~/aegis-gpu` only.
+
+Live paths are deployment targets, not development worktrees:
+
+- `~/aegis-gpu/`: canonical source repository
+- `/opt/aegis-gpu/`: deployed backend runtime used by `systemd`
+- `/var/www/html/`: deployed frontend served by `nginx`
+- `/etc/systemd/system/aegis-gpu.service`: deployed service unit
+- `/etc/nginx/conf.d/aegis-gpu.conf`: deployed nginx site config
+
+Legacy copies outside this repo, including `~/log-analizer.py`, `~/node_scraper.py`, `~/nvidia_kb/`, `~/aegis-gpu.bk/`, and `/var/www/html.bk/`, should be treated as historical leftovers unless you explicitly decide to keep them.
+
 ## Layout
 
 - `backend/`: FastAPI backend and local knowledge base
@@ -42,3 +56,13 @@ sudo bash scripts/deploy.sh
 ```
 
 This repo is intended to be the source of truth. The live paths under `/opt/aegis-gpu`, `/var/www/html`, and `/etc/...` should be treated as deployment targets.
+
+The deploy helper also removes runtime-only clutter that should not persist in deployment targets, such as `.git/`, `.github/`, `__pycache__/`, `.pytest_cache/`, and `*.pyc`.
+
+## Cleanup
+
+Remove generated files from the source repo without touching deployments:
+
+```bash
+make clean
+```

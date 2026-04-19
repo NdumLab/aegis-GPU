@@ -3,6 +3,22 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
+remove_runtime_artifacts() {
+  local target=$1
+
+  rm -rf \
+    "$target/.git" \
+    "$target/.github" \
+    "$target/__pycache__" \
+    "$target/tests/__pycache__" \
+    "$target/tests/backend/__pycache__" \
+    "$target/tests/frontend/__pycache__" \
+    "$target/.pytest_cache"
+
+  find "$target" -depth -type d \( -name __pycache__ -o -name .pytest_cache \) -exec rm -rf {} +
+  find "$target" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+}
+
 echo '==> Sync backend to /opt/aegis-gpu'
 install -d -m 755 /opt/aegis-gpu /opt/aegis-gpu/tests /opt/aegis-gpu/nvidia_kb
 install -m 644 "$ROOT/backend/log-analizer.py" /opt/aegis-gpu/log-analizer.py
@@ -14,6 +30,7 @@ install -m 644 "$ROOT/backend/nvidia_kb/xid_reference.json" /opt/aegis-gpu/nvidi
 install -m 644 "$ROOT/backend/nvidia_kb/gb200_maintenance.txt" /opt/aegis-gpu/nvidia_kb/gb200_maintenance.txt
 install -m 644 "$ROOT/tests/backend/test_api.py" /opt/aegis-gpu/tests/test_api.py
 install -m 644 "$ROOT/tests/backend/test_api_unittest.py" /opt/aegis-gpu/tests/test_api_unittest.py
+remove_runtime_artifacts /opt/aegis-gpu
 
 echo '==> Sync frontend to /var/www/html'
 install -d -m 755 /var/www/html /var/www/html/css /var/www/html/js /var/www/html/fonts /var/www/html/tests
@@ -31,6 +48,7 @@ install -m 644 "$ROOT/tests/frontend/test_frontend_browser_smoke.py" /var/www/ht
 for font in "$ROOT"/frontend/fonts/*.woff2; do
   install -m 644 "$font" /var/www/html/fonts/
 done
+remove_runtime_artifacts /var/www/html
 
 echo '==> Sync deploy config'
 install -d -m 755 /etc/nginx/conf.d /etc/systemd/system /etc/aegis-gpu
