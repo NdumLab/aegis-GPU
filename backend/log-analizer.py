@@ -227,6 +227,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class DiagnoseRequest(BaseModel):
+    allow_llm: Optional[bool] = None
+
+
 class RemediateRequest(BaseModel):
     node_id: int = 0
 
@@ -377,6 +381,14 @@ def build_context_summary(context: Dict[str, Any]) -> str:
     return '\n\n'.join(sections)[:6000]
 
 
+def llm_available() -> bool:
+    if ACTIVE_LLM == 'claude':
+        return bool(configured_secret('CLAUDE_API_KEY'))
+    if ACTIVE_LLM == 'openai':
+        return bool(configured_secret('OPENAI_API_KEY'))
+    return False
+
+
 def build_deterministic_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict[str, Any]) -> str:
     summary = kb_entry.get('entry') or f'XID {fault_code} detected with no vendor KB entry available.'
     context_summary = build_context_summary(context)
@@ -403,7 +415,7 @@ _CLAUDE_SYSTEM_PROMPT = (
 )
 
 
-def maybe_llm_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict[str, Any]) -> Union[Tuple[str, str], dict]:
+def maybe_llm_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict[str, Any], allow_llm: bool = True) -> Union[Tuple[str, str], dict]:
     grounding = summarize_grounding(context)
     alignment = summarize_fault_alignment(fault_code, context)
     context_summary = build_context_summary(context) or 'No usable live node context was collected.'
@@ -416,6 +428,9 @@ def maybe_llm_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict
         f'Unavailable checks: {", ".join(grounding["unavailable_sources"] or ["none"])}\n'
         f'Node context:\n{context_summary}'
     )
+
+    if not allow_llm or not llm_available():
+        return build_deterministic_diagnosis(fault_code, kb_entry, context), 'deterministic-runbook'
 
     def _call_llm():
         if ACTIVE_LLM == 'claude':
@@ -475,6 +490,7 @@ def get_status():
         'message': 'Aegis-GPU daemon active.',
         'auth_enabled': True,
         'active_llm': ACTIVE_LLM,
+        'llm_available': llm_available(),
         'destructive_remediation_enabled': ALLOW_DESTRUCTIVE_REMEDIATION,
         'node_target': AEGIS_NODE_HOST,
     }
@@ -517,7 +533,7 @@ def get_metrics(request: Request, payload: dict = Depends(verify_token)):
 
 
 @app.post('/api/v1/diagnose/{fault_code}')
-def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(verify_token)):
+def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(verify_token), body: DiagnoseRequest = None):
     request.state.user = payload['sub']
     if not re.match(r'^\d{1,4}$', fault_code):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid fault code: must be 1-4 digits.')
@@ -527,7 +543,8 @@ def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(ve
     context = get_engine().collect_fault_context(fault_code)
     grounding = summarize_grounding(context)
     alignment = summarize_fault_alignment(fault_code, context)
-    diagnosis = maybe_llm_diagnosis(fault_code, kb_entry, context)
+    use_llm = body.allow_llm if (body and body.allow_llm is not None) else True
+    diagnosis = maybe_llm_diagnosis(fault_code, kb_entry, context, allow_llm=use_llm)
     if isinstance(diagnosis, dict) and diagnosis.get('error'):
         DIAGNOSE_REQUESTS.labels(fault_code=fault_code, source='timeout').inc()
         return diagnosis
@@ -548,6 +565,8 @@ def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(ve
         'fault_alignment': alignment['status'],
         'fault_alignment_note': alignment['note'],
         'observed_fault_codes': alignment['observed_fault_codes'],
+        'llm_requested': use_llm,
+        'llm_available': llm_available(),
     }
 
 

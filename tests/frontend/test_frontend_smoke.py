@@ -53,6 +53,7 @@ class FrontendSmokeTest(unittest.TestCase):
 
     def test_beginner_mode_controls_and_learning_module_exist(self):
         self.assertIn('toggle-beginner', INDEX)
+        self.assertIn('toggle-llm-diagnosis', INDEX)
         self.assertIn('btn-learn', INDEX)
         self.assertIn('Beginner Mode', INDEX)
         self.assertIn('sel-explain-level', INDEX)
@@ -64,6 +65,10 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('gpusim_beginner_mode', APP_JS)
         self.assertIn('gpusim_explain_level', APP_JS)
         self.assertIn('gpusim_explain_role', APP_JS)
+        self.assertIn('gpusim_allow_llm_diagnosis', APP_JS)
+        self.assertIn('setLLMDiagnosisEnabled', APP_JS)
+        self.assertIn('setBackendLLMCapability', APP_JS)
+        self.assertIn('allow_llm: llmDiagnosisEnabled && backendLLMAvailable', APP_JS)
         self.assertIn('renderBeginnerTelemetryExplanation', APP_JS)
         self.assertIn('renderDiagnosisExplanation', APP_JS)
         self.assertIn('describeIncidentKind', APP_JS)

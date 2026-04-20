@@ -97,6 +97,49 @@ def test_metrics_exposes_degraded_reason_when_falling_back(monkeypatch):
     assert payload['collection_errors'] == ['nvidia_smi_unavailable']
 
 
+def test_diagnose_respects_user_llm_opt_out(monkeypatch):
+    monkeypatch.setenv('ACTIVE_LLM', 'openai')
+    monkeypatch.setenv('OPENAI_API_KEY', 'unit-test-openai-key')
+    module = load_module(monkeypatch)
+    client = TestClient(module.app)
+
+    class FakeEngine:
+        def collect_fault_context(self, fault_code):
+            return {
+                'fault_code': fault_code,
+                'node': 'unit.test',
+                'collected_at': 1,
+                'commands': {
+                    'recent_xids': 'NVRM: Xid 48, DBE detected',
+                    'gpu_inventory': 'GPU 0: H100 SXM5',
+                    'gpu_health': 'ECC mode: enabled',
+                    'topology': '',
+                    'nvlink': '',
+                    'fabric': '',
+                    'nccl_env': '',
+                    'storage': '',
+                },
+                'command_status': {
+                    'recent_xids': 'ok',
+                    'gpu_inventory': 'ok',
+                    'gpu_health': 'ok',
+                    'topology': 'empty',
+                    'nvlink': 'empty',
+                    'fabric': 'empty',
+                    'nccl_env': 'empty',
+                    'storage': 'empty',
+                },
+            }
+
+    monkeypatch.setattr(module, 'get_engine', lambda: FakeEngine())
+    res = client.post('/api/v1/diagnose/48', headers=auth_header(client), json={'allow_llm': False})
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload['diagnosis_source'] == 'deterministic-runbook'
+    assert payload['llm_requested'] is False
+    assert payload['llm_available'] is True
+
+
 def test_diagnose_returns_grounded_plan(monkeypatch):
     module = load_module(monkeypatch)
     client = TestClient(module.app)

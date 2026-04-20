@@ -24,6 +24,10 @@ let beginnerMode = localStorage.getItem('gpusim_beginner_mode');
 beginnerMode = beginnerMode === null ? true : beginnerMode === 'true';
 let explanationLevel = localStorage.getItem('gpusim_explain_level') || 'beginner';
 let explanationRole = localStorage.getItem('gpusim_explain_role') || 'cluster_operator';
+let llmDiagnosisEnabled = localStorage.getItem('gpusim_allow_llm_diagnosis');
+llmDiagnosisEnabled = llmDiagnosisEnabled === null ? true : llmDiagnosisEnabled === 'true';
+let backendLLMAvailable = false;
+let backendLLMMode = 'deterministic';
 let labCoachOpen = localStorage.getItem('gpusim_lab_coach_open');
 labCoachOpen = labCoachOpen === null ? true : labCoachOpen === 'true';
 
@@ -119,6 +123,14 @@ function syncBeginnerModeUI() {
   if (levelSel) levelSel.value = explanationLevel;
   const roleSel = document.getElementById('sel-explain-role');
   if (roleSel) roleSel.value = explanationRole;
+  const llmToggle = document.getElementById('toggle-llm-diagnosis');
+  if (llmToggle) {
+    llmToggle.checked = llmDiagnosisEnabled && backendLLMAvailable;
+    llmToggle.disabled = !backendLLMAvailable;
+    llmToggle.title = backendLLMAvailable
+      ? `LLM-backed diagnosis is available via ${backendLLMMode}.`
+      : 'Backend is currently using deterministic runbooks only.';
+  }
   const coachBtn = document.getElementById('btn-toggle-coach');
   if (coachBtn) coachBtn.classList.toggle('active', labCoachOpen);
   const learnBtn = document.getElementById('btn-learn');
@@ -154,6 +166,18 @@ function setExplanationRole(role) {
   localStorage.setItem('gpusim_explain_role', explanationRole);
   syncBeginnerModeUI();
   refreshExplanationSurfaces();
+}
+
+function setLLMDiagnosisEnabled(enabled) {
+  llmDiagnosisEnabled = !!enabled;
+  localStorage.setItem('gpusim_allow_llm_diagnosis', llmDiagnosisEnabled ? 'true' : 'false');
+  syncBeginnerModeUI();
+}
+
+function setBackendLLMCapability(mode, available) {
+  backendLLMMode = mode || 'deterministic';
+  backendLLMAvailable = !!available;
+  syncBeginnerModeUI();
 }
 
 function setLabCoachOpen(open) {
@@ -1357,6 +1381,7 @@ function bindUIHandlers() {
   on('btn-logout',  'click', aegisLogout);
   on('btn-reset',   'click', resetAll);
   on('toggle-beginner', 'change', e => setBeginnerMode(e.target.checked));
+  on('toggle-llm-diagnosis', 'change', e => setLLMDiagnosisEnabled(e.target.checked));
   on('sel-explain-level', 'change', e => setExplanationLevel(e.target.value));
   on('sel-explain-role', 'change', e => setExplanationRole(e.target.value));
   on('btn-toggle-coach', 'click', toggleLabCoach);
@@ -1641,8 +1666,10 @@ async function toggleAppMode(forcedState) {
             const data = await response.json();
 
             if(data.status === 'online') {
+                setBackendLLMCapability(data.active_llm, data.llm_available);
                 logTerm([{t:'good', v:`[NETWORK] SUCCESS! Handshake complete.`}]);
                 logTerm([{t:'info', v:`[DAEMON] Aegis-GPU daemon active.`}]);
+                logTerm([{t:'dim', v:data.llm_available ? `[DIAGNOSIS MODE] ${data.active_llm} available. Users may opt in to LLM-backed diagnosis.` : '[DIAGNOSIS MODE] Deterministic runbooks only. LLM diagnosis is currently unavailable.'}]);
                 document.getElementById('scen-desc').textContent = 'Connected. Waiting for live telemetry...';
 
                 // --- START LIVE POLLING ---
@@ -1746,7 +1773,7 @@ async function requestAI_Remediation(xid, nodeIndex = 6) {
         const res = await fetch(`${API_BASE}/diagnose/${xid}`, {
             method: 'POST',
             headers: { ...authHdr(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
+            body: JSON.stringify({ allow_llm: llmDiagnosisEnabled && backendLLMAvailable })
         });
         if (res.status === 401) { handle401(); return; }
         const data = await res.json();
