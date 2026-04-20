@@ -13,6 +13,8 @@ import bcrypt
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
@@ -306,3 +308,8 @@ def remediate_fault(
     result['timestamp'] = int(time.time())
     result['node_id'] = node_id
     return result
+
+
+FRONTEND_DIR = os.getenv('AEGIS_FRONTEND_DIR', '/var/www/html')
+if os.path.isdir(FRONTEND_DIR):
+    app.mount('/', StaticFiles(directory=FRONTEND_DIR, html=True), name='frontend')
