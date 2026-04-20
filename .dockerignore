@@ -1,0 +1,12 @@
+.git
+.github
+ci/
+**/__pycache__
+**/*.pyc
+backend/tests/
+frontend/tests/
+backend/pytest.ini
+*.tar.gz
+*.bk
+deploy/systemd/
+deploy/nginx/
