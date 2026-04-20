@@ -51,9 +51,10 @@ done
 remove_runtime_artifacts /var/www/html
 
 echo '==> Sync deploy config'
-install -d -m 755 /etc/nginx/conf.d /etc/systemd/system /etc/aegis-gpu
+install -d -m 755 /etc/nginx/conf.d /etc/systemd/system /etc/aegis-gpu /etc/logrotate.d
 install -m 644 "$ROOT/deploy/aegis-gpu.conf" /etc/nginx/conf.d/aegis-gpu.conf
 install -m 644 "$ROOT/deploy/aegis-gpu.service" /etc/systemd/system/aegis-gpu.service
+install -m 644 "$ROOT/deploy/aegis-gpu.logrotate" /etc/logrotate.d/aegis-gpu
 if [ ! -f /etc/aegis-gpu/aegis.env ]; then
   install -m 640 "$ROOT/deploy/aegis.env.example" /etc/aegis-gpu/aegis.env
   echo 'Created /etc/aegis-gpu/aegis.env from example; replace placeholder secrets before production use.'
