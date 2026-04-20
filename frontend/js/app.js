@@ -664,6 +664,7 @@ function bindUIHandlers() {
 // --- INIT BOOTSTRAP ---
 function initApp() {
   bindUIHandlers();
+  const reconEl = document.getElementById("recon-overlay"); if (reconEl) reconEl.style.display = "flex";
   // Restore provisioning state from localStorage
   const savedBp  = localStorage.getItem('gpusim_blueprint');
   const savedFab = localStorage.getItem('gpusim_fabric');
