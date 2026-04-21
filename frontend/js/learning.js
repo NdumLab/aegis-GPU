@@ -59,8 +59,21 @@ window.AEGIS_LEARNING = {
     ]
   },
   nvlink_fault: {
-    quickAnswer: "XID fault drills teach you how to translate a short NVIDIA fault code into a likely hardware story and an immediate response. The code itself is jargon, but the goal is simple: identify what failed and contain the blast radius.",
-    whyItMatters: "Beginners often see the code first and the explanation second. This module teaches them to keep the code while attaching meaning to it.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are learning how to read NVIDIA XID fault codes as operator signals instead of mysterious numbers. Think of this like learning emergency alarm tones: the code is short, but it tells you what kind of failure you may be dealing with and how fast you need to react.",
+    plainPicture: "An XID code is the GPU driver's shorthand for a fault family. The number itself is not the goal. The goal is to translate it into a likely hardware story, judge the severity, and take the least risky correct next action.",
+    whyOperatorsCare: [
+      "Operators often see the code before they see the explanation. Logs, alerts, and support tickets may only show an XID number, so the operator has to turn that number into a containment decision quickly.",
+      "This matters because different XIDs imply different fault families. A memory-integrity problem, a hung GPU, and a fabric fault do not all deserve the same response.",
+      "The beginner skill here is not memorizing every number. It is learning the workflow: identify the code, classify the fault family, confirm with evidence, contain the blast radius, and escalate appropriately."
+    ],
+    wholePlatform: [
+      "In the bigger platform, XID faults are one of the ways a single failing GPU turns into a node, rack, or workload problem. The code helps operators decide whether the issue stays local or threatens the wider cluster.",
+      "A good XID response protects schedulers, users, and neighboring workloads from landing on hardware that is already unstable or from depending on a broken fabric path.",
+      "So this is not just about reading logs. It is about keeping the whole platform reliable by turning short fault codes into fast, grounded operational decisions."
+    ],
     coreTerms: [
       { term: "XID", plain: "An NVIDIA driver event code used to classify GPU faults.", why: "These codes are what operators usually see in logs first." },
       { term: "XID 48", plain: "A fault code often tied to an uncorrectable ECC event.", why: "This usually points to memory hardware trouble." },
@@ -68,37 +81,15 @@ window.AEGIS_LEARNING = {
       { term: "XID 74", plain: "A fault often associated with NVLink problems such as link CRC errors.", why: "It connects log data to interconnect health." },
       { term: "Containment", plain: "The first phase of response where you stop the fault from hurting more jobs or more hardware paths.", why: "Beginners need to know the first goal is control, not perfect diagnosis." }
     ],
-    lifecycle: [
-      { title: "Alert appears", detail: "A log entry or monitoring alert reports an XID code." },
-      { title: "Meaning is decoded", detail: "The code is mapped to a likely fault family such as memory, bus, or NVLink." },
-      { title: "Containment comes first", detail: "The beginner-safe response is to protect jobs and isolate the affected hardware path." },
-      { title: "Recovery is attempted or hardware is removed", detail: "Some faults allow reset; others are strong signs of failing hardware." },
-      { title: "Pattern is reviewed", detail: "Operators ask whether this was isolated, repeated, or spreading across a fabric or node family." }
-    ],
-    watchFor: [
-      "Repeated appearance of the same XID on the same GPU",
-      "Faults that line up with ECC counters, NVLink errors, or missing GPUs",
-      "A fault moving from one-off alert to repeated operational disruption"
+    commonMisreads: [
+      "The number itself is the diagnosis. That is false. The number is the starting point for a hardware story, not the whole story.",
+      "All XIDs deserve the same response. That is false. Memory faults, bus faults, and fabric faults often have different confirmation and recovery paths.",
+      "If the job is still partly alive, the fault must be minor. That is false. Some severe faults still leave part of the system standing while the hardware underneath is no longer trustworthy."
     ],
     safeActions: [
       "Capture the exact XID code and the GPU or PCI address involved.",
       "Drain or isolate the affected node before trying risky recovery steps.",
       "Use the code to choose the right next check instead of guessing."
-    ],
-    whatNotToDo: [
-      "Do not memorize only the number without learning the fault family behind it.",
-      "Do not jump straight to rebooting a shared production node without capturing evidence first.",
-      "Do not assume every XID has the same severity or recovery path."
-    ],
-    escalateWhen: [
-      "The fault repeats after recovery",
-      "The GPU disappears from the bus",
-      "The fault affects shared fabric like NVLink",
-      "The same code begins appearing across multiple nodes"
-    ],
-    readMore: [
-      "The educational goal is not memorizing every XID, but learning the workflow: identify, classify, contain, and escalate.",
-      "A good beginner habit is to ask: what evidence would make this a memory problem, a link problem, or a full GPU availability problem?"
     ]
   },
   nvlink: {

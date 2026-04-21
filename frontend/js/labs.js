@@ -415,6 +415,8 @@ const LABS = {
         cmd:"dmesg | tail -20 | grep xid",
         type:"xid48",
         fault:true,
+        explainerMode:"beginner_story",
+        whatsHappening:"You are seeing an XID 48 alert, which is the first sign that this incident may be an uncorrectable memory problem rather than a routine slowdown.",
         deeperContext:"This drill starts with a memory-integrity alert. The beginner goal is to stop treating XID numbers as mysterious codes and instead see them as operator signals with specific severity and response expectations.",
         lookFor:[
           "An XID 48 event tied to a specific GPU",
@@ -422,9 +424,8 @@ const LABS = {
           "The need to move from interpretation into confirmation"
         ],
         meaning:"XID 48 is a serious memory fault signal and usually points toward double-bit ECC failure. It is not just another warning event.",
-        justifiedConclusion:"The node may already be in a hardware-integrity incident and needs immediate confirmation work, not passive observation.",
-        stillPremature:"It is still too early to drain or RMA based on the code alone until you confirm the DBE evidence path.",
-        thresholdCrossed:"The fault-investigation threshold is crossed: the alert is strong enough that confirmation must happen immediately.",
+        commonMistake:"Treating the code like random jargon or like a generic performance warning. XID 48 is already telling you this may be a hardware-integrity problem.",
+        operatorTakeaway:"The right response is not to guess, but to confirm quickly. This alert is strong enough that immediate evidence gathering is justified.",
         takeAction:[
           "Tie the code to the affected device before acting broadly.",
           "Use the next step to confirm the DBE evidence path.",
@@ -439,6 +440,8 @@ const LABS = {
         label:"Confirm DBE",
         cmd:"dcgmi dmon -e 157 -c 3",
         type:"xid48_confirm",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the XID 48 alert is backed by uncorrectable ECC counter evidence.",
         deeperContext:"This is the confirmation step that separates suspicion from grounded incident response. It teaches beginners that a strong operator decision should be backed by a second, independent evidence source when possible.",
         lookFor:[
           "Field 157 showing DBE activity instead of staying at 0",
@@ -446,10 +449,8 @@ const LABS = {
           "A hardware-integrity story that is now evidence-backed rather than inferred"
         ],
         meaning:"DBE confirmation turns the XID 48 alert into a grounded uncorrectable-memory incident. The system now has both log evidence and hardware-counter evidence pointing the same way.",
-        changedFromPrevious:"The incident moved from probable fault to confirmed uncorrectable ECC condition.",
-        justifiedConclusion:"Containment and vendor-style remediation are now justified because the evidence supports a real DBE event.",
-        stillPremature:"It is still too early to think a lightweight software fix will make the GPU safe again.",
-        thresholdCrossed:"The containment threshold is crossed once DBE confirmation aligns with the XID 48 alert.",
+        commonMistake:"Continuing to talk about the incident as hypothetical once DBE is confirmed. At this point the evidence is aligned and the memory fault is real.",
+        operatorTakeaway:"This is where the response becomes grounded enough for containment and hardware-style escalation. You are no longer just investigating.",
         takeAction:[
           "Treat the incident as confirmed, not hypothetical.",
           "Prepare containment and escalation based on the grounded evidence.",
@@ -465,6 +466,8 @@ const LABS = {
         cmd:"# Simulating GPU hang",
         type:"xid79",
         fault:true,
+        explainerMode:"beginner_story",
+        whatsHappening:"You are seeing a different fault family now: the GPU appears hung or has fallen off the bus, which is a stability and reachability problem rather than a memory-integrity trend.",
         deeperContext:"Now the drill changes fault family. Beginners should learn that not all XIDs mean the same thing: XID 79 is a stability and bus-reachability problem, not an ECC-memory story.",
         lookFor:[
           "Evidence that the GPU is hung or has fallen off the bus",
@@ -472,10 +475,8 @@ const LABS = {
           "The need for a reset-style recovery path instead of just containment"
         ],
         meaning:"XID 79 usually means the GPU became unreachable on the bus. This is a severe stability event and often requires reset or reboot behavior rather than memory-RMA reasoning.",
-        changedFromPrevious:"The incident shifted from memory-integrity failure to GPU reachability and stability failure. The recovery playbook must change with it.",
-        justifiedConclusion:"A reset attempt is now the right next move because the failure mode suggests the GPU is hung, not just degraded.",
-        stillPremature:"It is still too early to assume a node reboot is required until you see whether a targeted GPU reset succeeds.",
-        thresholdCrossed:"The recovery-path threshold is crossed: the evidence now justifies trying a hardware reset workflow.",
+        commonMistake:"Responding to XID 79 as if it were just another ECC case. It is a different failure shape, so the recovery logic has to change too.",
+        operatorTakeaway:"The node may need recovery, but you still start with the least disruptive justified action. For this fault family, that usually means testing a reset path first.",
         takeAction:[
           "Recognize that this is a different fault family with a different response model.",
           "Use a reset attempt before escalating to full node reboot when appropriate.",
@@ -490,6 +491,8 @@ const LABS = {
         label:"Attempt GPU Reset",
         cmd:"sudo nvidia-smi --gpu-reset -i 3",
         type:"xid79_reset",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are testing whether the hung GPU can be recovered with a targeted reset instead of a whole-node reboot.",
         deeperContext:"This step teaches conditional recovery: not every severe fault goes straight to reboot. Beginners should learn that the operator tests the least disruptive justified recovery action first when the fault family supports it.",
         lookFor:[
           "Whether the GPU reset succeeds or fails cleanly",
@@ -497,10 +500,8 @@ const LABS = {
           "Whether the incident remains local to one GPU or implies a wider node issue"
         ],
         meaning:"A successful reset means the GPU-hang path may be recoverable without full node reboot. A failed reset pushes the incident into a more disruptive recovery tier.",
-        changedFromPrevious:"The workflow moved from identifying the fault family to actively testing the least disruptive justified recovery path.",
-        justifiedConclusion:"Reset outcome now decides whether recovery can stay GPU-scoped or must escalate to node-scoped action.",
-        stillPremature:"It is still too early to declare the node healthy again until the device is reachable and validated after reset.",
-        thresholdCrossed:"The escalation threshold is crossed if the reset fails or the GPU remains unreachable afterward.",
+        commonMistake:"Treating the reset attempt itself as proof of recovery. The point of this step is to answer whether the fault can stay GPU-scoped or must escalate.",
+        operatorTakeaway:"Reset outcome is what drives the next escalation level. This is an evidence-based branch point, not a ritual command.",
         takeAction:[
           "Use the reset result to drive the next escalation level instead of guessing.",
           "If reset fails, treat reboot escalation as grounded, not impulsive.",
@@ -516,6 +517,8 @@ const LABS = {
         cmd:"nvidia-smi nvlink -e",
         type:"xid74",
         fault:true,
+        explainerMode:"beginner_story",
+        whatsHappening:"You are looking at a third fault family: an interconnect problem where the GPUs may still exist, but the fabric between them is degraded.",
         deeperContext:"The final step introduces a third fault family: interconnect faults. This teaches that XID literacy includes understanding whether the problem is memory, device stability, or fabric communication.",
         lookFor:[
           "NVLink CRC or related link-error evidence tied to the fault",
@@ -523,10 +526,8 @@ const LABS = {
           "Hardware-link symptoms that can degrade collectives without fully crashing the node"
         ],
         meaning:"XID 74 usually points to NVLink link trouble such as CRC errors. This is a fabric-quality incident and should be reasoned about as a communication-path problem.",
-        changedFromPrevious:"The drill shifted again, from bus-stability recovery to interconnect diagnosis. The operator now needs fabric reasoning, not reset-only reasoning.",
-        justifiedConclusion:"The node may still compute locally, but GPU-to-GPU communication integrity is now in question and must be treated seriously.",
-        stillPremature:"It is still too early to blame the application stack alone when link-level evidence points to the fabric path.",
-        thresholdCrossed:"The fabric-diagnosis threshold is crossed once XID 74 aligns with NVLink error evidence.",
+        commonMistake:"Lumping XID 74 together with memory or bus faults as if the response were identical. Fabric faults need path reasoning, not just reset or RMA reflexes.",
+        operatorTakeaway:"A node can still compute locally while its GPU-to-GPU communication path is compromised. That is why operators treat fabric faults as production problems even when the box is still online.",
         takeAction:[
           "Read the incident as a link-health problem first.",
           "Use topology and link counters to ground the diagnosis before tuning software.",
