@@ -1296,12 +1296,157 @@ const LABS = {
     color: "#c87941",
     objective: "Lossless Ethernet config.",
     steps: [
-      { label:"Check MTU", cmd:"ip link show eth0", type:"roce_mtu" },
-      { label:"Verify PFC", cmd:"ethtool -A eth0", type:"roce_pfc" },
-      { label:"Check ECN", cmd:"tc qdisc show", type:"roce_ecn" },
-      { label:"Measure BW", cmd:"ib_write_bw -d rxe0", type:"roce_bw" },
-      { label:"Fault: PFC Storm", cmd:"ethtool -S eth0", type:"roce_fault", fault:true },
-      { label:"Tune Buffers", cmd:"# Tuning switch", type:"roce_fix" }
+      {
+        label:"Check MTU",
+        cmd:"ip link show eth0",
+        type:"roce_mtu",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the Ethernet path is using the MTU size the RDMA workflow expects before trusting higher-level performance.",
+        deeperContext:"This is a foundational path-consistency check. Beginners need to see that RoCE success depends on agreement across the path, not just on one interface being up.",
+        lookFor:[
+          "MTU values that match the intended RDMA design",
+          "No obvious mismatch between what the host expects and what the fabric should carry",
+          "A clean baseline before deeper congestion reasoning"
+        ],
+        meaning:"This step tells you whether the path starts from a sensible packet-size assumption for RoCE traffic.",
+        commonMistake:"Ignoring MTU because the link looks up. A mismatched MTU can quietly undermine the whole traffic path before you ever discuss congestion.",
+        operatorTakeaway:"Operators check basic path alignment first so later congestion symptoms are not blamed on the wrong thing.",
+        takeAction:[
+          "Use MTU as a first consistency check for the Ethernet path.",
+          "Treat a mismatch as a real clue, not cosmetic configuration drift.",
+          "Keep the host-side setting tied to the wider network design in your reasoning."
+        ],
+        avoid:[
+          "Do not assume link-up means path alignment is correct.",
+          "Do not skip the basic path check and jump straight to tuning."
+        ]
+      },
+      {
+        label:"Verify PFC",
+        cmd:"ethtool -A eth0",
+        type:"roce_pfc",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether pause-based flow control is configured as expected for the traffic class carrying RDMA.",
+        deeperContext:"This step introduces the beginner to policy-level health. RoCE is not just about bandwidth; it depends on the network applying the right congestion behavior to the right traffic.",
+        lookFor:[
+          "PFC enabled where the design expects it",
+          "No obvious mismatch between host expectations and lossless-traffic policy",
+          "A path that is prepared to handle RDMA traffic without random packet loss"
+        ],
+        meaning:"This step tells you whether the Ethernet fabric is using the pause behavior the RoCE design depends on.",
+        commonMistake:"Thinking PFC is a low-level setting only network teams need to care about. In reality, it directly affects whether distributed GPU traffic stays stable.",
+        operatorTakeaway:"Operators need enough PFC literacy to know whether the path is even configured for the kind of workload the rack is trying to run.",
+        takeAction:[
+          "Confirm the host-side pause settings line up with the intended traffic design.",
+          "Use this to decide whether the fabric is plausibly ready for RoCE.",
+          "Treat missing or mismatched PFC as a serious path-quality clue."
+        ],
+        avoid:[
+          "Do not treat congestion settings as irrelevant to GPU performance.",
+          "Do not assume a healthy Ethernet link implies correct flow-control policy."
+        ]
+      },
+      {
+        label:"Check ECN",
+        cmd:"tc qdisc show",
+        type:"roce_ecn",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the network has a way to signal congestion before the path collapses into pause-heavy behavior or packet loss.",
+        deeperContext:"This step teaches that stable performance often depends on warning and control mechanisms, not just raw speed. ECN helps the fabric react before congestion becomes destructive.",
+        lookFor:[
+          "Congestion signaling configured where the design expects it",
+          "Evidence that the path has a graceful way to handle buildup under load",
+          "Whether the fabric can control pressure instead of only reacting after the fact"
+        ],
+        meaning:"This step tells you whether the network has a healthier congestion-response path than relying only on brute pause behavior.",
+        commonMistake:"Focusing only on PFC and forgetting that ECN is part of making the whole path behave well under load.",
+        operatorTakeaway:"Operators think in terms of the whole congestion-control story, not one knob at a time.",
+        takeAction:[
+          "Use ECN as part of the full path-health picture, not as an isolated detail.",
+          "Compare it with the PFC and MTU evidence you already collected.",
+          "Treat missing congestion signaling as a reason to be cautious about later performance results."
+        ],
+        avoid:[
+          "Do not change one congestion-control mechanism while ignoring the rest of the path.",
+          "Do not assume high speed is enough without healthy congestion behavior."
+        ]
+      },
+      {
+        label:"Measure BW",
+        cmd:"ib_write_bw -d rxe0",
+        type:"roce_bw",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are measuring whether the Ethernet fabric actually delivers the throughput the RoCE path is supposed to provide under RDMA traffic.",
+        deeperContext:"This is the proof step. The prior settings only matter if they result in the kind of stable throughput the distributed workload needs in real life.",
+        lookFor:[
+          "Bandwidth near the healthy expected range",
+          "A result that matches the policy and path assumptions you validated earlier",
+          "Whether the Ethernet fabric behaves like a usable RDMA transport in practice"
+        ],
+        meaning:"This step tells you whether the configured RoCE path is operationally good enough for real distributed work.",
+        commonMistake:"Treating the benchmark as good just because it finishes. Operators care whether the result is healthy for the platform, not merely nonzero.",
+        operatorTakeaway:"Users feel throughput and scaling quality, so benchmark results are where path design becomes user experience.",
+        takeAction:[
+          "Compare the result with a known-good RoCE baseline.",
+          "Use low or unstable bandwidth to revisit the congestion-control story.",
+          "Tie performance back to the earlier MTU, PFC, and ECN checks."
+        ],
+        avoid:[
+          "Do not read the number without platform context.",
+          "Do not assume command success means the path is healthy."
+        ]
+      },
+      {
+        label:"Fault: PFC Storm",
+        cmd:"ethtool -S eth0",
+        type:"roce_fault",
+        fault:true,
+        explainerMode:"beginner_story",
+        whatsHappening:"You are observing a congestion-control failure where pause traffic starts amplifying the problem instead of containing it.",
+        deeperContext:"This is the classic RoCE warning story. The network is still present, but its control behavior under load is now making the distributed path worse instead of protecting it.",
+        lookFor:[
+          "Pause-related counters rising rapidly",
+          "A path that looks alive but behaves badly under pressure",
+          "Evidence that congestion handling itself has become the problem"
+        ],
+        meaning:"The Ethernet fabric is no longer managing RDMA traffic cleanly. The control mechanism meant to help is now contributing to the incident.",
+        commonMistake:"Thinking a pause storm is just a noisy statistic. In practice, it explains why jobs can slow down dramatically without a simple link-down event.",
+        operatorTakeaway:"Operators treat this as a shared-fabric risk because pause storms can affect more than one host or workload at once.",
+        takeAction:[
+          "Use pause counters to connect job slowdown to network-control behavior.",
+          "Start thinking about blast radius, not just one interface.",
+          "Preserve the distinction between an available network and a healthy network."
+        ],
+        avoid:[
+          "Do not ignore pause storms because the link is still technically up.",
+          "Do not reduce this to a host-only issue without checking the wider fabric."
+        ]
+      },
+      {
+        label:"Tune Buffers",
+        cmd:"# Tuning switch",
+        type:"roce_fix",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are applying congestion-control or buffering changes so the Ethernet fabric can carry RDMA traffic without collapsing into pause-heavy instability.",
+        deeperContext:"This final step teaches careful remediation. RoCE fixes usually live at the boundary between host and network policy, so the operator has to make deliberate, evidence-based changes instead of random tuning.",
+        lookFor:[
+          "A targeted change that matches the earlier congestion evidence",
+          "A path that should now handle pressure more gracefully",
+          "Whether the remediation is aimed at the actual control problem you observed"
+        ],
+        meaning:"The fabric is being adjusted so its congestion behavior aligns better with the workload the platform is trying to carry.",
+        commonMistake:"Turning many knobs at once and then not knowing which change actually helped.",
+        operatorTakeaway:"Operators fix RoCE by matching the change to the observed congestion story, then verifying that the distributed workload path really improves.",
+        takeAction:[
+          "Keep the fix narrow and tied to the evidence you collected.",
+          "Verify the impact after the change instead of assuming it worked.",
+          "Treat this as platform tuning, not just a one-host tweak."
+        ],
+        avoid:[
+          "Do not shotgun multiple tuning changes without a verification plan.",
+          "Do not separate remediation from post-change measurement."
+        ]
+      }
     ],
     draw: drawRoCE
   },

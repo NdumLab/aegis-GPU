@@ -324,42 +324,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   roce: {
-    quickAnswer: "RoCEv2 runs RDMA over Ethernet, so correct lossless-network configuration matters. Beginners should learn that the network can look up while still behaving badly for GPU traffic.",
-    whyItMatters: "RoCE incidents are a strong lesson in how congestion control, not just link speed, determines whether distributed training is healthy.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are checking whether Ethernet is configured well enough to carry RDMA traffic for distributed GPU jobs. Think of this as testing whether an ordinary-looking road has the traffic rules needed for very fast freight, not just whether the road exists.",
+    plainPicture: "RoCE lets GPU jobs use RDMA over Ethernet, but that only works well if the congestion controls across the path are aligned. The network can still look up while behaving badly for the kind of traffic AI jobs depend on.",
+    whyOperatorsCare: [
+      "RoCE teaches that a network can be available yet still be wrong for distributed training because congestion handling, not just link speed, determines whether the path stays healthy under load.",
+      "Operators care because pause storms, MTU mismatches, or weak ECN behavior can quietly turn a high-speed fabric into a bottleneck for many jobs at once.",
+      "The beginner lesson is that policy and flow control are part of system health, not background details reserved for network specialists."
+    ],
+    wholePlatform: [
+      "In the bigger platform, RoCE sits between the GPU servers, the switches, and the job scheduler. If the Ethernet fabric is mis-tuned, distributed jobs lose efficiency even when the servers themselves look fine.",
+      "That means this lab is really about platform coordination: host settings, switch behavior, and workload traffic patterns all have to agree for the rack to behave like one fast system.",
+      "So this matters beyond one interface. A RoCE mistake can reduce scaling efficiency across a rack or cluster without creating a simple hard outage."
+    ],
     coreTerms: [
       { term: "RoCEv2", plain: "RDMA over Converged Ethernet version 2, a way to get low-latency remote memory access over Ethernet.", why: "It is common in Ethernet-based AI clusters." },
       { term: "PFC", plain: "Priority Flow Control, a pause mechanism meant to prevent packet loss for important traffic classes.", why: "Misconfiguration can create serious congestion behavior." },
       { term: "ECN", plain: "Explicit Congestion Notification, a way for the network to signal congestion before packet loss occurs.", why: "It helps keep performance stable without overusing pause frames." },
       { term: "PFC storm", plain: "A feedback loop of pause traffic that spreads congestion instead of containing it.", why: "This is one of the most important bad outcomes beginners should recognize." }
     ],
-    lifecycle: [
-      { title: "Set the lossless assumptions", detail: "MTU, PFC, and ECN must align across the path before the cluster behaves as intended." },
-      { title: "Carry RDMA traffic under load", detail: "The network only proves itself when real traffic and congestion arrive." },
-      { title: "Watch congestion signals", detail: "Pause frames and ECN behavior tell you whether the fabric is controlling congestion or amplifying it." },
-      { title: "Tune or isolate the problem", detail: "The operator decides whether the issue is a host setting, a switch policy, or a topology-level problem." }
-    ],
-    watchFor: [
-      "Pause counters rising quickly under training load",
-      "RDMA jobs slowing down while ordinary connectivity still looks fine",
-      "Symptoms that appear only during congestion or multi-node traffic"
+    commonMisreads: [
+      "If Ethernet link-up looks normal, RoCE must be healthy. That is false. Ordinary connectivity does not prove the RDMA path is handling congestion correctly.",
+      "A fast cable or high link speed guarantees good distributed performance. That is false when PFC, ECN, or MTU settings are misaligned.",
+      "Congestion problems must show up as a full outage. That is false. RoCE issues often show up as slow, unstable, or bursty distributed performance instead."
     ],
     safeActions: [
       "Check MTU, PFC, and ECN together rather than in isolation.",
       "Treat a rising pause-frame count as a clue, not a final diagnosis.",
       "Document switch-side counters when network problems affect training."
-    ],
-    whatNotToDo: [
-      "Do not assume Ethernet link-up means the RoCE path is healthy for RDMA.",
-      "Do not change only one congestion-control knob without understanding the rest of the path."
-    ],
-    escalateWhen: [
-      "Pause storms or congestion patterns affect multiple jobs or racks",
-      "Switch-side counters confirm the issue is beyond one host",
-      "Fabric tuning changes could affect many tenants or production users"
-    ],
-    readMore: [
-      "RoCE teaches beginners that performance depends on policy and congestion control, not just cable speed.",
-      "A fabric can be technically up and still operationally wrong for GPU traffic."
     ]
   },
   nccl_fallback: {
