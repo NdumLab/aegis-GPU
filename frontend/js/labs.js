@@ -547,11 +547,132 @@ const LABS = {
     color: "#9b7fe8",
     objective: "Verify 5-layer software compatibility.",
     steps: [
-      { label:"Check Driver", cmd:"cat /proc/driver/nvidia/version", type:"driver_ver" },
-      { label:"Check CUDA", cmd:"nvcc --version", type:"cuda_ver" },
-      { label:"Check PyTorch", cmd:"python3 -c \"import torch\"", type:"torch_check" },
-      { label:"Fault: Mismatch", cmd:"# Simulating version mismatch", type:"cuda_mismatch", fault:true },
-      { label:"Fix with NGC", cmd:"docker pull nvcr.io/nvidia/pytorch", type:"ngc_fix" }
+      {
+        label:"Check Driver",
+        cmd:"cat /proc/driver/nvidia/version",
+        type:"driver_ver",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking the lowest visible software layer that connects the operating system to the GPU.",
+        deeperContext:"The driver is the base of the stack. Beginners need to start here because if the driver layer is wrong or missing, every higher layer can fail in confusing ways.",
+        lookFor:[
+          "A clear NVIDIA driver version string",
+          "Evidence that the operating system can actually talk to the GPU",
+          "A concrete version you can compare against CUDA and framework expectations later"
+        ],
+        meaning:"This step establishes whether the base GPU software layer is present and identifiable.",
+        commonMistake:"Jumping straight to PyTorch or training code without first confirming the driver layer exists and has a known version.",
+        operatorTakeaway:"Operators start from the bottom of the stack. If the base layer is uncertain, every higher-layer error becomes harder to trust.",
+        takeAction:[
+          "Record the exact driver version.",
+          "Use it as the first anchor in the compatibility chain.",
+          "Keep later version checks tied back to this base layer."
+        ],
+        avoid:[
+          "Do not describe the driver as just 'old' or 'new' without the version.",
+          "Do not blame frameworks before the driver is confirmed."
+        ]
+      },
+      {
+        label:"Check CUDA",
+        cmd:"nvcc --version",
+        type:"cuda_ver",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the CUDA toolkit/runtime layer matches the driver and exposes a usable CUDA environment.",
+        deeperContext:"This is the layer many beginners think of first, but it only makes sense after the driver is known. The operator question here is whether the runtime layer fits the driver layer you already observed.",
+        lookFor:[
+          "A concrete CUDA version",
+          "No obvious mismatch between CUDA and the known driver baseline",
+          "A runtime/toolkit level that could plausibly support the intended framework"
+        ],
+        meaning:"This step checks the next compatibility link in the chain: the CUDA layer above the driver.",
+        commonMistake:"Treating CUDA version output as meaningful by itself. It only matters in relation to the driver below it and the framework above it.",
+        operatorTakeaway:"Operators compare layers, not isolated facts. The CUDA version becomes useful only when tied to the driver and framework contract.",
+        takeAction:[
+          "Compare CUDA against the driver you already recorded.",
+          "Use the exact version in later compatibility reasoning.",
+          "Keep moving upward one layer at a time."
+        ],
+        avoid:[
+          "Do not stop at 'CUDA is installed' as if that proves compatibility.",
+          "Do not change the CUDA layer before checking the framework layer above it."
+        ]
+      },
+      {
+        label:"Check PyTorch",
+        cmd:"python3 -c \"import torch\"",
+        type:"torch_check",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the framework layer can actually use the CUDA stack you just verified below it.",
+        deeperContext:"This is where the stack becomes user-visible. A framework may import, fail, or partially see CUDA depending on whether the lower layers truly match what it expects.",
+        lookFor:[
+          "Successful framework import",
+          "Framework visibility into CUDA and the GPU",
+          "Whether the software users actually run is aligned with the lower layers"
+        ],
+        meaning:"This step tests whether the framework layer is compatible enough to sit on top of the driver and CUDA layers.",
+        commonMistake:"Assuming the stack is good because CUDA tools worked. Users care about whether the framework works, not only whether `nvcc` prints a version.",
+        operatorTakeaway:"The framework layer is where stack mismatches become operationally visible to users. A healthy lower stack still has to prove itself here.",
+        takeAction:[
+          "Use framework behavior as the user-facing proof step.",
+          "Compare framework results against the lower-layer versions you already collected.",
+          "If this layer breaks, reason downward before touching everything."
+        ],
+        avoid:[
+          "Do not assume a framework failure is automatically a hardware issue.",
+          "Do not change multiple stack layers before identifying which contract broke."
+        ]
+      },
+      {
+        label:"Fault: Mismatch",
+        cmd:"# Simulating version mismatch",
+        type:"cuda_mismatch",
+        fault:true,
+        explainerMode:"beginner_story",
+        whatsHappening:"You are seeing what a real compatibility break looks like when one layer in the software chain no longer matches the others.",
+        deeperContext:"This is the main teaching moment in the lab. The GPU may be healthy, the node may be online, and the stack can still fail because the layers no longer agree on what is supported.",
+        lookFor:[
+          "A clear mismatch signal between framework and lower software layers",
+          "An error that points to unsupported versions, missing support, or wrong architecture targeting",
+          "A failure story that is software-contract based rather than hardware-integrity based"
+        ],
+        meaning:"The stack contract is broken. This is a compatibility problem, not necessarily a GPU hardware problem.",
+        commonMistake:"Escalating immediately as a hardware incident because the failure mentions CUDA or the GPU. In this lab, the fault is the software chain, not the silicon.",
+        operatorTakeaway:"A healthy GPU can still be unusable to workloads if the software stack is mismatched. Operators have to protect the cluster from false hardware blame here.",
+        takeAction:[
+          "Describe the problem as a compatibility break, not a generic GPU failure.",
+          "Keep the diagnosis tied to the layer mismatch you observed.",
+          "Move to a validated image or known-good stack rather than random upgrades."
+        ],
+        avoid:[
+          "Do not upgrade or downgrade multiple layers blindly.",
+          "Do not take healthy hardware out of service before proving the fault is not just a stack contract problem."
+        ]
+      },
+      {
+        label:"Fix with NGC",
+        cmd:"docker pull nvcr.io/nvidia/pytorch",
+        type:"ngc_fix",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are switching to a validated NVIDIA container image to collapse the stack problem into a known-good baseline.",
+        deeperContext:"This teaches a practical operator move: when the compatibility search space is too wide, use a validated image to remove guesswork and restore a tested stack contract.",
+        lookFor:[
+          "A trusted image source with a tested software combination",
+          "A stack that aligns driver, CUDA, libraries, and framework more predictably",
+          "A recovery path that is narrower and safer than random layer changes"
+        ],
+        meaning:"Using a validated image is a controlled way to restore a known-good software stack.",
+        commonMistake:"Treating container images as just packaging convenience. In this context, the image is also a compatibility-control tool.",
+        operatorTakeaway:"A validated image is often the fastest safe way to tell whether the problem is your custom stack or the underlying node.",
+        takeAction:[
+          "Use the validated image as a compatibility baseline.",
+          "Compare behavior before and after the image change.",
+          "Preserve the old and new version details so the root-cause story stays clear."
+        ],
+        avoid:[
+          "Do not keep guessing across many stack layers once a validated baseline is available.",
+          "Do not call the issue resolved until the workload behavior confirms the stack is actually usable again."
+        ]
+      }
     ],
     draw: drawCUDAStack
   },

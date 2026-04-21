@@ -160,42 +160,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   cuda_stack: {
-    quickAnswer: "The CUDA stack is a compatibility chain: driver, CUDA runtime, libraries, framework, and application. Version mismatch at any layer can break the whole workload.",
-    whyItMatters: "Beginners often blame the GPU first when the real problem is stack compatibility.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are checking whether the software layers above the GPU actually fit together. Think of this like checking whether every adapter in a power chain matches before blaming the appliance at the end.",
+    plainPicture: "The CUDA stack is a compatibility chain: driver, CUDA runtime, libraries, framework, and application. If one layer does not match the others, the workload can fail even when the GPU hardware itself is perfectly healthy.",
+    whyOperatorsCare: [
+      "Beginners often blame the GPU first when the real problem is software compatibility. Operators learn to check the whole stack before calling it a hardware incident.",
+      "This matters because a stack mismatch can waste expensive debugging time, pull healthy nodes out of service, or make supposedly identical servers behave differently under the same workload.",
+      "The key operator skill here is to move layer by layer and prove where the contract breaks instead of changing multiple parts of the stack at once."
+    ],
+    wholePlatform: [
+      "In the bigger platform, the CUDA stack is what turns rack GPU capacity into usable compute for real workloads. Healthy hardware does not help if the software layers above it cannot agree on versions and capabilities.",
+      "Schedulers, images, frameworks, and users all depend on a valid stack contract. If that contract breaks, the node may stay online but become unusable for the jobs that were supposed to land there.",
+      "So this is not just a developer problem inside one environment. Stack compatibility affects whether the server contributes reliable capacity to the cluster and whether operations can trust the node for production work."
+    ],
     coreTerms: [
       { term: "Driver", plain: "The software that lets the operating system talk to the GPU.", why: "Without it, GPU tools and workloads cannot function correctly." },
       { term: "CUDA runtime", plain: "The software layer applications use to run work on NVIDIA GPUs.", why: "It must be compatible with the GPU architecture and driver." },
       { term: "NGC", plain: "NVIDIA GPU Cloud container images with validated software stacks.", why: "These images reduce mismatch risk for beginners." },
       { term: "Compatibility matrix", plain: "A vendor-supported mapping of which driver, CUDA, library, and framework versions work together.", why: "This is how experts reduce guesswork during stack incidents." }
     ],
-    lifecycle: [
-      { title: "Check the base layers", detail: "Start with the driver and CUDA runtime before blaming frameworks or code." },
-      { title: "Verify the framework", detail: "Make sure PyTorch or another framework actually supports the target GPU architecture." },
-      { title: "Use a validated image when in doubt", detail: "A known-good container is often the fastest way to separate environment problems from application bugs." },
-      { title: "Change one layer at a time", detail: "Beginners get into trouble when they change drivers, frameworks, and images all at once and lose the ability to tell what fixed the problem." }
-    ],
-    watchFor: [
-      "Driver present but frameworks still fail to see the target GPU architecture",
-      "Errors that mention unsupported kernels, missing images, or bad architecture targets",
-      "Different nodes behaving differently with the same training code"
+    commonMisreads: [
+      "If the GPU is visible, the software stack must be fine. That is false. Visibility only proves one layer is partly working.",
+      "A CUDA or PyTorch failure must mean bad hardware. That is often false when the real issue is a version contract mismatch.",
+      "The fastest fix is to upgrade everything at once. That is false. Changing too many layers together destroys the evidence trail."
     ],
     safeActions: [
       "Record exact versions instead of saying something is just old or new.",
       "Prefer validated container images for first recovery attempts.",
       "Avoid changing multiple stack layers at once."
-    ],
-    whatNotToDo: [
-      "Do not downgrade or upgrade the driver blindly without checking compatibility first.",
-      "Do not assume a newer version is automatically better for every layer in the stack."
-    ],
-    escalateWhen: [
-      "The same workload fails across multiple supposedly identical nodes",
-      "You cannot identify a supported version combination from vendor guidance",
-      "A stack fix would affect many users or many production jobs"
-    ],
-    readMore: [
-      "A stack problem often looks like a GPU problem because the crash happens near CUDA or PyTorch. The real issue is usually the contract between layers, not the silicon itself.",
-      "Validated images matter because they collapse a large compatibility search space into one tested baseline."
     ]
   },
   container: {
