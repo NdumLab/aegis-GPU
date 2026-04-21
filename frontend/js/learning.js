@@ -291,42 +291,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   ib_fabric: {
-    quickAnswer: "InfiniBand fabric health determines whether multi-node GPU jobs can move data fast enough. The beginner lesson is that link state and error counters matter as much as raw bandwidth numbers.",
-    whyItMatters: "InfiniBand problems often look like training or NCCL problems until someone checks the fabric itself.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are checking whether the cluster's InfiniBand network is actually healthy enough for multi-node GPU jobs. Think of this like inspecting the highway between servers, not just the servers themselves.",
+    plainPicture: "InfiniBand is the fast fabric that lets servers exchange data quickly during distributed work. A node can look healthy by itself while the path between nodes is still weak, noisy, or partially down.",
+    whyOperatorsCare: [
+      "Many distributed training problems feel like software issues until someone checks the fabric and finds bad ports, dirty counters, or an unstable path.",
+      "Operators care because the interconnect decides whether multi-node GPU jobs scale cleanly or waste time waiting on the network.",
+      "The beginner skill here is learning that the network path is part of the AI system, not just background plumbing."
+    ],
+    wholePlatform: [
+      "In the bigger platform, InfiniBand is what turns many separate GPU servers into one usable cluster for distributed jobs. If the fabric is unhealthy, the rack stops behaving like one coordinated system.",
+      "That affects more than one benchmark. Scheduler placement, NCCL efficiency, and user-visible training throughput all depend on this path being clean.",
+      "So this lab matters because it teaches how problems spread beyond one host: one bad port, cable, HCA, or switch path can hurt many jobs at once."
+    ],
     coreTerms: [
       { term: "InfiniBand", plain: "A high-performance network technology used for low-latency cluster communication.", why: "Many GPU clusters depend on it for distributed training." },
       { term: "Port state", plain: "Whether a network port is active, down, or otherwise unhealthy.", why: "A single bad port can collapse an entire path." },
       { term: "perfquery", plain: "A tool that reads InfiniBand performance counters and error counters.", why: "It turns a vague network suspicion into evidence." },
       { term: "Fabric sweep", plain: "A broader inspection of multiple links and devices across the interconnect.", why: "This helps distinguish one bad node from a wider network problem." }
     ],
-    lifecycle: [
-      { title: "Verify the link comes up", detail: "Before testing performance, confirm the expected ports are active and visible." },
-      { title: "Read the counters", detail: "Error counters reveal whether the path is merely present or actually clean enough for production traffic." },
-      { title: "Measure the workload impact", detail: "Bandwidth and job behavior tell you whether the network problem is theoretical or already hurting training." },
-      { title: "Expand from local to fabric-wide", detail: "If one path looks bad, the next step is deciding whether the issue is isolated or systemic." }
-    ],
-    watchFor: [
-      "Ports that are down or unstable when the cluster expects them to be active",
-      "Error counters increasing under traffic",
-      "Collective or RDMA performance collapsing even though nodes are otherwise healthy"
+    commonMisreads: [
+      "If nodes can still ping or SSH, the fabric must be fine. That is false. Management reachability does not prove the RDMA path is healthy.",
+      "A network issue only matters if the link is completely down. That is false. A noisy or unstable path can damage performance long before it becomes a full outage.",
+      "If one host looks bad, the problem must stay local. That is often false because fabric faults can affect many nodes or shared switch paths."
     ],
     safeActions: [
       "Check link state before tuning anything.",
       "Use counters to see whether the fabric is clean or noisy.",
       "Document the exact host and port that is unhealthy."
-    ],
-    whatNotToDo: [
-      "Do not assume a port is healthy just because the node itself is reachable.",
-      "Do not jump into application tuning before verifying the underlying fabric path."
-    ],
-    escalateWhen: [
-      "Multiple ports or nodes show the same unhealthy pattern",
-      "The fabric issue affects production job throughput",
-      "Counter growth suggests a recurring physical or switch-side problem"
-    ],
-    readMore: [
-      "A fabric problem often feels mysterious because jobs still start and nodes still ping. Counters and link state are how operators turn that mystery into a concrete network story.",
-      "For beginners, the important mental shift is to treat the interconnect as a first-class part of the AI system, not just background plumbing."
     ]
   },
   roce: {

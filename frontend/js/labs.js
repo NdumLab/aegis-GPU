@@ -1136,12 +1136,157 @@ const LABS = {
     color: "#4a9eff",
     objective: "Verify fabric health.",
     steps: [
-      { label:"Check Ports", cmd:"ibstat", type:"ib_stat" },
-      { label:"Check Errors", cmd:"perfquery", type:"ib_perfq" },
-      { label:"RDMA BW Test", cmd:"ib_write_bw", type:"ib_bw" },
-      { label:"Fault: Port Down", cmd:"# Cable unplugged", type:"ib_fault", fault:true },
-      { label:"ibdiagnet", cmd:"ibdiagnet --pc", type:"ib_diag" },
-      { label:"Sweep Fabric", cmd:"ibdiagnet --pc --pm", type:"ib_sweep" }
+      {
+        label:"Check Ports",
+        cmd:"ibstat",
+        type:"ib_stat",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the expected InfiniBand ports are actually up before trusting anything about cluster performance.",
+        deeperContext:"This is the first health gate for the fabric. Beginners need to learn that a distributed cluster can look available while the fast interconnect path between nodes is not actually ready for production traffic.",
+        lookFor:[
+          "Ports in the expected Active state",
+          "Expected HCAs and ports present on the host",
+          "A fabric path that exists before you start measuring it"
+        ],
+        meaning:"This step tells you whether the network path is even available in principle.",
+        commonMistake:"Assuming the cluster is fine because the server itself is reachable. Server reachability and fabric health are not the same thing.",
+        operatorTakeaway:"Operators start here because no amount of later tuning matters if the expected RDMA path is not actually up.",
+        takeAction:[
+          "Use this as the first availability check for the fast network path.",
+          "Record which host and port you are looking at so later evidence stays specific.",
+          "Treat missing or down ports as fabric evidence, not just host trivia."
+        ],
+        avoid:[
+          "Do not jump straight to application tuning before link state is known.",
+          "Do not confuse node health with fabric health."
+        ]
+      },
+      {
+        label:"Check Errors",
+        cmd:"perfquery",
+        type:"ib_perfq",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the active InfiniBand path is clean or already accumulating errors under traffic.",
+        deeperContext:"A port being up is not enough. This step teaches that links can be present but noisy, and noisy links often explain mysterious distributed slowdowns before a full outage happens.",
+        lookFor:[
+          "Error counters that stay flat in a healthy case",
+          "Counter growth that suggests a dirty or unstable path",
+          "Evidence that the fabric is present but not trustworthy"
+        ],
+        meaning:"This step separates an available path from a healthy production path.",
+        commonMistake:"Stopping at link-up and assuming that means the network is fine. Dirty counters tell a more operationally useful story than link state alone.",
+        operatorTakeaway:"Operators rely on counters because they turn vague network suspicion into concrete physical-path evidence.",
+        takeAction:[
+          "Use counters to decide whether the path is clean enough to trust.",
+          "Compare error growth with the timing of workload symptoms.",
+          "Treat persistent counter growth as an early warning, not something to ignore."
+        ],
+        avoid:[
+          "Do not call the fabric healthy based on link state alone.",
+          "Do not ignore low-level counter evidence because jobs still run."
+        ]
+      },
+      {
+        label:"RDMA BW Test",
+        cmd:"ib_write_bw",
+        type:"ib_bw",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are measuring whether the fabric delivers the throughput the cluster design promises for RDMA traffic.",
+        deeperContext:"This is the proof stage. A healthy fabric should not just look connected; it should behave like a fast path under load when a benchmark exercises it.",
+        lookFor:[
+          "Bandwidth near the expected healthy range",
+          "Results that line up with the earlier link-state and counter story",
+          "Whether the network is fast enough for real distributed workloads"
+        ],
+        meaning:"This step tells you whether the interconnect is operationally healthy, not just electrically present.",
+        commonMistake:"Treating a successful benchmark run as enough without checking whether the number is actually good for this platform.",
+        operatorTakeaway:"Operators care about user-visible throughput. The benchmark tells you whether the fabric is delivering the performance the rack is supposed to provide.",
+        takeAction:[
+          "Compare the result with a known-good baseline for the platform.",
+          "Tie the throughput result back to the earlier port and counter evidence.",
+          "Use low bandwidth as a reason to widen the investigation."
+        ],
+        avoid:[
+          "Do not judge success by command completion alone.",
+          "Do not compare numbers without platform context."
+        ]
+      },
+      {
+        label:"Fault: Port Down",
+        cmd:"# Cable unplugged",
+        type:"ib_fault",
+        fault:true,
+        explainerMode:"beginner_story",
+        whatsHappening:"You are looking at what happens when a critical InfiniBand path is no longer up, which breaks the expected fast route through the fabric.",
+        deeperContext:"This fault step makes the failure concrete. Beginners need to see that one missing path can change the behavior of many-node workloads even if the host itself still appears alive and usable.",
+        lookFor:[
+          "A missing or down port in a place where the cluster expects an active path",
+          "A mismatch between intended topology and current fabric state",
+          "The beginning of a blast-radius question: who else depends on this path"
+        ],
+        meaning:"The cluster no longer has the full network path it expected for healthy distributed traffic.",
+        commonMistake:"Treating this as just one server issue. In reality, a down fabric path can reduce performance or break communication for many jobs that cross it.",
+        operatorTakeaway:"Operators think beyond the single host here. The key question becomes what jobs, nodes, or switch paths are affected by this missing link.",
+        takeAction:[
+          "Use the fault to start blast-radius reasoning, not just host-local reasoning.",
+          "Connect the missing port to the workloads that depend on it.",
+          "Prepare to widen the investigation beyond one node."
+        ],
+        avoid:[
+          "Do not dismiss a down port because the server still boots and logs in.",
+          "Do not assume the effect stays local."
+        ]
+      },
+      {
+        label:"ibdiagnet",
+        cmd:"ibdiagnet --pc",
+        type:"ib_diag",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are collecting broader fabric diagnostics so the issue can be compared against the rest of the interconnect, not just one local command view.",
+        deeperContext:"This is the point where the investigation grows from host-local evidence into network-level evidence. Beginners need to learn when a problem deserves a wider fabric diagnostic instead of staying trapped on one node.",
+        lookFor:[
+          "A wider picture of path health beyond one interface",
+          "Whether the observed issue is isolated or echoed elsewhere",
+          "Evidence that helps distinguish host-side from fabric-wide trouble"
+        ],
+        meaning:"This step expands the investigation from one symptom to a more trustworthy network view.",
+        commonMistake:"Staying on one host too long and assuming that local evidence alone explains the whole incident.",
+        operatorTakeaway:"Operators widen scope at the right time. Once the local evidence suggests fabric trouble, broader diagnostics help separate one bad endpoint from a shared network problem.",
+        takeAction:[
+          "Use wider diagnostics to test whether the issue repeats elsewhere in the fabric.",
+          "Preserve the difference between isolated and systemic evidence.",
+          "Treat this as the transition from node troubleshooting to cluster troubleshooting."
+        ],
+        avoid:[
+          "Do not keep the whole investigation trapped on one node when the fabric itself may be involved.",
+          "Do not assume one local symptom describes the entire network."
+        ]
+      },
+      {
+        label:"Sweep Fabric",
+        cmd:"ibdiagnet --pc --pm",
+        type:"ib_sweep",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are sweeping the broader InfiniBand fabric to understand whether the issue is isolated, repeated, or systemic across the cluster.",
+        deeperContext:"This final step teaches real operator scope control. Once there is enough evidence that the problem may extend beyond one host, the right move is to check the wider fabric and decide on blast radius and containment.",
+        lookFor:[
+          "Patterns repeated across more than one host or path",
+          "Signs that switch-side or multi-path issues are involved",
+          "Whether the incident should be treated as a local repair or a wider cluster risk"
+        ],
+        meaning:"This step tells you how far the fabric problem reaches and therefore how big the operational response needs to be.",
+        commonMistake:"Stopping after one local fix attempt and missing that the same pattern exists elsewhere in the rack or cluster.",
+        operatorTakeaway:"Operators use the sweep to decide whether this is a single-host incident, a shared-path incident, or a broader network event that needs containment.",
+        takeAction:[
+          "Use the sweep to define blast radius clearly.",
+          "Tie containment decisions to observed scope, not guesswork.",
+          "Escalate the issue appropriately if the fabric problem is wider than one node."
+        ],
+        avoid:[
+          "Do not assume the incident is isolated until the wider fabric is checked.",
+          "Do not make rack-level claims from host-only evidence."
+        ]
+      }
     ],
     draw: drawIBFabric
   },
