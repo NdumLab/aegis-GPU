@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aegis-GPU | NCA-AIIO</title>
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/styles.css?v=20260421a">
 <script src="js/hardware.js"></script>
 <script src="js/render.js"></script>
-<script src="js/labs.js?v=20260417f"></script>
-<script src="js/learning.js?v=20260417f"></script>
+<script src="js/labs.js?v=20260421a"></script>
+<script src="js/learning.js?v=20260421a"></script>
 <script src="js/explain.js?v=20260417g"></script>
-<script src="js/app.js?v=20260417j" defer></script>
+<script src="js/app.js?v=20260421a" defer></script>
 </head>
 <body>
 
@@ -184,7 +184,10 @@
           </div>
         </div>
         <div class="metric-group live-explainer" id="live-explainer">
-          <div class="metric-group-title">Live Explain</div>
+          <div class="metric-group-title metric-group-title-row">
+            <span>Live Explain</span>
+            <button class="panel-popout-btn" id="btn-popout-live-explainer" type="button" title="Open Live Explain in a separate window">Pop out</button>
+          </div>
           <div id="live-explainer-body" class="live-explainer-body">Turn on Live Telemetry to see a beginner-friendly explanation of the current hardware state and evidence quality.</div>
         </div>
       </div>
@@ -219,7 +222,10 @@
                 <div class="lab-step-coach-kicker">Lab Coach</div>
                 <div class="lab-step-coach-title">How To Use Labs</div>
               </div>
-              <button class="lab-step-coach-close" id="btn-close-coach" aria-label="Close lab guide">✕</button>
+              <div class="lab-step-coach-actions">
+                <button class="panel-popout-btn" id="btn-popout-coach" type="button" title="Open Lab Guide in a separate window">Pop out</button>
+                <button class="lab-step-coach-close" id="btn-close-coach" aria-label="Close lab guide">✕</button>
+              </div>
             </div>
             <div class="lab-step-coach-content" id="lab-step-coach-content">
               <p>Select a lab and start a step. This panel will explain what the command is trying to show, what to notice in the output, and how to tell whether the result is healthy or degraded.</p>

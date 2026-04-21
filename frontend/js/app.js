@@ -30,6 +30,10 @@ let backendLLMAvailable = false;
 let backendLLMMode = 'deterministic';
 let labCoachOpen = localStorage.getItem('gpusim_lab_coach_open');
 labCoachOpen = labCoachOpen === null ? true : labCoachOpen === 'true';
+let detachedPanels = {
+  liveExplainer: null,
+  stepCoach: null,
+};
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -133,6 +137,7 @@ function syncBeginnerModeUI() {
   }
   const coachBtn = document.getElementById('btn-toggle-coach');
   if (coachBtn) coachBtn.classList.toggle('active', labCoachOpen);
+  syncDetachedPanelButtons();
   const learnBtn = document.getElementById('btn-learn');
   if (learnBtn) {
     const engine = getExplainEngine();
@@ -207,6 +212,132 @@ function renderBulletList(items, cssClass) {
 function renderParagraphs(items) {
   if (!items || !items.length) return '';
   return items.map(item => `<p>${escHtml(item)}</p>`).join('');
+}
+
+function isDetachedPanelOpen(kind) {
+  const win = detachedPanels[kind];
+  return !!(win && !win.closed);
+}
+
+function syncDetachedPanelButtons() {
+  const liveBtn = document.getElementById('btn-popout-live-explainer');
+  if (liveBtn) {
+    liveBtn.classList.toggle('active', isDetachedPanelOpen('liveExplainer'));
+    liveBtn.textContent = isDetachedPanelOpen('liveExplainer') ? 'Detached' : 'Pop out';
+  }
+  const coachBtn = document.getElementById('btn-popout-coach');
+  if (coachBtn) {
+    coachBtn.classList.toggle('active', isDetachedPanelOpen('stepCoach'));
+    coachBtn.textContent = isDetachedPanelOpen('stepCoach') ? 'Detached' : 'Pop out';
+  }
+}
+
+function getDetachedPanelSnapshot(kind) {
+  if (kind === 'liveExplainer') {
+    return {
+      title: 'Live Explain',
+      kicker: 'Telemetry Guide',
+      shellClass: 'metric-group live-explainer',
+      bodyHtml: document.getElementById('live-explainer-body')?.innerHTML || '<p>Live explanation is unavailable.</p>',
+    };
+  }
+
+  return {
+    title: document.querySelector('#lab-step-coach .lab-step-coach-title')?.textContent || 'Lab Guide',
+    kicker: document.querySelector('#lab-step-coach .lab-step-coach-kicker')?.textContent || 'Lab Coach',
+    shellClass: 'lab-step-coach-shell',
+    bodyHtml: document.getElementById('lab-step-coach-content')?.innerHTML || '<p>Lab guide is unavailable.</p>',
+  };
+}
+
+function renderDetachedPanel(kind) {
+  const win = detachedPanels[kind];
+  if (!win || win.closed) {
+    detachedPanels[kind] = null;
+    syncDetachedPanelButtons();
+    return;
+  }
+
+  const snapshot = getDetachedPanelSnapshot(kind);
+  const doc = win.document;
+
+  if (!doc.getElementById('detached-panel-root')) {
+    doc.open();
+    doc.write(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aegis ${escHtml(snapshot.title)}</title>
+  <link rel="stylesheet" href="css/styles.css?v=20260417j">
+</head>
+<body class="detached-panel-window">
+  <div class="detached-panel-frame" id="detached-panel-root"></div>
+</body>
+</html>`);
+    doc.close();
+    win.addEventListener('beforeunload', () => {
+      detachedPanels[kind] = null;
+      syncDetachedPanelButtons();
+    });
+  }
+
+  const root = doc.getElementById('detached-panel-root');
+  if (!root) return;
+
+  if (kind === 'liveExplainer') {
+    root.innerHTML = `
+      <section class="${snapshot.shellClass}">
+        <div class="metric-group-title metric-group-title-row">
+          <span>${escHtml(snapshot.title)}</span>
+          <button class="panel-popout-btn" id="btn-detached-focus-main" type="button">Focus App</button>
+        </div>
+        <div class="live-explainer-body">${snapshot.bodyHtml}</div>
+      </section>
+    `;
+  } else {
+    root.innerHTML = `
+      <section class="${snapshot.shellClass}">
+        <div class="lab-step-coach-topbar">
+          <div>
+            <div class="lab-step-coach-kicker">${escHtml(snapshot.kicker)}</div>
+            <div class="lab-step-coach-title">${escHtml(snapshot.title)}</div>
+          </div>
+          <button class="panel-popout-btn" id="btn-detached-focus-main" type="button">Focus App</button>
+        </div>
+        <div class="lab-step-coach-content">${snapshot.bodyHtml}</div>
+      </section>
+    `;
+  }
+
+  const focusBtn = doc.getElementById('btn-detached-focus-main');
+  if (focusBtn) focusBtn.onclick = () => window.focus();
+}
+
+function syncDetachedPanels() {
+  renderDetachedPanel('liveExplainer');
+  renderDetachedPanel('stepCoach');
+}
+
+function openDetachedPanel(kind) {
+  const existing = detachedPanels[kind];
+  if (existing && !existing.closed) {
+    existing.focus();
+    syncDetachedPanelButtons();
+    renderDetachedPanel(kind);
+    return;
+  }
+
+  const width = kind === 'liveExplainer' ? 560 : 720;
+  const height = kind === 'liveExplainer' ? 860 : 980;
+  const left = window.screenX + 80;
+  const top = window.screenY + 60;
+  const win = window.open('', `aegis_${kind}`, `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`);
+  if (!win) return;
+  detachedPanels[kind] = win;
+  syncDetachedPanelButtons();
+  renderDetachedPanel(kind);
+  win.focus();
 }
 
 function renderOperatorStoryGuide(guide) {
@@ -460,6 +591,7 @@ function renderLabStepCoach() {
 
   if (activeTab === 'parser') {
     el.classList.add('is-hidden');
+    syncDetachedPanels();
     return;
   }
 
@@ -478,6 +610,7 @@ function renderLabStepCoach() {
       </div>
     `;
     content.scrollTop = 0;
+    syncDetachedPanels();
     return;
   }
 
@@ -500,6 +633,7 @@ function renderLabStepCoach() {
       </div>
     `;
     content.scrollTop = 0;
+    syncDetachedPanels();
     return;
   }
 
@@ -524,6 +658,7 @@ function renderLabStepCoach() {
   if (beginnerMode && step.explainerMode === 'beginner_story') {
     content.innerHTML = renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote);
     content.scrollTop = 0;
+    syncDetachedPanels();
     return;
   }
 
@@ -575,6 +710,7 @@ function renderLabStepCoach() {
     </div>
   `;
   content.scrollTop = 0;
+  syncDetachedPanels();
 }
 
 function renderGuidedStepDetails(step, prevStep) {
@@ -785,6 +921,7 @@ function renderBeginnerTelemetryExplanation(liveData) {
 
   if (!liveData) {
     body.innerHTML = '<p>Turn on Live Telemetry to see a beginner-friendly explanation of the current hardware state and evidence quality.</p>';
+    syncDetachedPanels();
     return;
   }
 
@@ -795,6 +932,7 @@ function renderBeginnerTelemetryExplanation(liveData) {
     const source = escHtml(liveData.source || 'unknown-source');
     const quality = liveData.degraded ? 'best-effort' : 'direct';
     body.innerHTML = `<p><strong>Compact view:</strong> this telemetry is coming from <strong>${source}</strong> using a <strong>${quality}</strong> evidence path. Turn on Beginner Mode for deeper explanations of telemetry scope, missing evidence, diagnosis trust, and action confidence.</p>`;
+    syncDetachedPanels();
     return;
   }
 
@@ -829,6 +967,7 @@ function renderBeginnerTelemetryExplanation(liveData) {
     </ul>
     ${collectionErrors ? `<div class="live-explainer-block"><div class="live-explainer-title">Missing evidence sources</div><ul class="live-explainer-list">${collectionErrors}</ul></div>` : ''}
   `;
+  syncDetachedPanels();
 }
 
 function renderDiagnosisExplanation(data) {
@@ -863,6 +1002,7 @@ function setLiveExplainerIdle(message) {
   const body = document.getElementById('live-explainer-body');
   if (!body) return;
   body.innerHTML = `<p>${escHtml(message)}</p>`;
+  syncDetachedPanels();
 }
 
 function describeIncidentKind(kind) {
@@ -1565,6 +1705,8 @@ function bindUIHandlers() {
   on('sel-explain-role', 'change', e => setExplanationRole(e.target.value));
   on('btn-toggle-coach', 'click', toggleLabCoach);
   on('btn-close-coach', 'click', () => setLabCoachOpen(false));
+  on('btn-popout-coach', 'click', () => openDetachedPanel('stepCoach'));
+  on('btn-popout-live-explainer', 'click', () => openDetachedPanel('liveExplainer'));
   const coachEl = document.getElementById('lab-step-coach');
   if (coachEl) coachEl.addEventListener('click', handleLabCoachClick);
 
