@@ -522,42 +522,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   k8s: {
-    quickAnswer: "Kubernetes GPU operations combine container orchestration with accelerator scheduling. The beginner lesson is that a pod being pending does not automatically mean the GPU is broken.",
-    whyItMatters: "Kubernetes adds another control plane between the user and the hardware, so beginners need help separating scheduling, operator, and node-level issues.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are learning how Kubernetes turns a GPU request in a pod spec into a real running workload on a node. Think of this like adding another dispatch layer between users and hardware: more automation, but also more places where translation can go wrong.",
+    plainPicture: "Kubernetes GPU operations are about making the control plane, the GPU operator, the node, and the workload all agree on what resources exist and how they should be started. A pod being stuck does not automatically mean the GPU itself is broken.",
+    whyOperatorsCare: [
+      "Kubernetes introduces another control layer between the user and the node, which means incidents can live in the request, the scheduler, the operator, or the node runtime.",
+      "Operators care because GPU availability in Kubernetes depends on both infrastructure health and correct resource advertisement through the control plane.",
+      "The beginner lesson is that orchestration issues often feel like hardware issues until you separate where the translation failed."
+    ],
+    wholePlatform: [
+      "In the bigger platform, Kubernetes is the system that turns cluster hardware into a shared service. It connects users, control-plane policy, node software, and accelerator runtime into one delivery path.",
+      "That means a GPU problem in Kubernetes may really be a scheduling problem, an operator problem, or a node advertisement problem. The whole platform has to agree before the workload can run.",
+      "So this lab matters because it teaches how modern GPU platforms fail by translation and coordination, not only by hardware faults."
+    ],
     coreTerms: [
       { term: "GPU Operator", plain: "A Kubernetes-managed package that helps install and manage NVIDIA GPU software components on cluster nodes.", why: "It automates many cluster-side GPU dependencies." },
       { term: "Extended resource", plain: "A schedulable resource type like nvidia.com/gpu that Kubernetes tracks in integer quantities.", why: "It explains why GPU requests and availability behave differently from CPU and memory." },
       { term: "Gang scheduling", plain: "A scheduling approach that waits until all pods in a distributed job can start together.", why: "It prevents partially started training jobs from hanging." },
       { term: "Pending", plain: "A pod state meaning the workload has been accepted but not yet placed and started successfully.", why: "This is where beginners often misread orchestration delay as hardware failure." }
     ],
-    lifecycle: [
-      { title: "Advertise GPU resources", detail: "Nodes and operators expose the GPU resources Kubernetes can schedule." },
-      { title: "Schedule the workload", detail: "Kubernetes decides where the pod can land based on requested resources and policy." },
-      { title: "Start the GPU environment", detail: "The container, runtime, and node-level GPU stack all have to line up for the pod to work." },
-      { title: "Coordinate distributed jobs", detail: "For tightly coupled training, scheduling all pods together may matter as much as launching one pod successfully." }
-    ],
-    watchFor: [
-      "Pods stuck in Pending because resources are exhausted or not advertised",
-      "Operator health problems that prevent GPUs from being exposed correctly",
-      "Distributed jobs partially starting when they really need gang scheduling"
+    commonMisreads: [
+      "If the pod is pending, the physical GPU must be broken. That is false. Pending often starts as a scheduling or advertisement problem.",
+      "The pod spec is the only place to debug. That is false when the operator or node resource view is wrong.",
+      "If one pod started, a distributed job is healthy. That is false when the workload really needs all pods to start together."
     ],
     safeActions: [
       "Read the scheduling reason before changing nodes or workloads.",
       "Check both operator health and node resource advertisement.",
       "Use gang scheduling for tightly coupled distributed jobs."
-    ],
-    whatNotToDo: [
-      "Do not assume a Pending pod means the physical GPU is broken.",
-      "Do not troubleshoot only the pod manifest if the operator or node advertisement is unhealthy."
-    ],
-    escalateWhen: [
-      "GPU resources disappear from multiple nodes unexpectedly",
-      "The operator stack itself is unhealthy or crash-looping",
-      "Scheduling behavior is blocking distributed jobs cluster-wide"
-    ],
-    readMore: [
-      "Kubernetes incidents are often about translation: the user asks for GPUs, the control plane decides placement, and the node stack has to make that request real.",
-      "A beginner gets much stronger when they can ask: is this problem in the request, the scheduler, the operator, or the node?"
     ]
   }
 
