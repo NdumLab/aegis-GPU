@@ -456,42 +456,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   monitoring: {
-    quickAnswer: "Monitoring turns one-off troubleshooting into continuous visibility. The beginner lesson is that metrics are not just numbers; they are early warnings and confirmation signals.",
-    whyItMatters: "A strong monitoring layer is where beginners stop reacting to surprises and start noticing patterns before users report them.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are turning GPU health from something you check manually into something the platform watches continuously. Think of this like putting gauges and alarms on a machine so you notice drift before the machine fully breaks.",
+    plainPicture: "Monitoring means the cluster keeps collecting health signals over time instead of waiting for a user to say something feels wrong. The value is not just seeing numbers, but turning patterns into earlier decisions.",
+    whyOperatorsCare: [
+      "Monitoring is where operators stop relying on luck and start seeing trends like rising ECC, thermal drift, or missing telemetry before jobs fail visibly.",
+      "Operators care because dashboards and alerts shorten the time between a problem starting and someone responding to it.",
+      "The beginner lesson is that metrics are only useful when they help explain what is changing and what action should follow."
+    ],
+    wholePlatform: [
+      "In the bigger platform, monitoring connects GPUs, nodes, dashboards, and alerting systems into one operational feedback loop. It is how a rack becomes observable instead of mysterious.",
+      "That means monitoring is not just a support tool. It affects incident response, capacity planning, and whether teams learn about problems from telemetry or from angry users.",
+      "So this lab matters because a platform without good monitoring may still run, but it becomes much harder to trust or operate safely at scale."
+    ],
     coreTerms: [
       { term: "DCGM", plain: "Data Center GPU Manager, NVIDIA's management and monitoring toolkit for GPUs.", why: "Many GPU health dashboards and exporters are built on it." },
       { term: "Exporter", plain: "A service that exposes metrics in a format another system can scrape.", why: "It is how GPU signals reach Prometheus." },
       { term: "Prometheus", plain: "A monitoring system that collects and queries time-series metrics.", why: "It is often the first place operators see cluster health trends." },
       { term: "Alert rule", plain: "A condition that turns a metric pattern into a notification or page.", why: "This is where visibility becomes operational action." }
     ],
-    lifecycle: [
-      { title: "Expose the metrics", detail: "An exporter publishes GPU health and performance signals in a scrapeable format." },
-      { title: "Scrape and store", detail: "Prometheus collects those signals over time so you can spot patterns, not just snapshots." },
-      { title: "Visualize the behavior", detail: "Dashboards help beginners connect numbers with operational stories like heat, ECC growth, or degraded throughput." },
-      { title: "Alert on the right patterns", detail: "Good alerts focus on meaningful changes such as rising ECC trends or degraded telemetry coverage, not only hard crashes." }
-    ],
-    watchFor: [
-      "Signals that trend upward over time, such as ECC or thermal stress",
-      "Gaps in expected metrics that indicate telemetry itself is degraded",
-      "Alerts that fire too often or not at all"
+    commonMisreads: [
+      "Monitoring means putting every number on a dashboard. That is false. Operators care about the signals that change decisions.",
+      "If no alert fired, the platform must be healthy. That is false when telemetry itself is missing or badly designed.",
+      "A graph is enough on its own. That is false unless the team also knows what action should follow when the graph changes."
     ],
     safeActions: [
       "Know which signals are health indicators and which are just workload indicators.",
       "Create alerts for trend-based failures, not only binary outages.",
       "Use dashboards to compare before and after, not just to stare at a single value."
-    ],
-    whatNotToDo: [
-      "Do not alert on every noisy metric without deciding what action the alert should trigger.",
-      "Do not assume missing metrics mean everything is healthy; they may mean telemetry is broken."
-    ],
-    escalateWhen: [
-      "Critical health metrics disappear unexpectedly",
-      "Alert rules are noisy enough to hide the real incidents",
-      "Teams are repeatedly learning about failures from users instead of dashboards"
-    ],
-    readMore: [
-      "Monitoring is not just about visibility. It is about building trust in the system's story over time.",
-      "For beginners, the most useful dashboards are the ones that connect a metric to a likely next action."
     ]
   },
   slurm: {

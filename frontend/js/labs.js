@@ -1907,12 +1907,157 @@ const LABS = {
     color: "#76b900",
     objective: "Metrics at :9400.",
     steps: [
-      { label:"Deploy Exporter", cmd:"docker run dcgm-exporter", type:"mon_deploy" },
-      { label:"Verify Metrics", cmd:"curl localhost:9400/metrics", type:"mon_verify" },
-      { label:"Prom Scrape", cmd:"# Scraping config", type:"mon_prom" },
-      { label:"Grafana ID 12239", cmd:"# Import dashboard", type:"mon_grafana" },
-      { label:"Create Alert", cmd:"# Prometheus rule", type:"mon_alert" },
-      { label:"Test Alert", cmd:"# Simulating DBE", type:"mon_test", fault:true }
+      {
+        label:"Deploy Exporter",
+        cmd:"docker run dcgm-exporter",
+        type:"mon_deploy",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are starting the service that exposes GPU health data so the rest of the monitoring stack can see it.",
+        deeperContext:"This is the first observability step. Beginners should learn that metrics do not appear magically; something has to publish them in a form the platform can collect.",
+        lookFor:[
+          "A running exporter process",
+          "A clear source for GPU metrics instead of manual spot checks",
+          "The first link in the monitoring pipeline"
+        ],
+        meaning:"This step turns raw GPU state into data the platform can actually collect and reason about over time.",
+        commonMistake:"Thinking monitoring begins at the dashboard. It actually begins where the metric leaves the node.",
+        operatorTakeaway:"Operators care about the exporter because if the source is broken, every downstream graph and alert becomes untrustworthy.",
+        takeAction:[
+          "Treat exporter health as part of platform health.",
+          "Use this step to establish where the metrics originate.",
+          "Remember that good monitoring starts with reliable metric exposure."
+        ],
+        avoid:[
+          "Do not skip source health and jump straight to dashboards.",
+          "Do not assume monitoring exists just because software was installed."
+        ]
+      },
+      {
+        label:"Verify Metrics",
+        cmd:"curl localhost:9400/metrics",
+        type:"mon_verify",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking that the exporter is actually serving readable metrics instead of only existing as a running process.",
+        deeperContext:"This is the proof-of-telemetry step. Beginners need to see that a service being up is not enough; it must also expose the expected signals cleanly.",
+        lookFor:[
+          "Real metric output at the expected endpoint",
+          "Health and performance signals you expect to see",
+          "Evidence that the monitoring pipeline has usable data to collect"
+        ],
+        meaning:"This step confirms the exporter is not just running, but actually publishing metrics the rest of the system can scrape.",
+        commonMistake:"Calling the setup done because the exporter container started, even if the endpoint is empty or wrong.",
+        operatorTakeaway:"Operators verify the actual metric stream because missing or malformed telemetry is its own incident class.",
+        takeAction:[
+          "Use endpoint output as proof that telemetry is alive.",
+          "Check that the metrics you care about are actually present.",
+          "Treat missing signals as operationally meaningful."
+        ],
+        avoid:[
+          "Do not stop at process status alone.",
+          "Do not assume the right metrics exist without checking the endpoint."
+        ]
+      },
+      {
+        label:"Prom Scrape",
+        cmd:"# Scraping config",
+        type:"mon_prom",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are connecting Prometheus to the exporter so the metrics are collected over time instead of only viewed on demand.",
+        deeperContext:"This is where one-off visibility becomes historical visibility. Beginners should learn that trends and comparisons require storage, not just a live endpoint.",
+        lookFor:[
+          "A scrape target that can reach the exporter",
+          "Metrics being collected repeatedly over time",
+          "The point where spot checks become time-series evidence"
+        ],
+        meaning:"This step turns one live metric view into a lasting operational record.",
+        commonMistake:"Thinking the endpoint itself is enough. Without scraping and storage, you lose the trend information that makes monitoring useful.",
+        operatorTakeaway:"Operators care about scrape health because without it, there is no trustworthy history to compare before and after states.",
+        takeAction:[
+          "Treat scrape configuration as part of the monitoring pipeline, not a separate detail.",
+          "Use this step to connect raw telemetry to historical analysis.",
+          "Verify that collection is continuous, not accidental."
+        ],
+        avoid:[
+          "Do not confuse endpoint availability with historical observability.",
+          "Do not assume trends will exist if nobody is collecting the metrics."
+        ]
+      },
+      {
+        label:"Grafana ID 12239",
+        cmd:"# Import dashboard",
+        type:"mon_grafana",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are turning raw collected metrics into a visual view that helps people recognize health patterns quickly.",
+        deeperContext:"Dashboards are where many beginners first learn to connect numbers to stories like thermal pressure, ECC drift, or missing telemetry. The key is that the chart should help reasoning, not just decoration.",
+        lookFor:[
+          "Panels that show meaningful health trends",
+          "A layout that helps you compare signals instead of hunting blindly",
+          "A visual story that supports faster incident recognition"
+        ],
+        meaning:"This step makes the metric history easier for humans to interpret during normal operations and incidents.",
+        commonMistake:"Thinking any dashboard is useful. A dashboard only helps if it makes operational stories and changes obvious.",
+        operatorTakeaway:"Operators use dashboards to reduce ambiguity, not to create a wall of unreadable charts.",
+        takeAction:[
+          "Choose panels that help explain likely decisions.",
+          "Use dashboards to compare healthy and unhealthy states.",
+          "Keep the focus on operator reasoning, not visual clutter."
+        ],
+        avoid:[
+          "Do not build dashboards that show everything but explain nothing.",
+          "Do not treat visualization as the final goal."
+        ]
+      },
+      {
+        label:"Create Alert",
+        cmd:"# Prometheus rule",
+        type:"mon_alert",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are turning a meaningful metric pattern into a rule that can actively notify someone when the platform drifts into a risky state.",
+        deeperContext:"This is where visibility becomes action. Beginners need to learn that alerts should be tied to decisions and response paths, not just to interesting numbers.",
+        lookFor:[
+          "A rule based on a meaningful failure pattern",
+          "Alert logic that maps to a real operator response",
+          "The point where passive monitoring becomes active protection"
+        ],
+        meaning:"This step tells the platform what kinds of metric behavior deserve interruption, notification, or investigation.",
+        commonMistake:"Alerting on every noisy metric without deciding what the team should do when it fires.",
+        operatorTakeaway:"Operators design alerts to improve response, not to create more background noise.",
+        takeAction:[
+          "Tie alerts to actions the team can actually take.",
+          "Prefer patterns that indicate real degradation or risk.",
+          "Use this step to separate useful alerts from vanity alerts."
+        ],
+        avoid:[
+          "Do not create alerts without a response plan.",
+          "Do not confuse noisy visibility with operational readiness."
+        ]
+      },
+      {
+        label:"Test Alert",
+        cmd:"# Simulating DBE",
+        type:"mon_test",
+        fault:true,
+        explainerMode:"beginner_story",
+        whatsHappening:"You are simulating a meaningful fault to prove that the alert path really works end to end.",
+        deeperContext:"This final step teaches that monitoring is only trustworthy if it is tested. A rule that looks good on paper but never fires correctly during a real fault is not operational protection.",
+        lookFor:[
+          "The alert firing when the simulated condition appears",
+          "A clear end-to-end path from metric change to operator signal",
+          "Evidence that the monitoring system reacts the way the design intended"
+        ],
+        meaning:"This step proves whether the monitoring and alerting chain is actually usable during a real incident.",
+        commonMistake:"Assuming an alert is good because the rule syntax exists, without ever testing whether it triggers correctly.",
+        operatorTakeaway:"Operators test alerts because untested monitoring creates false confidence at exactly the wrong moment.",
+        takeAction:[
+          "Use testing to prove the full alert path, not just the metric source.",
+          "Capture what good alert behavior looks like for future validation.",
+          "Treat failed alert tests as real reliability problems."
+        ],
+        avoid:[
+          "Do not trust untested alerts during production incidents.",
+          "Do not stop at configuration without validating behavior."
+        ]
+      }
     ],
     draw: drawMonitoring
   },
