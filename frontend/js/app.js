@@ -362,6 +362,15 @@ function renderOperatorStoryGuide(guide) {
     `);
   }
 
+  if (guide.wholePlatform && guide.wholePlatform.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>How This Fits The Bigger Picture</h4>
+        ${renderParagraphs(guide.wholePlatform)}
+      </section>
+    `);
+  }
+
   if (guide.coreTerms && guide.coreTerms.length) {
     sections.push(`
       <section class="learn-section">

@@ -15,6 +15,11 @@ window.AEGIS_LEARNING = {
       "This matters because the node may still look available while the memory story is getting worse. Beginners need to learn that 'still running' does not mean 'still safe.'",
       "The operator skill here is to separate three states clearly: healthy baseline, warning trend, and stop-now containment event."
     ],
+    wholePlatform: [
+      "In the bigger platform, ECC is one of the signals that tells you whether a GPU node is still trustworthy enough to keep in the scheduling pool.",
+      "Schedulers, workload owners, and the rest of the rack depend on operators making the right call here. If a bad card stays in service too long, jobs can crash, data can be corrupted, and the incident can spread into user-visible disruption.",
+      "So ECC is not just about one chip having bad memory. It directly affects whether the node stays available to the cluster and whether the rack is still delivering reliable GPU capacity."
+    ],
     coreTerms: [
       {
         term: "ECC",
@@ -107,6 +112,11 @@ window.AEGIS_LEARNING = {
       "A node can look alive and still be operationally degraded. That is what makes topology reading important for beginners: uptime is not the same as healthy interconnect performance.",
       "This lab teaches a core operator habit: first learn the expected fabric layout, then check whether the links are clean, then confirm whether the workload sees the same story."
     ],
+    wholePlatform: [
+      "In the bigger platform, NVLink is part of the communication spine inside the server. If it is healthy, multi-GPU jobs get the fast collective path they were sized and scheduled for.",
+      "If it degrades, the whole node can still appear online, but distributed workloads may slow down sharply, waste expensive GPU time, or fall back to less efficient communication paths.",
+      "So this is not just a low-level fabric detail. It affects how well the server contributes to the rack, how efficiently the scheduler uses the node, and whether real training workloads get the performance the platform promised."
+    ],
     coreTerms: [
       { term: "NVLink", plain: "A direct high-bandwidth GPU-to-GPU connection used for fast communication inside systems like DGX or HGX.", why: "This is the fast path that high-performance collective workloads expect." },
       { term: "Topology", plain: "The map of which GPUs connect directly to which other GPUs and what path traffic takes between them.", why: "You cannot reason about good or bad communication performance without knowing the intended map." },
@@ -135,6 +145,11 @@ window.AEGIS_LEARNING = {
       "When you partition a GPU, you are not only sharing capacity. You are changing the isolation story of the node.",
       "That matters because operators care about blast radius: if one tenant, one process, or one slice has a problem, how much of the machine is affected?",
       "Beginners often assume MIG is just a Kubernetes trick. It is not. The GPU must enter MIG mode first, and that changes what the hardware advertises to the software stack."
+    ],
+    wholePlatform: [
+      "In the bigger platform, MIG partitions become the GPU resources that schedulers and users actually consume. A workload does not just get 'GPU access' in the abstract; it gets one specific slice with a specific amount of compute and memory.",
+      "That means the partition layout affects tenancy, capacity planning, fairness, and performance expectations across the node. A badly planned layout can make the server look shared while still giving users the wrong resource shape.",
+      "So MIG is not only a hardware trick inside one card. It changes how the node presents capacity to Kubernetes, Slurm, or users, and it directly shapes how the rack's GPU inventory is consumed."
     ],
     coreTerms: [
       { term: "MIG", plain: "Multi-Instance GPU, a way to carve one physical GPU into smaller isolated hardware slices.", why: "This is how one expensive GPU can be shared more safely across teams." },
