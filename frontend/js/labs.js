@@ -1773,11 +1773,131 @@ const LABS = {
     color: "#00d4d4",
     objective: "Bypass CPU for DMA.",
     steps: [
-      { label:"Traditional Path", cmd:"# NVMe->CPU->GPU", type:"gds_old" },
-      { label:"GDS Path", cmd:"# NVMe->GPU DMA", type:"gds_new" },
-      { label:"Verify GDS", cmd:"python3 -c \"import cufile\"", type:"gds_verify" },
-      { label:"Measure Trad", cmd:"# 890 MB/s", type:"gds_bench_old" },
-      { label:"Measure GDS", cmd:"# 2.4 GB/s", type:"gds_bench_new" }
+      {
+        label:"Traditional Path",
+        cmd:"# NVMe->CPU->GPU",
+        type:"gds_old",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are starting from the normal storage path where data makes extra stops before it reaches GPU memory.",
+        deeperContext:"This first step teaches the baseline mental model. Beginners need to understand the longer path before a 'direct' path has any meaning.",
+        lookFor:[
+          "A route where storage data passes through more software-managed handling",
+          "Extra movement and copying before data reaches the GPU",
+          "The baseline path you will compare against later"
+        ],
+        meaning:"This is the conventional path many systems use by default. It works, but it can involve more overhead than necessary for data-heavy workloads.",
+        commonMistake:"Jumping straight to the optimized path without first understanding what extra work the traditional path is doing.",
+        operatorTakeaway:"Operators need a clear baseline because optimizations only matter if they remove real overhead from a known starting path.",
+        takeAction:[
+          "Picture the longer route before reasoning about the shorter one.",
+          "Treat this step as the baseline story for later comparison.",
+          "Keep CPU involvement in mind as part of the path cost."
+        ],
+        avoid:[
+          "Do not treat the default path as 'bad' just because a faster one may exist.",
+          "Do not compare optimizations without a baseline."
+        ]
+      },
+      {
+        label:"GDS Path",
+        cmd:"# NVMe->GPU DMA",
+        type:"gds_new",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are looking at the shorter storage path where data can move more directly toward GPU memory.",
+        deeperContext:"This step introduces the architectural idea behind GDS. The beginner lesson is that performance can improve when you remove unnecessary handoffs, not only when you buy faster devices.",
+        lookFor:[
+          "A route with fewer software-managed stops",
+          "Less CPU involvement in moving data toward the GPU",
+          "A path design that should reduce overhead if it is truly supported"
+        ],
+        meaning:"The direct path is meant to reduce extra handling so the system can move storage data more efficiently into GPU memory.",
+        commonMistake:"Assuming the direct-looking diagram proves the feature is active in the real environment.",
+        operatorTakeaway:"Operators distinguish between architecture intent and verified runtime reality. A shorter path on paper is only useful if the stack actually provides it.",
+        takeAction:[
+          "Use this step to understand what GDS is trying to improve.",
+          "Compare it mentally against the traditional path you just reviewed.",
+          "Prepare to verify the feature before trusting benchmark claims."
+        ],
+        avoid:[
+          "Do not confuse a conceptual path with a proven runtime path.",
+          "Do not assume the environment is already using GDS."
+        ]
+      },
+      {
+        label:"Verify GDS",
+        cmd:"python3 -c \"import cufile\"",
+        type:"gds_verify",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the environment actually exposes the interface needed for GPUDirect Storage.",
+        deeperContext:"This is the proof-of-availability step. Beginners should learn that an optimization is not real just because the hardware and marketing terms exist; the software path has to be present too.",
+        lookFor:[
+          "The expected interface appearing in the environment",
+          "A sign that the runtime stack can actually support the direct path",
+          "Whether the optimization is real enough to benchmark meaningfully"
+        ],
+        meaning:"This step tells you whether GDS is plausibly available, not just theoretically desirable.",
+        commonMistake:"Running performance tests first and only later discovering the feature was never present in the environment.",
+        operatorTakeaway:"Operators verify capability before they spend time interpreting performance results.",
+        takeAction:[
+          "Use feature verification as a gate before benchmarking.",
+          "Treat missing support as a real finding, not a minor inconvenience.",
+          "Keep software capability in the same story as hardware capability."
+        ],
+        avoid:[
+          "Do not assume the direct path is active because the cluster uses NVIDIA components.",
+          "Do not benchmark a feature that has not been verified."
+        ]
+      },
+      {
+        label:"Measure Trad",
+        cmd:"# 890 MB/s",
+        type:"gds_bench_old",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are measuring the baseline throughput of the traditional storage path.",
+        deeperContext:"This benchmark gives the before case. The point is not the raw number alone, but what the old path delivers under the same workload you will use for the new path.",
+        lookFor:[
+          "The throughput of the non-GDS route",
+          "A stable baseline for later comparison",
+          "A result that reflects the longer path you mapped earlier"
+        ],
+        meaning:"This is the benchmark anchor for deciding whether the shorter path actually delivers better end-to-end movement.",
+        commonMistake:"Treating the baseline as irrelevant once the optimized path exists. Without the baseline, you cannot prove the value of the change.",
+        operatorTakeaway:"Operators need controlled before-and-after numbers, not just a faster-looking final result.",
+        takeAction:[
+          "Capture the baseline carefully so later gains mean something.",
+          "Keep the workload identical for both comparisons.",
+          "Use this step as the reference point for judging real benefit."
+        ],
+        avoid:[
+          "Do not change the workload between before and after measurements.",
+          "Do not dismiss the baseline as unimportant."
+        ]
+      },
+      {
+        label:"Measure GDS",
+        cmd:"# 2.4 GB/s",
+        type:"gds_bench_new",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are measuring the direct storage path to see whether the shorter route actually improves end-to-end throughput.",
+        deeperContext:"This final step closes the loop from path design to runtime verification to workload impact. GDS only matters if the shorter path produces a meaningful, repeatable improvement.",
+        lookFor:[
+          "Higher throughput than the traditional-path baseline",
+          "A result that matches the verified direct-path story",
+          "Evidence that reduced path overhead translates into user-visible benefit"
+        ],
+        meaning:"If the direct path performs materially better, the optimization is real and valuable for this workload and environment.",
+        commonMistake:"Assuming any higher number proves a universal truth about every workload instead of treating it as evidence for this specific path and test.",
+        operatorTakeaway:"Operators judge optimizations by measured outcome, not by feature names alone.",
+        takeAction:[
+          "Compare the new number directly against the baseline.",
+          "Tie the gain back to the verified direct path you established earlier.",
+          "Capture the result as evidence of what the platform can really deliver."
+        ],
+        avoid:[
+          "Do not celebrate the acronym without checking the outcome.",
+          "Do not generalize one benchmark into a universal guarantee."
+        ]
+      }
     ],
     draw: drawGDS
   },

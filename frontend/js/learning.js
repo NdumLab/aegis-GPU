@@ -423,42 +423,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   gds: {
-    quickAnswer: "GPUDirect Storage shortens the data path by reducing CPU involvement in moving data from storage to GPU memory. Beginners should think of it as removing extra copies and extra stops.",
-    whyItMatters: "GDS is a clean teaching example of how architecture choices, not just device speed, affect end-to-end throughput.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are comparing the normal storage-to-GPU path with a more direct one. Think of this like removing unnecessary handoffs in a delivery route so the package gets to the destination faster and with less handling.",
+    plainPicture: "GPUDirect Storage shortens the route data takes from storage to GPU memory. The point is not just that it sounds advanced, but that fewer copies and fewer CPU-managed steps can improve end-to-end throughput.",
+    whyOperatorsCare: [
+      "This lab teaches that performance is often about path design, not just raw device speed. A faster route can matter as much as a faster component.",
+      "Operators care because GDS can reduce CPU overhead and improve data movement for storage-heavy workloads when the environment really supports it.",
+      "The beginner lesson is that optimizations only count if the direct path is real, measurable, and stable under workload."
+    ],
+    wholePlatform: [
+      "In the bigger platform, GDS is about how storage, drivers, and GPUs cooperate as one data path. A good rack is not only fast at compute; it is also efficient at moving data to where compute happens.",
+      "That means GDS sits at the intersection of storage design, driver capability, and workload shape. If one of those pieces is missing, the fancy direct path is mostly marketing, not production value.",
+      "So this lab matters because it teaches how infrastructure design choices change the real path users depend on, not just the names of the technologies involved."
+    ],
     coreTerms: [
       { term: "GPUDirect Storage", plain: "A technology that allows data to move more directly between storage and GPU memory.", why: "It can reduce CPU overhead and improve throughput." },
       { term: "DMA", plain: "Direct Memory Access, a hardware-assisted way to move data without constant CPU handling.", why: "It is the mechanism that makes direct paths efficient." },
       { term: "cufile", plain: "The software interface commonly used for GPUDirect Storage operations.", why: "It is a practical sign that the feature is available in the environment." },
       { term: "Data path", plain: "The route data takes from storage to the GPU.", why: "GDS only makes sense if beginners can picture the path it is shortening." }
     ],
-    lifecycle: [
-      { title: "Start with the traditional path", detail: "Data moves through more software and CPU-managed steps before reaching the GPU." },
-      { title: "Enable the direct path", detail: "The system uses GPUDirect Storage to reduce unnecessary handling and copies." },
-      { title: "Verify the feature is real", detail: "The operator confirms the environment actually supports the needed interfaces before trusting any benchmark." },
-      { title: "Compare end-to-end results", detail: "The value of GDS is proven by the throughput and CPU-overhead change, not by the acronym alone." }
-    ],
-    watchFor: [
-      "Whether the environment actually exposes the interfaces needed for GDS",
-      "Reduced CPU involvement alongside improved storage-to-GPU throughput",
-      "Benchmarks that improve only after the direct path is confirmed"
+    commonMisreads: [
+      "If the cluster uses NVIDIA GPUs, GDS must already be active. That is false. The direct path has to be verified, not assumed.",
+      "A GDS feature check alone proves user benefit. That is false. Operators care whether throughput and CPU overhead actually improve.",
+      "A faster benchmark always means GDS was the reason. That is false unless the before-and-after path comparison is controlled."
     ],
     safeActions: [
       "Verify the feature exists before benchmarking it.",
       "Compare the old path and new path with the same workload.",
       "Treat GDS as an optimization, not a default assumption."
-    ],
-    whatNotToDo: [
-      "Do not assume GDS is active just because the cluster uses NVIDIA GPUs.",
-      "Do not compare different workloads and call it a valid before-and-after benchmark."
-    ],
-    escalateWhen: [
-      "The direct path is expected by design but missing in production",
-      "Benchmark gains do not appear even after the feature is supposedly enabled",
-      "Changes to enable GDS would affect shared storage or driver policy"
-    ],
-    readMore: [
-      "GDS is useful educationally because it teaches that throughput is often about path design, not just device specs.",
-      "A shorter path is only valuable if it is real, measurable, and stable under workload."
     ]
   },
   monitoring: {
