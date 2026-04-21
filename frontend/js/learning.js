@@ -258,42 +258,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   allreduce: {
-    quickAnswer: "AllReduce is how distributed training makes every GPU agree on the same gradient update. When it breaks or slows down, training still looks alive but performance collapses.",
-    whyItMatters: "Beginners often focus on whether the job started. AllReduce teaches them to care about whether the distributed system is synchronizing efficiently.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are tracing how many GPUs combine their gradient updates into one shared answer. Think of it like a group trying to agree on one final number before everyone can continue working.",
+    plainPicture: "AllReduce is the teamwork checkpoint inside distributed training. Each GPU has part of the update, and the job only stays correct if the group combines that information and gives the same result back to everyone.",
+    whyOperatorsCare: [
+      "This is one of the clearest places where a cluster can fail softly. The job stays up, but communication slows down enough to waste large amounts of GPU time.",
+      "Operators care because a weak transport path, bad rank, or wrong NCCL path selection usually shows up here before users can explain why training suddenly feels slow.",
+      "The beginner lesson is that healthy distributed jobs are not just about compute. Shared synchronization quality matters just as much."
+    ],
+    wholePlatform: [
+      "In the bigger platform, AllReduce is where the node, rack fabric, and scheduler promises meet the workload. Fast GPUs do not help much if the communication phase between them is weak.",
+      "A bad AllReduce path can make an expensive rack behave like a much smaller system because every iteration waits on the slowest communication link.",
+      "That is why this lab matters beyond one command. It teaches how a user actually experiences platform quality during distributed work."
+    ],
     coreTerms: [
       { term: "Ring algorithm", plain: "A pattern where each rank passes data to neighbors in stages until the reduction is complete.", why: "It helps beginners picture why one weak link hurts the whole group." },
       { term: "Collective", plain: "An operation involving many ranks at once, not just one sender and one receiver.", why: "Many GPU communication failures are collective failures." },
       { term: "NCCL", plain: "NVIDIA's library for multi-GPU communication collectives.", why: "It is the common tool behind AllReduce performance and failures." },
       { term: "Bandwidth baseline", plain: "The expected healthy throughput range for a given rack design and transport path.", why: "Without a baseline, beginners cannot tell whether a job is slow or normal." }
     ],
-    lifecycle: [
-      { title: "Choose the communication path", detail: "NCCL selects the path it believes is best for the cluster topology and transport configuration." },
-      { title: "Reduce the partial results", detail: "Each rank contributes data into the collective so the group can compute one shared update." },
-      { title: "Distribute the final result", detail: "The synchronized value is sent back out so every rank can keep training from the same state." },
-      { title: "Performance exposes weak links", detail: "If one path, rank, or transport is unhealthy, the collective still runs but its throughput drops sharply." }
-    ],
-    watchFor: [
-      "Large gap between expected and observed collective throughput",
-      "One communication phase dominating the training timeline",
-      "Topology or transport changes lining up with bandwidth collapse"
+    commonMisreads: [
+      "If the training job started, the communication path must be fine. That is false. AllReduce can still be badly degraded while the job stays alive.",
+      "A slow collective must be a model-code problem. That is often false when the real issue is path selection, transport health, or one weak participant.",
+      "Seeing NCCL logs is enough. It is not. Operators care about whether throughput matches the healthy baseline, not just whether a library printed output."
     ],
     safeActions: [
-      "Use throughput numbers to confirm whether the collective path is healthy.",
-      "Check whether NCCL is using the intended transport path.",
-      "Do not assume a code bug until the communication path is verified."
-    ],
-    whatNotToDo: [
-      "Do not judge AllReduce health by uptime alone; the collective can be alive and still badly degraded.",
-      "Do not compare bandwidth numbers without knowing the expected rack baseline."
-    ],
-    escalateWhen: [
-      "Collective throughput stays far below the healthy design target",
-      "The same collective slowdown appears across repeated runs or multiple jobs",
-      "The transport path flips unexpectedly after a cluster or environment change"
-    ],
-    readMore: [
-      "AllReduce is one of the best places to teach that distributed systems can fail softly. The operation still completes, but the job loses most of its efficiency.",
-      "That is why operator vocabulary includes not just faults and outages, but path selection and throughput verification."
+      "Check what path NCCL actually chose before touching deeper code.",
+      "Compare collective throughput to a healthy baseline, not just to your intuition.",
+      "Treat one weak communication phase as a cluster-efficiency problem, not merely a library detail."
     ]
   },
   ib_fabric: {

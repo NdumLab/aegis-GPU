@@ -976,12 +976,157 @@ const LABS = {
     color: "#00d4d4",
     objective: "Trace Ring Algorithm.",
     steps: [
-      { label:"Check Path", cmd:"NCCL_DEBUG=INFO torchrun train.py", type:"nccl_path" },
-      { label:"Ring Reduce", cmd:"# Step 1/8", type:"ring1" },
-      { label:"Ring Gather", cmd:"# Step 8/8", type:"ring2" },
-      { label:"Benchmark", cmd:"./all_reduce_perf", type:"ar_bench" },
-      { label:"Fault: IB Disable", cmd:"export NCCL_IB_DISABLE=1", type:"ar_fault", fault:true },
-      { label:"Fix IB Path", cmd:"unset NCCL_IB_DISABLE", type:"ar_fix" }
+      {
+        label:"Check Path",
+        cmd:"NCCL_DEBUG=INFO torchrun train.py",
+        type:"nccl_path",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking how NCCL plans to move collective traffic before trusting the job's performance.",
+        deeperContext:"This first step teaches that distributed training can look alive while already using the wrong path. Beginners need to learn that communication health starts with path selection, not just with whether processes launched.",
+        lookFor:[
+          "Which transport path NCCL actually selected",
+          "Whether the software story matches the hardware you expected to use",
+          "Any clue that the collective may already be on a weaker path than intended"
+        ],
+        meaning:"This step tells you whether the job is even starting from the right communication plan.",
+        commonMistake:"Assuming the cluster will always choose the best path automatically. In practice, environment mistakes and transport issues can quietly change what NCCL uses.",
+        operatorTakeaway:"Operators check the chosen path early because a wrong path can waste an otherwise healthy rack before any obvious fault appears.",
+        takeAction:[
+          "Use this step to establish the healthy-path expectation before judging performance.",
+          "Compare the selected path with the node and fabric design you intended.",
+          "Treat path selection as the first health gate for collectives."
+        ],
+        avoid:[
+          "Do not judge collective health by process startup alone.",
+          "Do not skip the path check and go straight to blaming the model."
+        ]
+      },
+      {
+        label:"Ring Reduce",
+        cmd:"# Step 1/8",
+        type:"ring1",
+        explainerMode:"beginner_story",
+        whatsHappening:"Each rank is sending part of its gradient data around the ring so the group can start combining one shared answer.",
+        deeperContext:"This is the first half of the collective. The beginner lesson is that AllReduce is not magic; it is many small coordinated handoffs, which means one slow link can slow the whole ring.",
+        lookFor:[
+          "A smooth early reduction phase across all participants",
+          "No sign that one rank or path is already lagging behind the rest",
+          "A collective that behaves like a coordinated relay rather than isolated local work"
+        ],
+        meaning:"The group is beginning to combine separate gradient pieces into one shared result.",
+        commonMistake:"Thinking only the final throughput number matters. The ring itself matters because each stage depends on the previous handoff working cleanly.",
+        operatorTakeaway:"Operators care because this step makes the rack act like one system. A weak hop here becomes a whole-job slowdown, not a small local defect.",
+        takeAction:[
+          "Mentally picture the ring as many handoffs, not one big invisible operation.",
+          "Use lag or asymmetry here as a clue that one path may already be unhealthy.",
+          "Connect local link quality to shared job efficiency."
+        ],
+        avoid:[
+          "Do not think of collective communication as background noise.",
+          "Do not assume one fast GPU can compensate for one slow communication hop."
+        ]
+      },
+      {
+        label:"Ring Gather",
+        cmd:"# Step 8/8",
+        type:"ring2",
+        explainerMode:"beginner_story",
+        whatsHappening:"The shared result is being distributed back out so every rank ends with the same synchronized update.",
+        deeperContext:"This step completes the agreement loop. The job is only truly synchronized when every participant receives the same final value and can continue from the same model state.",
+        lookFor:[
+          "The synchronized result returning cleanly to all ranks",
+          "No sign that one part of the ring is delaying the final redistribution",
+          "A full-group outcome instead of a partial or uneven result"
+        ],
+        meaning:"This is the moment the collective becomes useful to training because all participants can now move forward together.",
+        commonMistake:"Focusing only on the reduce phase and forgetting that the final redistribution is part of the same health story.",
+        operatorTakeaway:"Operators watch the whole collective path, not just the first half, because the job only benefits if every rank ends in the same place.",
+        takeAction:[
+          "Treat reduce and gather as one health story with two visible phases.",
+          "Use this step to reinforce that synchronization must finish everywhere, not just somewhere.",
+          "Think about the user impact: one delayed rank delays everyone."
+        ],
+        avoid:[
+          "Do not call the collective healthy if only part of the ring looks good.",
+          "Do not confuse partial progress with synchronized success."
+        ]
+      },
+      {
+        label:"Benchmark",
+        cmd:"./all_reduce_perf",
+        type:"ar_bench",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are measuring whether the collective path delivers the throughput the platform is supposed to provide.",
+        deeperContext:"This is where theory becomes evidence. A healthy path should not just exist; it should produce throughput near the expected design range for the node or rack.",
+        lookFor:[
+          "Bandwidth near the healthy expected baseline",
+          "A benchmark result that matches the chosen path and topology story",
+          "Whether communication is efficient enough for real training jobs"
+        ],
+        meaning:"This step tells you whether the collective is healthy in practice, not just in logs or diagrams.",
+        commonMistake:"Calling the path healthy because the operation completed. Completion is not the same as acceptable distributed efficiency.",
+        operatorTakeaway:"Operators use benchmarks to prove whether users are getting the rack performance they paid for.",
+        takeAction:[
+          "Compare the result to a known healthy baseline.",
+          "Tie the benchmark back to the earlier path-selection evidence.",
+          "Use low throughput as a reason to keep investigating transport quality."
+        ],
+        avoid:[
+          "Do not use raw numbers without context.",
+          "Do not assume success means the performance is good enough."
+        ]
+      },
+      {
+        label:"Fault: IB Disable",
+        cmd:"export NCCL_IB_DISABLE=1",
+        type:"ar_fault",
+        fault:true,
+        explainerMode:"beginner_story",
+        whatsHappening:"You are forcing NCCL off the fast InfiniBand path so the collective has to use a weaker fallback route.",
+        deeperContext:"This fault teaches one of the most important beginner lessons in distributed systems: the job can keep running while efficiency collapses. The platform looks alive, but the workload experience becomes much worse.",
+        lookFor:[
+          "A clear path change away from the intended fast transport",
+          "Bandwidth or timing getting noticeably worse even though the job still runs",
+          "A concrete example of soft failure rather than hard outage"
+        ],
+        meaning:"The collective is still functioning, but it is no longer using the transport path the platform was designed for.",
+        commonMistake:"Thinking this is a minor detail because nothing crashed. In production, slow collectives can waste huge amounts of GPU time without triggering an outright outage.",
+        operatorTakeaway:"Operators treat fallback paths seriously because users feel them as slow training, poor scaling, and wasted rack capacity.",
+        takeAction:[
+          "Use this step to connect transport quality to user-visible throughput loss.",
+          "Notice that slow success is still an operational failure.",
+          "Preserve the before-and-after story so the fault stays teachable."
+        ],
+        avoid:[
+          "Do not dismiss a fallback just because the job remains up.",
+          "Do not confuse availability with health."
+        ]
+      },
+      {
+        label:"Fix IB Path",
+        cmd:"unset NCCL_IB_DISABLE",
+        type:"ar_fix",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are restoring access to the intended fast transport so the collective can return to its healthy path.",
+        deeperContext:"This final step teaches disciplined remediation. The goal is not just to reverse a setting, but to prove that the communication path, and therefore user-facing throughput, recovers as expected.",
+        lookFor:[
+          "The fast transport becoming available again",
+          "The collective story returning to the healthy expected path",
+          "Evidence that the prior slowdown came from path choice, not random chance"
+        ],
+        meaning:"The system is being returned to the transport path it was designed to use for efficient distributed synchronization.",
+        commonMistake:"Stopping after the config change and assuming the issue is solved without checking the resulting throughput or logs.",
+        operatorTakeaway:"Operators close the loop by verifying that a targeted fix actually restores cluster efficiency, not just configuration intent.",
+        takeAction:[
+          "Verify the path and the resulting bandwidth after the fix.",
+          "Use this step to reinforce the habit of proof-after-change.",
+          "Capture the lesson that communication fixes must be measured, not assumed."
+        ],
+        avoid:[
+          "Do not call the fix complete without post-change validation.",
+          "Do not separate remediation from outcome verification."
+        ]
+      }
     ],
     draw: drawAllReduce
   },
