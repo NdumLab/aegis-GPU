@@ -816,12 +816,157 @@ const LABS = {
     color: "#76b900",
     objective: "Walk through AllReduce sync.",
     steps: [
-      { label:"Launch DDP", cmd:"torchrun train.py", type:"ddp_launch" },
-      { label:"Forward Pass", cmd:"# Sharding batch", type:"ddp_fwd" },
-      { label:"Backward Pass", cmd:"# Computing local grads", type:"ddp_bwd" },
-      { label:"AllReduce Sync", cmd:"# Averaging grads", type:"ddp_allreduce" },
-      { label:"Weight Update", cmd:"optimizer.step()", type:"ddp_update" },
-      { label:"Storage Bottleneck", cmd:"iostat -x 1", type:"ddp_storage", fault:true }
+      {
+        label:"Launch DDP",
+        cmd:"torchrun train.py",
+        type:"ddp_launch",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are starting a distributed training job so multiple ranks can agree on the same training world and begin working together.",
+        deeperContext:"This is where the distributed system comes alive. Beginners need to see that training does not begin with math alone; it begins with many workers agreeing on the same shared job context.",
+        lookFor:[
+          "All expected ranks launching successfully",
+          "A coherent distributed job startup instead of one process running alone",
+          "No immediate disagreement or timeout during initialization"
+        ],
+        meaning:"This step proves the distributed job can form its working group correctly.",
+        commonMistake:"Thinking distributed training starts only when the GPUs begin computing. In reality, the first success condition is that the ranks actually form one job.",
+        operatorTakeaway:"Operators care about initialization because a job that cannot form its rank group will never reach useful computation or synchronization.",
+        takeAction:[
+          "Confirm the whole rank set came up.",
+          "Treat startup agreement as the first health gate.",
+          "Use later steps to separate formation success from runtime success."
+        ],
+        avoid:[
+          "Do not assume one visible process means the full distributed job is healthy.",
+          "Do not skip the initialization story when diagnosing a distributed workload."
+        ]
+      },
+      {
+        label:"Forward Pass",
+        cmd:"# Sharding batch",
+        type:"ddp_fwd",
+        explainerMode:"beginner_story",
+        whatsHappening:"Each rank is processing its own shard of the batch and doing local model computation.",
+        deeperContext:"This is the compute phase most beginners imagine first. It is important, but it is only one part of the loop. The job is healthy here only if the ranks can later rejoin and synchronize.",
+        lookFor:[
+          "Local work progressing on each rank",
+          "No sign that one rank is already far behind the rest",
+          "A clean compute phase before synchronization begins"
+        ],
+        meaning:"This step is the local-compute part of distributed training, where each GPU does its share of the work independently.",
+        commonMistake:"Treating successful forward computation as proof that the whole distributed job is healthy. The expensive part may still fail during synchronization.",
+        operatorTakeaway:"Operators distinguish local compute from shared coordination. A good forward pass does not yet prove the distributed system is healthy end to end.",
+        takeAction:[
+          "Use this step to understand the local-work portion of the loop.",
+          "Keep watching for imbalance between ranks.",
+          "Prepare to compare this healthy local phase against later synchronization behavior."
+        ],
+        avoid:[
+          "Do not stop the analysis at compute-only success.",
+          "Do not assume later slowdowns are unrelated if local compute looked fine."
+        ]
+      },
+      {
+        label:"Backward Pass",
+        cmd:"# Computing local grads",
+        type:"ddp_bwd",
+        explainerMode:"beginner_story",
+        whatsHappening:"Each rank is computing local gradients that will soon need to be synchronized with the rest of the group.",
+        deeperContext:"This is the phase where local compute begins preparing shared state. Beginners should see that gradients are not the final answer yet; they still have to be reconciled across the whole job.",
+        lookFor:[
+          "Local gradient computation completing normally",
+          "No immediate stall before the collective stage",
+          "A clear handoff point between local work and shared communication"
+        ],
+        meaning:"This step produces the update information that will be shared across ranks in the next stage.",
+        commonMistake:"Thinking each GPU's gradients are enough on their own. In DDP, local gradients still need collective synchronization before the model can update coherently.",
+        operatorTakeaway:"The training loop is starting to move from local work into shared dependency. That boundary is where many platform problems start to show up.",
+        takeAction:[
+          "Use this step to understand what each rank contributes before synchronization.",
+          "Treat the next collective phase as the real distributed stress point.",
+          "Keep the local-to-shared transition in mind as you diagnose bottlenecks."
+        ],
+        avoid:[
+          "Do not confuse local gradient computation with successful distributed synchronization.",
+          "Do not treat every slowdown here as a model-only issue without checking the next step."
+        ]
+      },
+      {
+        label:"AllReduce Sync",
+        cmd:"# Averaging grads",
+        type:"ddp_allreduce",
+        explainerMode:"beginner_story",
+        whatsHappening:"The ranks are now sharing and averaging gradients so every participant ends up with the same update view.",
+        deeperContext:"This is the shared coordination step that often decides whether distributed training is efficient or miserable. A job can compute well locally and still collapse here if the communication path is weak.",
+        lookFor:[
+          "Successful gradient synchronization across ranks",
+          "No sign that communication is dominating the whole loop unexpectedly",
+          "A collective phase that behaves like a healthy fast path"
+        ],
+        meaning:"This step is where the distributed job becomes one coherent training system instead of many separate local workers.",
+        commonMistake:"Treating AllReduce as background plumbing. In practice, it is often the phase where a bad fabric, weak rank, or slow path becomes visible.",
+        operatorTakeaway:"Operators watch this phase closely because it is where cluster communication quality directly hits user-visible training speed.",
+        takeAction:[
+          "Compare collective behavior against the expected healthy platform path.",
+          "Use this step to connect communication health to training health.",
+          "Remember that a slow collective can waste the whole rack's GPU time."
+        ],
+        avoid:[
+          "Do not reduce distributed training health to local GPU utilization only.",
+          "Do not ignore communication behavior if the job feels slower than expected."
+        ]
+      },
+      {
+        label:"Weight Update",
+        cmd:"optimizer.step()",
+        type:"ddp_update",
+        explainerMode:"beginner_story",
+        whatsHappening:"The synchronized update is now being applied so every rank can continue from the same model state.",
+        deeperContext:"This step shows the payoff of the earlier synchronization. If the loop reached this point cleanly, the job can continue coherently across ranks instead of diverging into inconsistent local models.",
+        lookFor:[
+          "A clean update phase after synchronization",
+          "No sign that ranks are drifting into different training states",
+          "A training loop that can continue to the next batch as one coordinated system"
+        ],
+        meaning:"This step closes the loop by applying one shared update across the distributed job.",
+        commonMistake:"Forgetting that the update only has meaning because the earlier collective made the ranks agree. The update is the result of the whole loop, not just one line of code.",
+        operatorTakeaway:"The value of the platform is that all these stages work together. A clean update means compute and communication stayed aligned long enough for the job to progress correctly.",
+        takeAction:[
+          "Treat this as the loop-completion proof step.",
+          "Use it to reason about whether earlier stages stayed coherent.",
+          "Compare it mentally with later fault steps where the loop becomes unhealthy."
+        ],
+        avoid:[
+          "Do not isolate the update from the synchronization work that made it valid.",
+          "Do not assume a job is healthy over time without watching repeated loop behavior."
+        ]
+      },
+      {
+        label:"Storage Bottleneck",
+        cmd:"iostat -x 1",
+        type:"ddp_storage",
+        fault:true,
+        explainerMode:"beginner_story",
+        whatsHappening:"You are seeing a non-GPU part of the platform slow the whole training loop down because data is not arriving fast enough.",
+        deeperContext:"This final step teaches that distributed training health depends on more than compute and communication. Even a perfect GPU and fabric path still stall if the data path cannot feed the ranks fast enough.",
+        lookFor:[
+          "Storage signals that line up with sawtooth or stalled training behavior",
+          "Evidence that the GPUs are waiting on input instead of pure compute or synchronization",
+          "A platform bottleneck that lives outside the GPU but still hurts the whole job"
+        ],
+        meaning:"The training job is being slowed by the data path, not necessarily by the GPUs themselves.",
+        commonMistake:"Blaming the model or the accelerators first when the real bottleneck is storage feeding the loop too slowly.",
+        operatorTakeaway:"Distributed training is a whole-platform workload. Storage, network, scheduler, and GPUs all matter because the slowest critical stage controls the job.",
+        takeAction:[
+          "Treat storage evidence as part of training diagnosis, not as a separate unrelated issue.",
+          "Use the data path to explain why GPU-side symptoms may be misleading.",
+          "Keep whole-platform reasoning in view when diagnosing slow training."
+        ],
+        avoid:[
+          "Do not assume every training slowdown is rooted in the model or GPU.",
+          "Do not analyze the loop without checking the input path that feeds it."
+        ]
+      }
     ],
     draw: drawDDP
   },

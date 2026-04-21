@@ -225,42 +225,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   training: {
-    quickAnswer: "Distributed training spreads work across multiple GPUs and then synchronizes gradients. Beginners need to understand that the training loop includes both computation and communication.",
-    whyItMatters: "Many cluster incidents look like model or code problems when they are actually synchronization, storage, or network timing problems.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are walking through how one distributed training step actually works across many GPUs. Think of this like a relay team: each runner does their part, but the overall pace depends on how well the handoffs work too.",
+    plainPicture: "Distributed training is not just many GPUs computing at once. Each GPU does local work, then the group has to synchronize before the whole job can move forward together.",
+    whyOperatorsCare: [
+      "Many cluster incidents look like model or code problems when they are actually synchronization, storage, or network timing problems.",
+      "Operators care because a distributed job only moves as well as its slowest critical stage. A single weak rank, slow input path, or bad communication phase can drag the whole training job down.",
+      "The beginner skill here is learning to separate local compute work from shared synchronization work, and to understand that both matter to job health."
+    ],
+    wholePlatform: [
+      "In the bigger platform, distributed training is one of the main reasons the rack exists at all. The server, fabric, storage path, and scheduler all matter because they feed the same training loop.",
+      "That means a distributed training issue is rarely 'just the model.' It can expose weakness anywhere in the platform: one bad node, one slow storage path, one bad communication phase, or one unhealthy rank.",
+      "So this lab matters because it teaches how real workloads experience the platform end to end, not just how individual GPUs look in isolation."
+    ],
     coreTerms: [
       { term: "DDP", plain: "Distributed Data Parallel, a way to run the same training process across many GPUs and combine their gradients.", why: "It is a common default for multi-GPU training." },
       { term: "Gradient", plain: "The update signal that tells the model how to change its weights.", why: "Synchronization exists because each GPU computes only part of the batch." },
       { term: "AllReduce", plain: "A collective operation that combines and redistributes gradient data across ranks.", why: "It is often the communication bottleneck." },
       { term: "Rank", plain: "One participating process in a distributed training job.", why: "A single unhealthy rank can stall the entire job." }
     ],
-    lifecycle: [
-      { title: "Launch the ranks", detail: "A distributed job starts multiple workers that need to agree on the same world view." },
-      { title: "Compute local gradients", detail: "Each GPU processes its own batch shard and computes an update signal." },
-      { title: "Synchronize across the group", detail: "Collective communication shares and combines those updates so all ranks stay aligned." },
-      { title: "Update together or stall together", detail: "If storage, fabric, or one rank misbehaves, the whole training job can slow or hang." }
-    ],
-    watchFor: [
-      "High compute utilization followed by long synchronization delays",
-      "One rank lagging far behind the others",
-      "Storage or network symptoms appearing at the same time as training slowdown"
+    commonMisreads: [
+      "If every GPU is busy, the training loop must be healthy. That is false. Busy compute does not prove the synchronization stages are healthy.",
+      "A slow training job must be a model-code problem. That is often false when storage, communication, or one lagging rank is the real bottleneck.",
+      "Looking at one GPU tells the whole story. That is false in distributed systems where one bad participant can slow the entire job."
     ],
     safeActions: [
       "Separate compute issues from sync issues.",
       "Watch utilization during forward, backward, and synchronization phases.",
       "Treat storage stalls as part of training performance, not a separate unrelated problem."
-    ],
-    whatNotToDo: [
-      "Do not assume every slow training job is a model-code problem.",
-      "Do not look only at one GPU when the whole workflow is distributed."
-    ],
-    escalateWhen: [
-      "Ranks disagree, hang, or repeatedly time out during initialization or synchronization",
-      "One node keeps becoming the slow member of the job",
-      "The same distributed symptom appears across multiple training runs"
-    ],
-    readMore: [
-      "A beginner-friendly way to think about distributed training is this: the GPUs can only move as fast as the slowest critical stage in the loop, whether that stage is compute, communication, or data feeding.",
-      "That is why cluster operators care about storage, network, and GPU health at the same time."
     ]
   },
   allreduce: {
