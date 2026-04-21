@@ -1460,6 +1460,8 @@ const LABS = {
         label:"Diagnose",
         cmd:"NCCL_DEBUG=INFO torchrun train.py",
         type:"fb_diag",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking the NCCL logs to see whether the job is already using a slower communication path than the platform was designed for.",
         deeperContext:"This drill begins at the symptom layer. Beginners often stop at 'the job is slow'; this step teaches them to use NCCL logs to identify that the communication path is already telling a story.",
         lookFor:[
           "NCCL choosing Socket or TCP instead of the expected InfiniBand path",
@@ -1467,9 +1469,8 @@ const LABS = {
           "The first concrete evidence that slow success is not normal success"
         ],
         meaning:"The workload is likely using a slower fallback path. The key lesson is that distributed jobs can still run while the communication layer is badly degraded.",
-        justifiedConclusion:"A path-selection problem is now a plausible explanation for the slowdown and deserves targeted investigation.",
-        stillPremature:"It is still too early to blame hardware or reboot anything until environment and IB availability are checked.",
-        thresholdCrossed:"The path-investigation threshold is crossed: the logs justify tracing why NCCL is not on the expected fast path.",
+        commonMistake:"Treating a launched job as a healthy job. Slow success can still mean a major platform efficiency failure.",
+        operatorTakeaway:"Operators use the log path choice as the first clue that the workload is missing the fast transport and needs targeted investigation.",
         takeAction:[
           "Treat the communication mode as evidence, not just noise in the logs.",
           "Use the next steps to separate configuration mistakes from true fabric issues.",
@@ -1484,6 +1485,8 @@ const LABS = {
         label:"Check Env",
         cmd:"env | grep NCCL",
         type:"fb_env",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether environment variables are forcing NCCL onto the wrong path before blaming hardware.",
         deeperContext:"This step teaches a core debugging habit: check the highest-leverage, lowest-cost explanation first. Environment variables can override the whole fabric story with one bad setting.",
         lookFor:[
           "Variables such as NCCL_IB_DISABLE or a suspicious HCA override",
@@ -1491,10 +1494,8 @@ const LABS = {
           "Whether the fallback could be self-inflicted by configuration"
         ],
         meaning:"If a disabling or mismatched environment variable is present, the fallback may be caused by configuration alone rather than hardware failure.",
-        changedFromPrevious:"The investigation moved from symptom recognition to the simplest high-impact cause: configuration override.",
-        justifiedConclusion:"A config-driven fallback is now more plausible if the environment contradicts the intended fabric path.",
-        stillPremature:"It is still too early to blame the InfiniBand fabric itself until you confirm the environment is not forcing the slower path.",
-        thresholdCrossed:"The configuration-cause threshold is crossed if NCCL environment settings directly explain the fallback.",
+        commonMistake:"Skipping the easy explanation and escalating straight into fabric debugging or host repair.",
+        operatorTakeaway:"Operators check environment first because one bad variable can explain the whole slowdown without any hardware failure.",
         takeAction:[
           "Use environment inspection to clear or confirm the easiest root-cause class first.",
           "If the environment looks wrong, fix that before doing deeper cluster investigation.",
@@ -1509,6 +1510,8 @@ const LABS = {
         label:"Check ibstat",
         cmd:"ibstat",
         type:"fb_ib",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the fast InfiniBand transport is actually available on the host.",
         deeperContext:"Once configuration is checked, the next teaching move is to verify the transport is actually available. Beginners need to learn that software and fabric evidence must be compared, not studied in isolation.",
         lookFor:[
           "IB ports in Active state",
@@ -1516,10 +1519,8 @@ const LABS = {
           "Whether the transport exists independently of the NCCL symptom"
         ],
         meaning:"This step shows whether the fast transport is genuinely available. Healthy IB state means the fallback is more likely a selection problem than a dead fabric.",
-        changedFromPrevious:"The reasoning moves from config-only suspicion to validating the transport layer itself.",
-        justifiedConclusion:"If IB is active, the fallback is increasingly likely to be a naming, selection, or override problem rather than a hard transport outage.",
-        stillPremature:"It is still too early to declare the fix obvious until the selected HCA and resulting behavior are verified.",
-        thresholdCrossed:"The transport-availability threshold is crossed when IB health confirms the fast path should be usable in principle.",
+        commonMistake:"Saying 'the network is fine' without confirming that the exact fast transport NCCL needs is really active.",
+        operatorTakeaway:"Operators compare transport availability with path selection so they can tell whether they are debugging hardware absence or software choice.",
         takeAction:[
           "Compare actual HCA names against any configured NCCL HCA setting.",
           "Use this step to decide whether you are debugging availability or selection.",
@@ -1534,6 +1535,8 @@ const LABS = {
         label:"Set IB_HCA",
         cmd:"export NCCL_IB_HCA=mlx5_0",
         type:"fb_fix",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are correcting NCCL's transport selection so it points at the actual active HCA instead of the wrong path.",
         deeperContext:"This is a targeted correction step. The beginner lesson is that a good operator applies the smallest fix that matches the evidence instead of making broad uncontrolled changes.",
         lookFor:[
           "A corrected HCA selection that matches the actual active device",
@@ -1541,10 +1544,8 @@ const LABS = {
           "A fix that directly addresses the selection problem you just validated"
         ],
         meaning:"The system is now being pointed at the right transport interface. If the prior evidence was correct, this should restore NCCL's ability to use the fast path.",
-        changedFromPrevious:"The workflow moved from diagnosis into a narrowly targeted remediation based on evidence rather than guesswork.",
-        justifiedConclusion:"If the path issue was selection-related, this fix should materially change the next NCCL run.",
-        stillPremature:"It is still too early to declare success until the workload logs and bandwidth both confirm the path really changed.",
-        thresholdCrossed:"The remediation threshold is crossed once a specific mismatch has been identified and corrected.",
+        commonMistake:"Applying multiple config changes at once and then losing the causal story of what actually fixed the problem.",
+        operatorTakeaway:"Operators prefer the smallest evidence-backed fix because it keeps validation clean and lowers risk.",
         takeAction:[
           "Keep the fix tied to the exact HCA evidence you observed.",
           "Use the next step to prove the communication path actually changed.",
@@ -1559,6 +1560,8 @@ const LABS = {
         label:"Verify Fixed",
         cmd:"NCCL_DEBUG=INFO torchrun",
         type:"fb_verify",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether NCCL now chooses the intended fast transport after the configuration change.",
         deeperContext:"Verification is where remediation becomes trustworthy. This step teaches beginners that a change only counts when the system behavior changes in the expected direction.",
         lookFor:[
           "NCCL selecting the intended IB path instead of TCP",
@@ -1566,10 +1569,8 @@ const LABS = {
           "Clear evidence that the prior fallback condition no longer applies"
         ],
         meaning:"If NCCL now selects the intended transport, the diagnosis and targeted fix were correct. The communication stack has moved back onto the expected path.",
-        changedFromPrevious:"The evidence shifts from proposed fix to observed post-fix behavior.",
-        justifiedConclusion:"The root cause was likely path selection or environment mismatch if the logs now show the proper transport.",
-        stillPremature:"It is still too early to declare full performance recovery until bandwidth is compared against the healthy baseline.",
-        thresholdCrossed:"The verification threshold is crossed when the software path changes in exactly the way the fix predicted.",
+        commonMistake:"Stopping at the config change itself instead of proving that the software actually changed paths.",
+        operatorTakeaway:"Operators trust behavior change, not just edited settings. The logs need to tell the new story now.",
         takeAction:[
           "Use the logs to confirm the fix changed the actual transport choice.",
           "Preserve the before/after reasoning so the diagnosis remains teachable.",
@@ -1584,6 +1585,8 @@ const LABS = {
         label:"Compare BW",
         cmd:"./perf",
         type:"fb_bench",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are measuring whether the restored fast path actually brings throughput back toward the healthy baseline users expect.",
         deeperContext:"This final step closes the loop from symptom to fix to user-visible impact. Aegis should teach that the real success condition is restored throughput, not just prettier logs.",
         lookFor:[
           "Bandwidth moving back toward the healthy expected range",
@@ -1591,10 +1594,8 @@ const LABS = {
           "A coherent before-and-after story that ties logs to performance"
         ],
         meaning:"Recovered bandwidth proves the issue was real, the diagnosis was grounded, and the remediation materially restored cluster efficiency.",
-        changedFromPrevious:"The workflow moved from software-path verification to operational outcome verification.",
-        justifiedConclusion:"The fallback incident is resolved only if the throughput returns to the expected performance envelope.",
-        stillPremature:"It is still too early to call the environment permanently healthy until the improvement is repeatable across runs or jobs.",
-        thresholdCrossed:"The recovery threshold is crossed once the bandwidth result confirms the path correction actually restored performance.",
+        commonMistake:"Calling the incident resolved because logs look cleaner even if the workload throughput is still poor.",
+        operatorTakeaway:"Operators close the loop with user-visible performance, because that is what the platform is supposed to deliver.",
         takeAction:[
           "Use the recovered bandwidth as the proof that the system is back on the right path.",
           "Tie remediation success to outcome, not just configuration state.",
