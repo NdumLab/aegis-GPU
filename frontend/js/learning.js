@@ -126,42 +126,32 @@ window.AEGIS_LEARNING = {
     ]
   },
   nvlink: {
-    quickAnswer: "NVLink is a high-speed GPU-to-GPU interconnect. In this lab, you are learning how to tell the difference between a healthy direct GPU fabric and a slower fallback path through PCIe.",
-    whyItMatters: "Distributed training performance depends heavily on the path used for GPU communication.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are checking whether 8 H100 GPUs are talking to each other over the fast NVLink fabric they were designed to use. Think of this like checking whether traffic is flowing on the dedicated express lanes instead of being forced onto a slower city street.",
+    plainPicture: "NVLink is the fast direct path between GPUs. If that path disappears, the workload may still run, but communication can fall back to a much slower route through PCIe and the CPU host bridge.",
+    whyOperatorsCare: [
+      "Operators care about NVLink because distributed training is not just about whether GPUs are visible. It is about whether they can exchange data over the path the cluster was designed for.",
+      "A node can look alive and still be operationally degraded. That is what makes topology reading important for beginners: uptime is not the same as healthy interconnect performance.",
+      "This lab teaches a core operator habit: first learn the expected fabric layout, then check whether the links are clean, then confirm whether the workload sees the same story."
+    ],
     coreTerms: [
-      { term: "NVLink", plain: "A direct high-bandwidth connection between GPUs.", why: "It is much faster than routing traffic through the CPU and PCIe path." },
-      { term: "Topology", plain: "A map of which GPUs are directly connected and how data moves between them.", why: "Poor topology understanding leads to poor fault diagnosis." },
-      { term: "PHB", plain: "PCIe Host Bridge path instead of a direct NVLink path.", why: "Seeing PHB where you expect NVLink often means degraded communication." },
-      { term: "CRC error", plain: "A transmission-integrity error showing that data on the link may be arriving corrupted and needing retry or correction.", why: "This is one of the clearest signs of a sick interconnect path." }
+      { term: "NVLink", plain: "A direct high-bandwidth GPU-to-GPU connection used for fast communication inside systems like DGX or HGX.", why: "This is the fast path that high-performance collective workloads expect." },
+      { term: "Topology", plain: "The map of which GPUs connect directly to which other GPUs and what path traffic takes between them.", why: "You cannot reason about good or bad communication performance without knowing the intended map." },
+      { term: "PHB", plain: "PCIe Host Bridge, meaning traffic is taking a slower PCIe-and-host path instead of a direct NVLink path.", why: "Seeing PHB where you expected NVLink is one of the clearest signs of degraded communication." },
+      { term: "CRC error", plain: "A link-integrity error showing that data on the interconnect may be arriving damaged and needing retry or correction.", why: "This is often how a sick fabric announces itself before or during performance degradation." }
     ],
-    lifecycle: [
-      { title: "Inspect topology", detail: "Read the GPU connectivity map before assuming the fabric is healthy." },
-      { title: "Check NVLink error counters", detail: "Link errors reveal whether the path is clean or degraded." },
-      { title: "Measure workload impact", detail: "AllReduce throughput makes the hardware story visible in performance terms." },
-      { title: "Correlate path and performance", detail: "The key beginner lesson is that bad topology and bad throughput often explain each other." }
-    ],
-    watchFor: [
-      "PHB or other fallback paths where you expected direct NVLink",
-      "Rising CRC or link-error counts",
-      "Strong throughput collapse during collective communication"
+    commonMisreads: [
+      "If the GPUs are visible, the fabric must be healthy. That is false. Visibility only tells you the devices exist, not that the fast path is working.",
+      "A training slowdown must be an NCCL or software tuning problem. That is often false when the interconnect path itself has degraded.",
+      "A topology map is just background information. It is not. It is the baseline that makes later fault signals meaningful."
     ],
     safeActions: [
-      "Compare current topology with the expected rack design.",
-      "Use error counters before assuming a software issue.",
-      "Document which GPU pairs are degraded so operators can inspect the right physical path."
-    ],
-    whatNotToDo: [
-      "Do not call a topology healthy just because the GPUs are visible to the driver.",
-      "Do not blame NCCL first if the hardware path itself is degraded."
-    ],
-    escalateWhen: [
-      "Link errors continue increasing under repeated checks",
-      "Collective throughput remains far below the expected rack baseline",
-      "Multiple GPU pairs show the same degraded path signature"
-    ],
-    readMore: [
-      "A useful beginner mental model is that NVLink is not just extra speed. It is often the difference between a healthy distributed training design and a badly degraded one.",
-      "When NVLink disappears, workloads may still run. That is why path verification matters as much as uptime."
+      "Read the expected topology before you interpret any benchmark numbers.",
+      "Use link-error counters to decide whether the fabric is clean before blaming higher software layers.",
+      "Document which GPU pairs or links look degraded so the right physical path can be inspected later.",
+      "Treat a PHB fallback as an operator signal about blast radius, not just as a cosmetic label in the matrix."
     ]
   },
   mig: {
