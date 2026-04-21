@@ -489,42 +489,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   slurm: {
-    quickAnswer: "Slurm decides who gets cluster resources and when. Beginners should understand that not every delayed job is broken; sometimes it is waiting because of policy or resource pressure.",
-    whyItMatters: "Slurm is where beginners learn the difference between a healthy busy cluster and a broken cluster.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are learning how the scheduler decides when jobs run, why they wait, and how operators keep bad nodes from receiving fresh work. Think of this like air-traffic control for cluster jobs: not every delay means the airport is broken.",
+    plainPicture: "Slurm decides when jobs start and where they land. A job can be delayed for healthy reasons like policy or resource pressure, or it can be delayed because a node is unhealthy and intentionally protected.",
+    whyOperatorsCare: [
+      "Slurm is where operators separate user frustration from actual system failure. A waiting job and a broken cluster can look similar from far away, but they are not the same incident.",
+      "Operators care because scheduler state controls safety as well as fairness. Draining a node is often the cleanest way to contain hardware trouble without shutting down the whole cluster.",
+      "The beginner lesson is that queueing, policy, and containment are part of normal operations, not just signs of trouble."
+    ],
+    wholePlatform: [
+      "In the bigger platform, Slurm sits between users and hardware. It translates resource requests, policy, and node state into the actual job flow across the cluster.",
+      "That means scheduler behavior shapes the user experience just as much as GPU performance does. A healthy cluster can still make jobs wait, while a damaged cluster can be kept safe by good scheduler control.",
+      "So this lab matters because it teaches how policy, fairness, and node containment affect real workload flow across the whole system."
+    ],
     coreTerms: [
       { term: "Scheduler", plain: "The system that decides when jobs start and where they run.", why: "It explains why a healthy cluster can still make you wait." },
       { term: "Fairshare", plain: "A policy signal showing how a user's recent resource usage affects new job priority.", why: "It helps explain queue behavior without blaming hardware." },
       { term: "Drain", plain: "A scheduler state that stops new jobs from landing on a node.", why: "It is a safe containment tool during incidents." },
       { term: "Pending reason", plain: "The scheduler's explanation for why a job is waiting instead of running.", why: "This is often the first clue that the delay is policy, not failure." }
     ],
-    lifecycle: [
-      { title: "Submit the job", detail: "The scheduler records the request and decides how it fits into cluster policy and available resources." },
-      { title: "Wait or start", detail: "A job may run immediately or remain pending based on priority, availability, and scheduling rules." },
-      { title: "Protect unhealthy nodes", detail: "During incidents, operators drain nodes so the scheduler stops sending fresh work there." },
-      { title: "Return the node to service", detail: "Once the issue is resolved, the scheduler state is restored so jobs can land there again." }
-    ],
-    watchFor: [
-      "Pending reasons that point to policy, not hardware",
-      "Nodes that remain drained longer than expected",
-      "Fairshare or priority signals changing queue behavior"
+    commonMisreads: [
+      "If my job is pending, the cluster must be broken. That is false. Pending often reflects healthy scheduling policy or temporary resource pressure.",
+      "Drain means the node is dead forever. That is false. Drain is usually a containment step, not a permanent verdict.",
+      "Fairshare is just paperwork. That is false. It directly changes who runs next and explains many queue behaviors."
     ],
     safeActions: [
       "Check why a job is pending before changing cluster state.",
       "Use drain as a protective step during hardware incidents.",
       "Record policy-driven delays differently from hardware failures."
-    ],
-    whatNotToDo: [
-      "Do not call the scheduler broken just because your job is waiting.",
-      "Do not resume a drained node until the hardware or software incident is actually understood."
-    ],
-    escalateWhen: [
-      "The scheduler reason does not match observed cluster behavior",
-      "Nodes remain drained without a clear owner or remediation path",
-      "Policy behavior is causing repeated user confusion or production pain"
-    ],
-    readMore: [
-      "A good beginner habit is to separate scheduling policy from system failure. They can feel similar to a user but require very different responses.",
-      "Drain is one of the most important operational verbs in cluster management because it turns diagnosis into safe containment."
     ]
   },
   k8s: {
