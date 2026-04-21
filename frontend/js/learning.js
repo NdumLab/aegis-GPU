@@ -232,11 +232,11 @@ window.AEGIS_LEARNING = {
     plainPicture: "Distributed training is not just many GPUs computing at once. Each GPU does local work, then the group has to synchronize before the whole job can move forward together.",
     whyOperatorsCare: [
       "Many cluster incidents look like model or code problems when they are actually synchronization, storage, or network timing problems.",
-      "Operators care because a distributed job only moves as well as its slowest critical stage. A single weak rank, slow input path, or bad communication phase can drag the whole training job down.",
+      "A distributed job only moves as well as its slowest critical stage. One weak rank, one slow input path, or one bad communication phase can drag the whole run down.",
       "The beginner skill here is learning to separate local compute work from shared synchronization work, and to understand that both matter to job health."
     ],
     wholePlatform: [
-      "In the bigger platform, distributed training is one of the main reasons the rack exists at all. The server, fabric, storage path, and scheduler all matter because they feed the same training loop.",
+      "At the platform level, distributed training is one of the main reasons the rack exists at all. The server, fabric, storage path, and scheduler all matter because they feed the same training loop.",
       "That means a distributed training issue is rarely 'just the model.' It can expose weakness anywhere in the platform: one bad node, one slow storage path, one bad communication phase, or one unhealthy rank.",
       "So this lab matters because it teaches how real workloads experience the platform end to end, not just how individual GPUs look in isolation."
     ],
@@ -265,11 +265,11 @@ window.AEGIS_LEARNING = {
     plainPicture: "AllReduce is the teamwork checkpoint inside distributed training. Each GPU has part of the update, and the job only stays correct if the group combines that information and gives the same result back to everyone.",
     whyOperatorsCare: [
       "This is one of the clearest places where a cluster can fail softly. The job stays up, but communication slows down enough to waste large amounts of GPU time.",
-      "Operators care because a weak transport path, bad rank, or wrong NCCL path selection usually shows up here before users can explain why training suddenly feels slow.",
-      "The beginner lesson is that healthy distributed jobs are not just about compute. Shared synchronization quality matters just as much."
+      "A weak transport path, bad rank, or wrong NCCL path selection usually shows up here before users can explain why training suddenly feels slow.",
+      "The main beginner takeaway is that healthy distributed jobs are not just about compute. Shared synchronization quality matters just as much."
     ],
     wholePlatform: [
-      "In the bigger platform, AllReduce is where the node, rack fabric, and scheduler promises meet the workload. Fast GPUs do not help much if the communication phase between them is weak.",
+      "Across the platform, AllReduce is where the node, rack fabric, and scheduler promises meet the workload. Fast GPUs do not help much if the communication phase between them is weak.",
       "A bad AllReduce path can make an expensive rack behave like a much smaller system because every iteration waits on the slowest communication link.",
       "That is why this lab matters beyond one command. It teaches how a user actually experiences platform quality during distributed work."
     ],
@@ -298,11 +298,11 @@ window.AEGIS_LEARNING = {
     plainPicture: "InfiniBand is the fast fabric that lets servers exchange data quickly during distributed work. A node can look healthy by itself while the path between nodes is still weak, noisy, or partially down.",
     whyOperatorsCare: [
       "Many distributed training problems feel like software issues until someone checks the fabric and finds bad ports, dirty counters, or an unstable path.",
-      "Operators care because the interconnect decides whether multi-node GPU jobs scale cleanly or waste time waiting on the network.",
+      "The interconnect decides whether multi-node GPU jobs scale cleanly or waste time waiting on the network.",
       "The beginner skill here is learning that the network path is part of the AI system, not just background plumbing."
     ],
     wholePlatform: [
-      "In the bigger platform, InfiniBand is what turns many separate GPU servers into one usable cluster for distributed jobs. If the fabric is unhealthy, the rack stops behaving like one coordinated system.",
+      "Across the rack, InfiniBand is what turns many separate GPU servers into one usable cluster for distributed jobs. If the fabric is unhealthy, the rack stops behaving like one coordinated system.",
       "That affects more than one benchmark. Scheduler placement, NCCL efficiency, and user-visible training throughput all depend on this path being clean.",
       "So this lab matters because it teaches how problems spread beyond one host: one bad port, cable, HCA, or switch path can hurt many jobs at once."
     ],
@@ -331,11 +331,11 @@ window.AEGIS_LEARNING = {
     plainPicture: "RoCE lets GPU jobs use RDMA over Ethernet, but that only works well if the congestion controls across the path are aligned. The network can still look up while behaving badly for the kind of traffic AI jobs depend on.",
     whyOperatorsCare: [
       "RoCE teaches that a network can be available yet still be wrong for distributed training because congestion handling, not just link speed, determines whether the path stays healthy under load.",
-      "Operators care because pause storms, MTU mismatches, or weak ECN behavior can quietly turn a high-speed fabric into a bottleneck for many jobs at once.",
-      "The beginner lesson is that policy and flow control are part of system health, not background details reserved for network specialists."
+      "Pause storms, MTU mismatches, or weak ECN behavior can quietly turn a high-speed fabric into a bottleneck for many jobs at once.",
+      "The key beginner lesson is that policy and flow control are part of system health, not background details reserved for network specialists."
     ],
     wholePlatform: [
-      "In the bigger platform, RoCE sits between the GPU servers, the switches, and the job scheduler. If the Ethernet fabric is mis-tuned, distributed jobs lose efficiency even when the servers themselves look fine.",
+      "At the platform level, RoCE sits between the GPU servers, the switches, and the job scheduler. If the Ethernet fabric is mis-tuned, distributed jobs lose efficiency even when the servers themselves look fine.",
       "That means this lab is really about platform coordination: host settings, switch behavior, and workload traffic patterns all have to agree for the rack to behave like one fast system.",
       "So this matters beyond one interface. A RoCE mistake can reduce scaling efficiency across a rack or cluster without creating a simple hard outage."
     ],
@@ -364,11 +364,11 @@ window.AEGIS_LEARNING = {
     plainPicture: "NCCL fallback means distributed training is still alive, but it is no longer using the fast transport the platform was designed to provide. The job keeps moving, yet the rack delivers much less value than it should.",
     whyOperatorsCare: [
       "This is one of the clearest beginner examples of slow success. Nothing crashes, but throughput drops enough to waste expensive GPU time.",
-      "Operators care because fallback often points to configuration mistakes, transport selection problems, or hidden fabric issues that users only notice as 'training feels slow.'",
-      "The beginner lesson is that availability is not the same as health. A running job can still be operationally wrong."
+      "Fallback often points to configuration mistakes, transport selection problems, or hidden fabric issues that users only notice as 'training feels slow.'",
+      "The key beginner lesson is that availability is not the same as health. A running job can still be operationally wrong."
     ],
     wholePlatform: [
-      "In the bigger platform, NCCL fallback means the scheduler, nodes, and network may all look normal while the workload still misses the fast path the cluster was built for.",
+      "From the platform view, NCCL fallback means the scheduler, nodes, and network may all look normal while the workload still misses the fast path the cluster was built for.",
       "That makes fallback a platform-efficiency problem, not just a library detail. One bad path choice can reduce the effective value of a whole multi-node job or rack.",
       "So this lab matters because it teaches how users experience hidden infrastructure mistakes: not always as crashes, but often as very expensive slowness."
     ],
@@ -397,11 +397,11 @@ window.AEGIS_LEARNING = {
     plainPicture: "A storage bottleneck means the GPUs are ready to work, but data is not arriving fast enough to keep them busy. The visible symptom shows up on the GPU, but the real limiting stage may live in storage layout or the input pipeline.",
     whyOperatorsCare: [
       "This is one of the best beginner lessons in whole-system reasoning because the most visible symptom appears on the accelerator while the actual bottleneck sits elsewhere.",
-      "Operators care because expensive GPUs lose value quickly when they spend time waiting on datasets, loaders, or shared storage paths instead of computing.",
+      "Expensive GPUs lose value quickly when they spend time waiting on datasets, loaders, or shared storage paths instead of computing.",
       "The beginner skill here is learning to ask which stage is starving which other stage, rather than blaming the most visible component first."
     ],
     wholePlatform: [
-      "In the bigger platform, storage performance is part of the same user experience as GPU speed and network speed. A fast rack still feels slow if the data path cannot feed it.",
+      "Across the platform, storage performance is part of the same user experience as GPU speed and network speed. A fast rack still feels slow if the data path cannot feed it.",
       "That means this lab is not just about one dataset. Shared storage design, striping policy, loader settings, and job concurrency all shape how much useful work the cluster can actually deliver.",
       "So this matters because storage bottlenecks can waste cluster-wide capacity even when the GPUs, drivers, and network all look healthy on their own."
     ],
@@ -430,11 +430,11 @@ window.AEGIS_LEARNING = {
     plainPicture: "GPUDirect Storage shortens the route data takes from storage to GPU memory. The point is not just that it sounds advanced, but that fewer copies and fewer CPU-managed steps can improve end-to-end throughput.",
     whyOperatorsCare: [
       "This lab teaches that performance is often about path design, not just raw device speed. A faster route can matter as much as a faster component.",
-      "Operators care because GDS can reduce CPU overhead and improve data movement for storage-heavy workloads when the environment really supports it.",
-      "The beginner lesson is that optimizations only count if the direct path is real, measurable, and stable under workload."
+      "GDS can reduce CPU overhead and improve data movement for storage-heavy workloads when the environment really supports it.",
+      "The main beginner lesson is that optimizations only count if the direct path is real, measurable, and stable under workload."
     ],
     wholePlatform: [
-      "In the bigger platform, GDS is about how storage, drivers, and GPUs cooperate as one data path. A good rack is not only fast at compute; it is also efficient at moving data to where compute happens.",
+      "At the platform level, GDS is about how storage, drivers, and GPUs cooperate as one data path. A good rack is not only fast at compute; it is also efficient at moving data to where compute happens.",
       "That means GDS sits at the intersection of storage design, driver capability, and workload shape. If one of those pieces is missing, the fancy direct path is mostly marketing, not production value.",
       "So this lab matters because it teaches how infrastructure design choices change the real path users depend on, not just the names of the technologies involved."
     ],
@@ -463,11 +463,11 @@ window.AEGIS_LEARNING = {
     plainPicture: "Monitoring means the cluster keeps collecting health signals over time instead of waiting for a user to say something feels wrong. The value is not just seeing numbers, but turning patterns into earlier decisions.",
     whyOperatorsCare: [
       "Monitoring is where operators stop relying on luck and start seeing trends like rising ECC, thermal drift, or missing telemetry before jobs fail visibly.",
-      "Operators care because dashboards and alerts shorten the time between a problem starting and someone responding to it.",
-      "The beginner lesson is that metrics are only useful when they help explain what is changing and what action should follow."
+      "Dashboards and alerts shorten the time between a problem starting and someone responding to it.",
+      "The key beginner lesson is that metrics are only useful when they help explain what is changing and what action should follow."
     ],
     wholePlatform: [
-      "In the bigger platform, monitoring connects GPUs, nodes, dashboards, and alerting systems into one operational feedback loop. It is how a rack becomes observable instead of mysterious.",
+      "Across the platform, monitoring connects GPUs, nodes, dashboards, and alerting systems into one operational feedback loop. It is how a rack becomes observable instead of mysterious.",
       "That means monitoring is not just a support tool. It affects incident response, capacity planning, and whether teams learn about problems from telemetry or from angry users.",
       "So this lab matters because a platform without good monitoring may still run, but it becomes much harder to trust or operate safely at scale."
     ],
@@ -496,11 +496,11 @@ window.AEGIS_LEARNING = {
     plainPicture: "Slurm decides when jobs start and where they land. A job can be delayed for healthy reasons like policy or resource pressure, or it can be delayed because a node is unhealthy and intentionally protected.",
     whyOperatorsCare: [
       "Slurm is where operators separate user frustration from actual system failure. A waiting job and a broken cluster can look similar from far away, but they are not the same incident.",
-      "Operators care because scheduler state controls safety as well as fairness. Draining a node is often the cleanest way to contain hardware trouble without shutting down the whole cluster.",
-      "The beginner lesson is that queueing, policy, and containment are part of normal operations, not just signs of trouble."
+      "Scheduler state controls safety as well as fairness. Draining a node is often the cleanest way to contain hardware trouble without shutting down the whole cluster.",
+      "The main beginner lesson is that queueing, policy, and containment are part of normal operations, not just signs of trouble."
     ],
     wholePlatform: [
-      "In the bigger platform, Slurm sits between users and hardware. It translates resource requests, policy, and node state into the actual job flow across the cluster.",
+      "At the platform level, Slurm sits between users and hardware. It translates resource requests, policy, and node state into the actual job flow across the cluster.",
       "That means scheduler behavior shapes the user experience just as much as GPU performance does. A healthy cluster can still make jobs wait, while a damaged cluster can be kept safe by good scheduler control.",
       "So this lab matters because it teaches how policy, fairness, and node containment affect real workload flow across the whole system."
     ],
@@ -529,11 +529,11 @@ window.AEGIS_LEARNING = {
     plainPicture: "Kubernetes GPU operations are about making the control plane, the GPU operator, the node, and the workload all agree on what resources exist and how they should be started. A pod being stuck does not automatically mean the GPU itself is broken.",
     whyOperatorsCare: [
       "Kubernetes introduces another control layer between the user and the node, which means incidents can live in the request, the scheduler, the operator, or the node runtime.",
-      "Operators care because GPU availability in Kubernetes depends on both infrastructure health and correct resource advertisement through the control plane.",
-      "The beginner lesson is that orchestration issues often feel like hardware issues until you separate where the translation failed."
+      "GPU availability in Kubernetes depends on both infrastructure health and correct resource advertisement through the control plane.",
+      "The key beginner lesson is that orchestration issues often feel like hardware issues until you separate where the translation failed."
     ],
     wholePlatform: [
-      "In the bigger platform, Kubernetes is the system that turns cluster hardware into a shared service. It connects users, control-plane policy, node software, and accelerator runtime into one delivery path.",
+      "Across the platform, Kubernetes is the system that turns cluster hardware into a shared service. It connects users, control-plane policy, node software, and accelerator runtime into one delivery path.",
       "That means a GPU problem in Kubernetes may really be a scheduling problem, an operator problem, or a node advertisement problem. The whole platform has to agree before the workload can run.",
       "So this lab matters because it teaches how modern GPU platforms fail by translation and coordination, not only by hardware faults."
     ],
