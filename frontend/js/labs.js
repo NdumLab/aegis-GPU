@@ -144,11 +144,126 @@ const LABS = {
     color: "#c87941",
     objective: "Partition one H100 into 7 instances.",
     steps: [
-      { label:"Enable MIG Mode", cmd:"sudo nvidia-smi -i 0 -mig 1", type:"mig_enable" },
-      { label:"Create 7 Instances", cmd:"sudo nvidia-smi mig -cgi 9,9,9,9,9,9,9 -C", type:"mig_create" },
-      { label:"List Instances", cmd:"nvidia-smi mig -lgi", type:"mig_list" },
-      { label:"Assign Workloads", cmd:"# Assigning 3 teams", type:"mig_assign" },
-      { label:"Disable MIG", cmd:"sudo nvidia-smi -i 0 -mig 0", type:"mig_disable" }
+      {
+        label:"Enable MIG Mode",
+        cmd:"sudo nvidia-smi -i 0 -mig 1",
+        type:"mig_enable",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are turning on the GPU's ability to be sliced. This is a hardware mode change, not just a scheduler flag.",
+        deeperContext:"Beginners need to see that MIG starts at the device itself. The GPU must enter a different operating mode before isolated slices can exist.",
+        lookFor:[
+          "A clear confirmation that MIG mode was enabled for GPU 0",
+          "A state change that tells you the card is now ready for partition creation",
+          "No sign that workloads were still depending on the full-GPU mode during the switch"
+        ],
+        meaning:"The GPU is now capable of being partitioned into smaller hardware-backed instances.",
+        commonMistake:"Thinking MIG is just a Kubernetes or software scheduling feature. It starts with a hardware mode change on the GPU itself.",
+        operatorTakeaway:"Before you enable MIG on a real node, confirm the GPU is safe to reconfigure and not actively serving production work.",
+        takeAction:[
+          "Confirm the node was quiet enough for a mode change before moving to the partition step.",
+          "Treat this as a hardware reconfiguration, not as a cosmetic toggle."
+        ],
+        avoid:[
+          "Do not enable MIG blindly on a busy node.",
+          "Do not assume the software stack can create slices until the device confirms MIG mode is on."
+        ]
+      },
+      {
+        label:"Create 7 Instances",
+        cmd:"sudo nvidia-smi mig -cgi 9,9,9,9,9,9,9 -C",
+        type:"mig_create",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are carving the H100 into seven 1g.10gb-style slices. You are defining the exact hardware layout the node will expose.",
+        deeperContext:"This step teaches that MIG does not auto-balance or guess what you want. Operators declare the slice layout deliberately because the layout controls capacity and isolation.",
+        lookFor:[
+          "A creation message showing that 7 MIG instances were created",
+          "Evidence that the command applied the exact layout requested",
+          "No ambiguity about how many slices now exist on the GPU"
+        ],
+        meaning:"The GPU has been partitioned into seven isolated instances, each ready to be verified and assigned.",
+        commonMistake:"Assuming the GPU will auto-size or auto-balance slices for you. It will not. The layout is exactly what you ask it to create.",
+        operatorTakeaway:"Partition layout is a policy decision. It should match tenant needs, isolation goals, and the service plan for the node.",
+        takeAction:[
+          "Compare the created layout with the intended tenant plan before you move on.",
+          "Remember that a wrong layout can still be a successful command from the CLI's point of view."
+        ],
+        avoid:[
+          "Do not treat command success as layout success.",
+          "Do not assume all workloads need or deserve the same slice size."
+        ]
+      },
+      {
+        label:"List Instances",
+        cmd:"nvidia-smi mig -lgi",
+        type:"mig_list",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are verifying that the hardware actually created the slices you intended.",
+        deeperContext:"This is where beginners learn that verification is part of the work. Operators do not stop at creation; they confirm the machine is in the state they believe it is in.",
+        lookFor:[
+          "Seven visible GPU instances in the listing",
+          "A clear mapping between the requested layout and the reported layout",
+          "Enough detail to explain what resources each slice now represents"
+        ],
+        meaning:"The listing is your proof that the partition plan became real hardware state.",
+        commonMistake:"Skipping verification because the previous command said it succeeded.",
+        operatorTakeaway:"Verification is part of blast-radius control. If the layout is wrong, you want to catch it before workloads land on the wrong slices.",
+        takeAction:[
+          "Match the reported instances against the intended design.",
+          "Use this output as the source of truth before assigning work."
+        ],
+        avoid:[
+          "Do not assume a successful create command means the resulting topology is correct.",
+          "Do not hand slices to users until you have verified the actual layout."
+        ]
+      },
+      {
+        label:"Assign Workloads",
+        cmd:"# Assigning 3 teams",
+        type:"mig_assign",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are mapping real workloads or teams to specific MIG slices. This is where the partition plan becomes an operating model.",
+        deeperContext:"Beginners often stop thinking once the slices exist. Operators keep going: who gets which slice, how many, and what happens if one tenant misbehaves?",
+        lookFor:[
+          "A clear example of which workload lands on which MIG slice",
+          "A plan that matches slice count to team or tenant needs",
+          "No sign that users are being told a slice is equivalent to a full GPU"
+        ],
+        meaning:"The node is now being used as a shared GPU platform with hardware-backed isolation boundaries.",
+        commonMistake:"Thinking the scheduler will magically spread workloads in a sensible way without you understanding what resources were actually advertised.",
+        operatorTakeaway:"This is where capacity planning and blast-radius thinking matter. You are deciding how much of the GPU each team gets and what isolation boundary they actually have.",
+        takeAction:[
+          "Explain the assignment model in plain language to users or trainees.",
+          "Check that no one is oversubscribed relative to the created slice layout."
+        ],
+        avoid:[
+          "Do not promise full-GPU behavior from a small slice.",
+          "Do not treat MIG as a substitute for thinking through tenant placement."
+        ]
+      },
+      {
+        label:"Disable MIG",
+        cmd:"sudo nvidia-smi -i 0 -mig 0",
+        type:"mig_disable",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are returning the GPU to full-device mode. This removes the MIG slices and gives the card back as one large accelerator.",
+        deeperContext:"Cleanup is part of the lesson. Disabling MIG is not harmless undo; it changes the hardware state again and destroys the partition layout.",
+        lookFor:[
+          "A confirmation that MIG mode was disabled",
+          "Evidence that the full GPU has been restored",
+          "No assumption that slice-based workloads could keep running through the transition"
+        ],
+        meaning:"The GPU is back to full-device mode and the slice-based sharing model is gone.",
+        commonMistake:"Forgetting that disabling MIG destroys the slices and should only happen when workloads are drained or no longer need the partitioned layout.",
+        operatorTakeaway:"Mode cleanup is safe only when the node is empty or intentionally being reconfigured. Treat it as a service-impacting action, not casual cleanup.",
+        takeAction:[
+          "Confirm the node is safe to return to full-GPU mode before cleanup.",
+          "Explain to beginners that cleanup changes the hardware contract for every workload that depended on MIG."
+        ],
+        avoid:[
+          "Do not disable MIG while slice-based work is still supposed to be running.",
+          "Do not treat cleanup as separate from safety and workload coordination."
+        ]
+      }
     ],
     draw: drawMIG
   },

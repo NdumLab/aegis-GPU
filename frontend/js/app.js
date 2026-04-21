@@ -204,6 +204,169 @@ function renderBulletList(items, cssClass) {
   return `<ul class="${cssClass}">${items.map(item => `<li>${escHtml(item)}</li>`).join('')}</ul>`;
 }
 
+function renderParagraphs(items) {
+  if (!items || !items.length) return '';
+  return items.map(item => `<p>${escHtml(item)}</p>`).join('');
+}
+
+function renderOperatorStoryGuide(guide) {
+  const sections = [];
+  const plainPicture = guide.plainPicture || guide.quickAnswer || '';
+
+  if (plainPicture) {
+    sections.push(`
+      <section class="learn-section learn-callout">
+        <h4>Plain-Language Picture</h4>
+        <p>${escHtml(plainPicture)}</p>
+      </section>
+    `);
+  }
+
+  if (guide.whyOperatorsCare && guide.whyOperatorsCare.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Why Operators Care</h4>
+        ${renderParagraphs(guide.whyOperatorsCare)}
+      </section>
+    `);
+  }
+
+  if (guide.coreTerms && guide.coreTerms.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Key Terms</h4>
+        <div class="term-grid">
+          ${guide.coreTerms.map(term => `
+            <article class="term-card">
+              <div class="term-name">${escHtml(term.term)}</div>
+              <p>${escHtml(term.plain)}</p>
+              ${term.why ? `<div class="term-why">Why operators care: ${escHtml(term.why)}</div>` : ''}
+            </article>
+          `).join('')}
+        </div>
+      </section>
+    `);
+  }
+
+  if (guide.commonMisreads && guide.commonMisreads.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Common Beginner Mistakes</h4>
+        ${renderBulletList(guide.commonMisreads, 'learn-list')}
+      </section>
+    `);
+  }
+
+  if (guide.safeActions && guide.safeActions.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Safe Beginner Actions</h4>
+        ${renderBulletList(guide.safeActions, 'learn-list')}
+      </section>
+    `);
+  }
+
+  return sections.join('');
+}
+
+function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
+  const topKicker = document.querySelector('#lab-step-coach .lab-step-coach-kicker');
+  const topTitle = document.querySelector('#lab-step-coach .lab-step-coach-title');
+  if (topKicker) topKicker.textContent = `${lab.name} • Step ${currentStep + 1}/${lab.steps.length}`;
+  if (topTitle) topTitle.textContent = step.label;
+
+  const whatToNotice = [
+    ...(step.lookFor || []),
+    ...outputClues.map(clue => `${clue.text} — ${clue.meaning}`),
+  ];
+  const nextAction = step.takeAction && step.takeAction.length ? step.takeAction[0] : 'Compare this step with the previous one before moving on.';
+  const beginnerMistake = step.commonMistake || 'Do not move on until you can explain what changed and why it matters.';
+  const operatorTakeaway = step.operatorTakeaway || step.meaning || nextAction;
+  const whyItMatters = step.deeperContext || step.meaning || describeStepCommand(step);
+  const commandNote = step.cmd?.startsWith('#')
+    ? 'This stage represents the operational state change you would need to reason about, even when there is no literal shell command to memorize.'
+    : tabNote;
+
+  return `
+    <div class="lab-step-coach-callout${step.fault ? ' err' : ''}">
+      <p><strong>What you’re doing:</strong> ${escHtml(step.whatsHappening || describeStepCommand(step))}</p>
+      <p><strong>Why it matters:</strong> ${escHtml(whyItMatters)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">Command</div>
+      <code class="lab-step-coach-code">${escHtml(step.cmd || '# simulated stage')}</code>
+      <p>${escHtml(commandNote)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">What To Notice</div>
+      ${renderBulletList(whatToNotice.length ? whatToNotice : ['Use the visible output to decide what changed in the node state.'], 'lab-step-coach-list')}
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">Common Wrong Conclusion</div>
+      <p>${escHtml(beginnerMistake)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">Operator Takeaway</div>
+      <p>${escHtml(operatorTakeaway)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">Next Action</div>
+      <p>${escHtml(nextAction)}</p>
+    </div>
+  `;
+}
+
+function renderBeginnerStoryGuidedDetails(step) {
+  const blocks = [];
+
+  if (step.deeperContext || step.meaning) {
+    blocks.push(`
+      <div class="guided-step-block guided-step-context">
+        <div class="guided-step-title">Why It Matters</div>
+        <p>${escHtml(step.deeperContext || step.meaning)}</p>
+      </div>
+    `);
+  }
+
+  if (step.lookFor && step.lookFor.length) {
+    blocks.push(`
+      <div class="guided-step-block">
+        <div class="guided-step-title">What To Notice</div>
+        ${renderBulletList(step.lookFor, 'guided-step-list')}
+      </div>
+    `);
+  }
+
+  if (step.commonMistake) {
+    blocks.push(`
+      <div class="guided-step-block guided-step-compare">
+        <div class="guided-step-title">Common Beginner Mistake</div>
+        <p>${escHtml(step.commonMistake)}</p>
+      </div>
+    `);
+  }
+
+  if (step.operatorTakeaway || step.meaning) {
+    blocks.push(`
+      <div class="guided-step-block">
+        <div class="guided-step-title">Operator Takeaway</div>
+        <p>${escHtml(step.operatorTakeaway || step.meaning)}</p>
+      </div>
+    `);
+  }
+
+  if (step.takeAction && step.takeAction.length) {
+    blocks.push(`
+      <div class="guided-step-block">
+        <div class="guided-step-title">Do This</div>
+        ${renderBulletList(step.takeAction, 'guided-step-list')}
+      </div>
+    `);
+  }
+
+  return blocks.join('');
+}
+
 function getStepOutput(step) {
   if (!step || typeof TERMINAL_OUTPUT === 'undefined') return [];
   return TERMINAL_OUTPUT[step.type] || [];
@@ -358,6 +521,12 @@ function renderLabStepCoach() {
       : 'You are on dcgm, which is useful for counter and health correlation.';
   const calloutClass = step.fault ? 'lab-step-coach-callout err' : 'lab-step-coach-callout';
 
+  if (beginnerMode && step.explainerMode === 'beginner_story') {
+    content.innerHTML = renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote);
+    content.scrollTop = 0;
+    return;
+  }
+
   const topKicker = document.querySelector('#lab-step-coach .lab-step-coach-kicker');
   const topTitle = document.querySelector('#lab-step-coach .lab-step-coach-title');
   if (topKicker) topKicker.textContent = `${lab.name} • Step ${currentStep + 1}/${lab.steps.length}`;
@@ -410,6 +579,10 @@ function renderLabStepCoach() {
 
 function renderGuidedStepDetails(step, prevStep) {
   if (!step) return '';
+
+  if (beginnerMode && step.explainerMode === 'beginner_story') {
+    return renderBeginnerStoryGuidedDetails(step);
+  }
 
   const deeperContext = beginnerMode && step.deeperContext
     ? `<div class="guided-step-block guided-step-context"><div class="guided-step-title">Why This Stage Matters</div><p>${escHtml(step.deeperContext)}</p></div>`
@@ -474,6 +647,10 @@ function renderGuidedFlowSteps(lab) {
 function renderLearningGuide(id) {
   const guide = getLearningGuide(id);
   if (!guide) return '';
+
+  if (guide.beginnerTemplate === 'operator_story') {
+    return renderOperatorStoryGuide(guide);
+  }
 
   const engine = getExplainEngine();
   const explainOptions = getExplanationOptions();
@@ -1036,16 +1213,18 @@ function showIntro(id) {
   if (!lab || !el) return;
 
   const guideMarkup = renderLearningGuide(id);
-  const modeNote = beginnerMode
+  const modeNote = guide?.hideModeNote ? '' : (beginnerMode
     ? '<div class="learn-banner"><div class="learn-banner-title">Beginner Mode is on</div><p>Real operator jargon stays visible, but each term is explained in plain language so you build vocabulary while you learn.</p></div>'
-    : '<div class="learn-banner learn-banner-compact"><div class="learn-banner-title">Compact lab brief</div><p>Turn on Beginner Mode for deeper explanations, lifecycle context, and slower reading material.</p></div>';
+    : '<div class="learn-banner learn-banner-compact"><div class="learn-banner-title">Compact lab brief</div><p>Turn on Beginner Mode for deeper explanations, lifecycle context, and slower reading material.</p></div>');
+  const objectiveTitle = guide?.objectiveTitle || 'Objective';
+  const objectiveText = guide?.objectiveText || lab.objective;
 
   el.innerHTML = `
     <h2>${lab.icon} ${lab.name}</h2>
     ${modeNote}
     <div class="objective">
-      <h4>Objective</h4>
-      <p>${escHtml(lab.objective)}</p>
+      <h4>${escHtml(objectiveTitle)}</h4>
+      <p>${escHtml(objectiveText)}</p>
     </div>
     ${guide ? guideMarkup : ''}
     <section class="learn-section">

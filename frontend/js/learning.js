@@ -165,17 +165,31 @@ window.AEGIS_LEARNING = {
     ]
   },
   mig: {
-    quickAnswer: "MIG lets one physical GPU act like several isolated slices. Beginners should think of it as hardware partitioning, not just software scheduling.",
-    whyItMatters: "It changes how capacity, isolation, and fault domains are explained to users.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are taking one H100 GPU and carving it into 7 isolated slices with MIG. Think of it like cutting one large pizza into seven personal slices: each slice is smaller, but each one is deliberately separated from the others.",
+    plainPicture: "MIG is hardware partitioning, not just scheduling. The GPU itself changes shape so multiple workloads can use isolated slices instead of fighting over one full device.",
+    whyOperatorsCare: [
+      "When you partition a GPU, you are not only sharing capacity. You are changing the isolation story of the node.",
+      "That matters because operators care about blast radius: if one tenant, one process, or one slice has a problem, how much of the machine is affected?",
+      "Beginners often assume MIG is just a Kubernetes trick. It is not. The GPU must enter MIG mode first, and that changes what the hardware advertises to the software stack."
+    ],
     coreTerms: [
-      { term: "MIG", plain: "Multi-Instance GPU, a feature that partitions a GPU into smaller isolated instances.", why: "It is a common way to share expensive accelerators safely." },
-      { term: "Instance", plain: "One isolated slice of GPU compute and memory resources.", why: "Each slice can be assigned to a different workload or tenant." },
-      { term: "Fault domain", plain: "The part of the system affected when something fails.", why: "Isolation is easier to understand when beginners know what a fault domain means." }
+      { term: "MIG", plain: "Multi-Instance GPU, a way to carve one physical GPU into smaller isolated hardware slices.", why: "This is how one expensive GPU can be shared more safely across teams." },
+      { term: "Instance", plain: "One slice of GPU compute and memory that behaves like its own small accelerator.", why: "Each instance is what a workload actually lands on after partitioning." },
+      { term: "Fault domain", plain: "The part of the system affected when something breaks.", why: "Operators use this idea to reason about isolation and blast radius." }
+    ],
+    commonMisreads: [
+      "MIG is not just software scheduling. The hardware itself must switch modes before slices can exist.",
+      "A slice is not a full GPU. If a team gets one slice, they are getting part of the accelerator, not the whole card.",
+      "Successful partition creation does not prove the node is ready. You still verify the final layout and check it matches the tenant plan."
     ],
     safeActions: [
-      "Explain the partition plan before creating instances.",
-      "Verify the resulting layout after creation.",
-      "Make sure users know a slice is not the same as a full GPU."
+      "Explain the partition plan before you create any instances.",
+      "Verify the final layout after creation instead of assuming the command worked exactly as intended.",
+      "Tell users clearly that one slice is not the same thing as one full GPU.",
+      "Check whether the node is still safe to keep in service before changing MIG mode on a busy machine."
     ]
   },
   cuda_stack: {
