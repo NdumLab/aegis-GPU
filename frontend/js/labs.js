@@ -10,11 +10,131 @@ const LABS = {
     color: "#4a9eff",
     objective: "Verify NVLink connectivity between 8 H100 GPUs.",
     steps: [
-      { label:"View Topology", cmd:"nvidia-smi topo -m", type:"topo" },
-      { label:"Check NVLink Errors", cmd:"nvidia-smi nvlink -e", type:"nvlink_err" },
-      { label:"Benchmark AllReduce", cmd:"./nccl-tests/build/all_reduce_perf -b 1G -e 4G -f 2 -g 8", type:"benchmark" },
-      { label:"Fault: Inject PHB", cmd:"# Simulating NVLink failure", type:"nvlink_fault", fault:true },
-      { label:"Diagnose Fallback", cmd:"NCCL_DEBUG=INFO torchrun train.py", type:"nccl_diag" }
+      {
+        label:"View Topology",
+        cmd:"nvidia-smi topo -m",
+        type:"topo",
+        deeperContext:"Topology is the map of the GPU fabric. Beginners need to see the map before they interpret performance, because a throughput number only makes sense if you know which links should exist.",
+        lookFor:[
+          "NV4-style NVLink relationships instead of PCIe-only paths such as PHB",
+          "A mostly symmetric topology across the 8-GPU set",
+          "Any missing or weaker path that would change collective behavior later"
+        ],
+        meaning:"This step establishes the expected fabric design. You are proving what healthy direct GPU-to-GPU connectivity should look like before chasing errors or bandwidth regressions.",
+        justifiedConclusion:"The node has a known expected NVLink layout that can serve as the baseline for later fault comparison.",
+        stillPremature:"It is too early to conclude performance is healthy just because the topology map looks correct on paper.",
+        thresholdCrossed:"No fault threshold is crossed yet. This step defines the expected connectivity baseline.",
+        takeAction:[
+          "Notice which GPU pairs should be direct NVLink neighbors.",
+          "Treat this topology output as the design contract for later troubleshooting.",
+          "Remember that a path mismatch later is meaningful only because this baseline exists."
+        ],
+        avoid:[
+          "Do not skip straight to benchmarking without understanding the intended link map.",
+          "Do not assume all multi-GPU slowdowns are software problems if the fabric map is wrong."
+        ]
+      },
+      {
+        label:"Check NVLink Errors",
+        cmd:"nvidia-smi nvlink -e",
+        type:"nvlink_err",
+        deeperContext:"A healthy topology is not enough by itself. The links must also be clean under error counters, otherwise the topology exists but the fabric is already degraded.",
+        lookFor:[
+          "CRC or flit error counts staying at 0 or near-clean values",
+          "Any link showing non-zero growth that makes one path look weaker than the rest",
+          "Whether the fabric looks electrically clean before performance testing"
+        ],
+        meaning:"This step checks whether the visible NVLink paths are actually healthy enough to trust. Clean counters mean the fabric is ready for a meaningful performance baseline.",
+        changedFromPrevious:"The focus moves from existence of links to health of links. You are no longer asking 'is there a path?' but 'is the path clean?'.",
+        justifiedConclusion:"If counters stay clean, the fabric has passed both topology and basic link-health checks.",
+        stillPremature:"It is still too early to say end-to-end collectives are healthy until a workload-level benchmark confirms the expected throughput.",
+        thresholdCrossed:"The evidence threshold for benchmarking is crossed once topology and link counters both look healthy.",
+        takeAction:[
+          "Use this step to decide whether a future bandwidth issue is likely fabric-related or higher-level.",
+          "Treat non-zero link errors as an early warning, even if workloads still run.",
+          "Move to benchmark only after the fabric looks clean enough to trust."
+        ],
+        avoid:[
+          "Do not assume a correct topology map means the interconnect is healthy in practice.",
+          "Do not ignore low but growing link errors if they line up with later performance loss."
+        ]
+      },
+      {
+        label:"Benchmark AllReduce",
+        cmd:"./nccl-tests/build/all_reduce_perf -b 1G -e 4G -f 2 -g 8",
+        type:"benchmark",
+        deeperContext:"This is the moment where design meets reality. A benchmark converts topology and counter checks into an operational answer about whether the fabric is delivering the performance the training stack needs.",
+        lookFor:[
+          "AllReduce bandwidth near the healthy NVLink-backed expectation",
+          "No sudden collapse that would contradict the healthy topology picture",
+          "A result that matches what this node design should deliver"
+        ],
+        meaning:"A strong benchmark confirms that the fabric is not just present and clean, but also performing at the level the workload expects. This is the functional proof step.",
+        changedFromPrevious:"The evidence moves from static inspection into workload behavior. You are now testing whether the hardware story holds up under collective communication.",
+        justifiedConclusion:"The interconnect is operationally healthy if the benchmark matches the expected performance envelope.",
+        stillPremature:"It is still too early to assume the system is resilient to injected or transient faults just because the current benchmark is good.",
+        thresholdCrossed:"The performance-baseline threshold is crossed once the benchmark confirms healthy collective throughput.",
+        takeAction:[
+          "Use the throughput number as the healthy comparison point for later degraded steps.",
+          "Keep the benchmark result tied mentally to the clean topology and error checks.",
+          "Treat any later collapse as meaningful because you already proved the good path."
+        ],
+        avoid:[
+          "Do not memorize the command and forget the purpose of the throughput result.",
+          "Do not compare a bad benchmark to guesswork; compare it to this healthy baseline."
+        ]
+      },
+      {
+        label:"Fault: Inject PHB",
+        cmd:"# Simulating NVLink failure",
+        type:"nvlink_fault",
+        fault:true,
+        deeperContext:"This step teaches a soft-but-serious failure mode: the job may still run, but the fast direct GPU path is gone and PCIe traversal takes over. Beginners need to learn that the cluster can be alive while the interconnect is operationally broken.",
+        lookFor:[
+          "NVLink path collapsing to PHB or another weaker traversal",
+          "A topology story that no longer matches the earlier healthy baseline",
+          "The kind of path downgrade that explains a future throughput cliff"
+        ],
+        meaning:"The fabric has shifted from direct NVLink communication to a slower PCIe-host-bridge path. This is a real topology degradation, not just a benchmark fluctuation.",
+        changedFromPrevious:"The system crossed from healthy high-speed direct links into an inferior path that changes the physics of GPU-to-GPU communication.",
+        justifiedConclusion:"The node should now be expected to suffer serious collective-performance degradation even if workloads still start.",
+        stillPremature:"It is still too early to blame NCCL configuration alone, because the hardware path itself has already changed for the worse.",
+        thresholdCrossed:"The topology-integrity threshold is crossed: once PHB replaces the expected NVLink path, the node is no longer in a healthy interconnect state.",
+        takeAction:[
+          "Treat the topology shift as the primary clue before touching software tuning.",
+          "Expect benchmark degradation to be a consequence, not a separate mystery.",
+          "Use the next step to connect the topology fault to the software-visible fallback story."
+        ],
+        avoid:[
+          "Do not call this a minor cosmetic topology issue.",
+          "Do not start with environment variables if the physical path has already degraded."
+        ]
+      },
+      {
+        label:"Diagnose Fallback",
+        cmd:"NCCL_DEBUG=INFO torchrun train.py",
+        type:"nccl_diag",
+        deeperContext:"This final step teaches cross-layer reasoning. The hardware fault should now show up in the software communication story, and beginners should learn to connect the physical path loss to NCCL behavior instead of treating them as separate incidents.",
+        lookFor:[
+          "NCCL logs indicating a less efficient path or degraded communication behavior",
+          "Software evidence that matches the earlier topology change",
+          "A consistent story from fabric map to benchmark to collective diagnosis"
+        ],
+        meaning:"The software layer is now reflecting the hardware problem. This is how operators prove that a communication slowdown is grounded in interconnect evidence rather than vague application blame.",
+        changedFromPrevious:"The explanation moves from hardware-path degradation into software-visible consequence. The fault now has a full cross-layer story.",
+        justifiedConclusion:"The slowdown can be explained coherently as a fabric-backed collective degradation, not just as an application anomaly.",
+        stillPremature:"It is still too early to claim root-cause repair until the underlying NVLink path is restored and benchmarking re-validates the node.",
+        thresholdCrossed:"The diagnosis-grounding threshold is crossed when topology, counters or path state, and NCCL behavior all tell the same story.",
+        takeAction:[
+          "Explain the fault as one connected narrative across hardware and software layers.",
+          "Use the combined evidence to justify repair or containment instead of more speculation.",
+          "Make sure the remediation plan targets the degraded link path, not just the training command."
+        ],
+        avoid:[
+          "Do not treat NCCL logs as the whole problem when the hardware path already explained the slowdown.",
+          "Do not mark the node healthy again until both path and throughput recover."
+        ]
+      }
     ],
     draw: drawNVLink
   },
@@ -38,11 +158,132 @@ const LABS = {
     color: "#f0b429",
     objective: "Observe GPU memory error lifecycle.",
     steps: [
-      { label:"Healthy Baseline", cmd:"dcgmi dmon -e 156,157 -c 5", type:"ecc_healthy" },
-      { label:"SBE Trend Rising", cmd:"# Simulating degradation", type:"ecc_sbe", fault:true },
-      { label:"Poll ECC Trend", cmd:"dcgmi dmon -e 156,157 -c 10", type:"ecc_trend" },
-      { label:"XID 48 Appears", cmd:"dmesg | grep -i xid", type:"ecc_xid", fault:true },
-      { label:"Drain Node", cmd:"kubectl drain gpu-node-03", type:"ecc_drain" }
+      {
+        label:"Healthy Baseline",
+        cmd:"dcgmi dmon -e 156,157 -c 5",
+        type:"ecc_healthy",
+        deeperContext:"This opening step establishes the healthy reference point. Beginners need to see that ECC work starts with a baseline, because later counts only mean something if you know what normal looked like first.",
+        lookFor:[
+          "Field 156 (SBE) staying at 0 across the polling window",
+          "Field 157 (DBE) staying at 0 with no sudden jumps",
+          "Stable output that tells you the GPU is not already in a degraded memory state"
+        ],
+        meaning:"A clean baseline means the card is healthy right now. You are proving that the system starts from corrected-error count 0 and uncorrected-error count 0 before degradation begins.",
+        justifiedConclusion:"The GPU is currently healthy enough to establish a trustworthy reference point for the rest of the lab.",
+        stillPremature:"It is too early to conclude that the card will remain healthy over time, because one clean baseline only describes the current state.",
+        thresholdCrossed:"No fault threshold is crossed yet. This step establishes the baseline you will compare against later.",
+        takeAction:[
+          "Record the clean SBE and DBE values mentally or in notes before moving on.",
+          "Anchor the lesson around the idea that trend matters more than one isolated number.",
+          "Use this step as the comparison point for every later poll in the lab."
+        ],
+        avoid:[
+          "Do not skip the baseline and then guess later whether the card worsened.",
+          "Do not treat one clean poll as permanent proof that the GPU will stay healthy."
+        ]
+      },
+      {
+        label:"SBE Trend Rising",
+        cmd:"# Simulating degradation",
+        type:"ecc_sbe",
+        fault:true,
+        deeperContext:"This is the early-warning phase. Single-bit ECC errors are usually corrected automatically, so the workload may keep running. That is exactly why beginners need to learn that corrected does not mean harmless forever.",
+        lookFor:[
+          "The SBE counter climbing while DBE is still 0",
+          "A pattern of repeat corrected errors instead of one random blip",
+          "A card that still appears usable even though the memory story is getting worse"
+        ],
+        meaning:"Rising SBE counts mean the GPU is still catching and fixing bad bits, but the memory path is no longer perfectly clean. Repeated corrected errors are often the warning sign before a more serious uncorrectable event.",
+        changedFromPrevious:"The system moved from a clean baseline to accumulating corrected ECC errors. You are no longer looking at a healthy steady state.",
+        justifiedConclusion:"The card is showing early degradation signals and now deserves active trending instead of passive trust.",
+        stillPremature:"It is still too early to declare the GPU unusable or to call this an uncorrectable hardware incident, because DBE is still 0.",
+        thresholdCrossed:"The monitoring threshold is crossed: you now have a rising corrected-error pattern that justifies deeper observation and preparation for containment.",
+        takeAction:[
+          "Treat repeated SBE growth as a maintenance signal, not as noise.",
+          "Continue polling so you can tell whether the trend is stabilizing or escalating.",
+          "Start thinking in terms of proactive containment before the job experiences an uncorrectable failure."
+        ],
+        avoid:[
+          "Do not say 'the GPU fixed it, so there is no issue.'",
+          "Do not jump straight to RMA on one tiny corrected event without checking the trend."
+        ]
+      },
+      {
+        label:"Poll ECC Trend",
+        cmd:"dcgmi dmon -e 156,157 -c 10",
+        type:"ecc_trend",
+        deeperContext:"This step teaches that operations work is about observing the direction of change. A longer poll window helps beginners see whether the SBE rise is a persistent pattern instead of a one-time event.",
+        lookFor:[
+          "Whether field 156 keeps increasing over repeated samples",
+          "Whether field 157 remains 0 or begins to change",
+          "Whether the error pattern looks stable, worsening, or suddenly accelerating"
+        ],
+        meaning:"If SBE keeps climbing during repeated polls, the card is trending the wrong way. The important lesson is that the lifecycle is moving from healthy baseline to corrected-error accumulation, which raises concern even before a DBE appears.",
+        changedFromPrevious:"You are no longer seeing a one-step rise. The corrected-error pattern persisted across a longer observation window, which makes the trend more trustworthy.",
+        justifiedConclusion:"The degradation signal is persistent enough to treat as real operational evidence, not a random one-off anomaly.",
+        stillPremature:"It is still too early to say the card has had an uncorrectable ECC failure unless DBE or an XID confirms that escalation.",
+        thresholdCrossed:"The evidence threshold for proactive containment planning is crossed: the trend is now persistent, not just visible once.",
+        takeAction:[
+          "Compare this poll directly to the first baseline step, not to your intuition.",
+          "Use trend language: rising, flat, accelerating, or crossed into DBE.",
+          "Prepare to contain the node if the lifecycle moves from corrected to uncorrected errors."
+        ],
+        avoid:[
+          "Do not stare at one row of output and ignore the time dimension.",
+          "Do not wait for a catastrophic failure before acknowledging that the memory story is worsening."
+        ]
+      },
+      {
+        label:"XID 48 Appears",
+        cmd:"dmesg | grep -i xid",
+        type:"ecc_xid",
+        fault:true,
+        deeperContext:"This is the inflection point where the lifecycle stops being just a warning trend and becomes a hard fault. XID 48 is the moment beginners must connect the jargon, the ECC counters, and the operational consequence.",
+        lookFor:[
+          "An XID 48 entry in dmesg tied to the affected GPU",
+          "Evidence that the event is now an uncorrectable memory failure, not only corrected SBEs",
+          "The shift from monitoring mode to immediate containment mode"
+        ],
+        meaning:"XID 48 usually indicates a double-bit ECC error, which is uncorrectable. The GPU could not safely repair the memory corruption, so this is now a hardware-integrity incident rather than a watch-and-trend situation.",
+        changedFromPrevious:"The lifecycle crossed from corrected-error trending into an explicit uncorrectable hardware fault. This is the moment where the story changes from observe and prepare to contain and escalate.",
+        justifiedConclusion:"The node should now be treated as unsafe for fresh workload placement because the evidence supports a real hardware-integrity incident.",
+        stillPremature:"It is still too early to call the issue resolved or to assume a software tweak will safely return the GPU to service.",
+        thresholdCrossed:"The hard-fault threshold is crossed: XID 48 and DBE-level behavior justify immediate containment, incident handling, and likely vendor escalation.",
+        takeAction:[
+          "Identify the affected GPU and node clearly before touching cluster state.",
+          "Treat the node as unsafe for new workloads until it is contained.",
+          "Move from observation to containment: the next correct step is draining the node."
+        ],
+        avoid:[
+          "Do not keep scheduling fresh jobs on a node that just raised XID 48.",
+          "Do not explain XID 48 as 'just another ECC warning'; it is materially more serious than rising SBEs."
+        ]
+      },
+      {
+        label:"Drain Node",
+        cmd:"kubectl drain gpu-node-03",
+        type:"ecc_drain",
+        deeperContext:"This final step teaches containment. The beginner lesson is that the job of an operator is not only to diagnose the bad card, but also to protect the rest of the cluster from landing new work on a known-bad node.",
+        lookFor:[
+          "The scheduler stopping new workloads from landing on the affected node",
+          "A clear separation between diagnosis and containment responsibilities",
+          "The system moving into a safe state while deeper remediation or RMA is prepared"
+        ],
+        meaning:"Draining the node does not repair the GPU. It protects users and workloads by taking the unstable hardware out of normal service until the incident is fully handled.",
+        changedFromPrevious:"The response moved from diagnosis into containment. Instead of collecting more evidence, the operator is now changing cluster state to protect workloads.",
+        justifiedConclusion:"The correct operational priority is now blast-radius control, not continued observation on an in-service node.",
+        stillPremature:"It is still too early to say the GPU is repaired, healthy again, or ready to return to normal scheduling.",
+        thresholdCrossed:"The scheduling-control threshold is crossed: once an uncorrectable memory incident is confirmed, the node must be removed from normal placement until remediation is complete.",
+        takeAction:[
+          "Drain the node after confirming the uncorrectable ECC event.",
+          "Notify the workload owner or operations channel that the node is being removed from service.",
+          "Escalate into hardware remediation or vendor process after containment is complete."
+        ],
+        avoid:[
+          "Do not confuse draining with fixing the card.",
+          "Do not return the node to normal scheduling until the hardware issue has been resolved and validated."
+        ]
+      }
     ],
     draw: drawECC
   },
@@ -52,11 +293,133 @@ const LABS = {
     color: "#e05252",
     objective: "Respond to XID 48, 79, and 74.",
     steps: [
-      { label:"XID 48 Alert", cmd:"dmesg | tail -20 | grep xid", type:"xid48", fault:true },
-      { label:"Confirm DBE", cmd:"dcgmi dmon -e 157 -c 3", type:"xid48_confirm" },
-      { label:"XID 79 Alert", cmd:"# Simulating GPU hang", type:"xid79", fault:true },
-      { label:"Attempt GPU Reset", cmd:"sudo nvidia-smi --gpu-reset -i 3", type:"xid79_reset" },
-      { label:"XID 74 (NVLink)", cmd:"nvidia-smi nvlink -e", type:"xid74", fault:true }
+      {
+        label:"XID 48 Alert",
+        cmd:"dmesg | tail -20 | grep xid",
+        type:"xid48",
+        fault:true,
+        deeperContext:"This drill starts with a memory-integrity alert. The beginner goal is to stop treating XID numbers as mysterious codes and instead see them as operator signals with specific severity and response expectations.",
+        lookFor:[
+          "An XID 48 event tied to a specific GPU",
+          "A log entry that points toward uncorrectable ECC behavior rather than a generic slowdown",
+          "The need to move from interpretation into confirmation"
+        ],
+        meaning:"XID 48 is a serious memory fault signal and usually points toward double-bit ECC failure. It is not just another warning event.",
+        justifiedConclusion:"The node may already be in a hardware-integrity incident and needs immediate confirmation work, not passive observation.",
+        stillPremature:"It is still too early to drain or RMA based on the code alone until you confirm the DBE evidence path.",
+        thresholdCrossed:"The fault-investigation threshold is crossed: the alert is strong enough that confirmation must happen immediately.",
+        takeAction:[
+          "Tie the code to the affected device before acting broadly.",
+          "Use the next step to confirm the DBE evidence path.",
+          "Treat the alert as a probable hardware issue, not just a performance event."
+        ],
+        avoid:[
+          "Do not dismiss the XID because the job may still look partially alive.",
+          "Do not jump to generic remediation before confirming which fault family you are in."
+        ]
+      },
+      {
+        label:"Confirm DBE",
+        cmd:"dcgmi dmon -e 157 -c 3",
+        type:"xid48_confirm",
+        deeperContext:"This is the confirmation step that separates suspicion from grounded incident response. It teaches beginners that a strong operator decision should be backed by a second, independent evidence source when possible.",
+        lookFor:[
+          "Field 157 showing DBE activity instead of staying at 0",
+          "Alignment between the XID alert and ECC counter evidence",
+          "A hardware-integrity story that is now evidence-backed rather than inferred"
+        ],
+        meaning:"DBE confirmation turns the XID 48 alert into a grounded uncorrectable-memory incident. The system now has both log evidence and hardware-counter evidence pointing the same way.",
+        changedFromPrevious:"The incident moved from probable fault to confirmed uncorrectable ECC condition.",
+        justifiedConclusion:"Containment and vendor-style remediation are now justified because the evidence supports a real DBE event.",
+        stillPremature:"It is still too early to think a lightweight software fix will make the GPU safe again.",
+        thresholdCrossed:"The containment threshold is crossed once DBE confirmation aligns with the XID 48 alert.",
+        takeAction:[
+          "Treat the incident as confirmed, not hypothetical.",
+          "Prepare containment and escalation based on the grounded evidence.",
+          "Use this as the pattern for how to confirm other severe alerts in the future."
+        ],
+        avoid:[
+          "Do not continue arguing that the code might be harmless once DBE is confirmed.",
+          "Do not keep the node in normal service while waiting for even more proof."
+        ]
+      },
+      {
+        label:"XID 79 Alert",
+        cmd:"# Simulating GPU hang",
+        type:"xid79",
+        fault:true,
+        deeperContext:"Now the drill changes fault family. Beginners should learn that not all XIDs mean the same thing: XID 79 is a stability and bus-reachability problem, not an ECC-memory story.",
+        lookFor:[
+          "Evidence that the GPU is hung or has fallen off the bus",
+          "A different failure shape than the earlier ECC incident",
+          "The need for a reset-style recovery path instead of just containment"
+        ],
+        meaning:"XID 79 usually means the GPU became unreachable on the bus. This is a severe stability event and often requires reset or reboot behavior rather than memory-RMA reasoning.",
+        changedFromPrevious:"The incident shifted from memory-integrity failure to GPU reachability and stability failure. The recovery playbook must change with it.",
+        justifiedConclusion:"A reset attempt is now the right next move because the failure mode suggests the GPU is hung, not just degraded.",
+        stillPremature:"It is still too early to assume a node reboot is required until you see whether a targeted GPU reset succeeds.",
+        thresholdCrossed:"The recovery-path threshold is crossed: the evidence now justifies trying a hardware reset workflow.",
+        takeAction:[
+          "Recognize that this is a different fault family with a different response model.",
+          "Use a reset attempt before escalating to full node reboot when appropriate.",
+          "Keep the distinction between memory faults and bus faults clear in your reasoning."
+        ],
+        avoid:[
+          "Do not respond to XID 79 as if it were just another ECC case.",
+          "Do not reboot first if a targeted reset could safely answer the recovery question."
+        ]
+      },
+      {
+        label:"Attempt GPU Reset",
+        cmd:"sudo nvidia-smi --gpu-reset -i 3",
+        type:"xid79_reset",
+        deeperContext:"This step teaches conditional recovery: not every severe fault goes straight to reboot. Beginners should learn that the operator tests the least disruptive justified recovery action first when the fault family supports it.",
+        lookFor:[
+          "Whether the GPU reset succeeds or fails cleanly",
+          "Whether the device becomes reachable again after reset",
+          "Whether the incident remains local to one GPU or implies a wider node issue"
+        ],
+        meaning:"A successful reset means the GPU-hang path may be recoverable without full node reboot. A failed reset pushes the incident into a more disruptive recovery tier.",
+        changedFromPrevious:"The workflow moved from identifying the fault family to actively testing the least disruptive justified recovery path.",
+        justifiedConclusion:"Reset outcome now decides whether recovery can stay GPU-scoped or must escalate to node-scoped action.",
+        stillPremature:"It is still too early to declare the node healthy again until the device is reachable and validated after reset.",
+        thresholdCrossed:"The escalation threshold is crossed if the reset fails or the GPU remains unreachable afterward.",
+        takeAction:[
+          "Use the reset result to drive the next escalation level instead of guessing.",
+          "If reset fails, treat reboot escalation as grounded, not impulsive.",
+          "If reset succeeds, validate before returning the GPU to service."
+        ],
+        avoid:[
+          "Do not confuse a reset attempt with proof of recovery.",
+          "Do not keep experimenting indefinitely if the device remains unreachable."
+        ]
+      },
+      {
+        label:"XID 74 (NVLink)",
+        cmd:"nvidia-smi nvlink -e",
+        type:"xid74",
+        fault:true,
+        deeperContext:"The final step introduces a third fault family: interconnect faults. This teaches that XID literacy includes understanding whether the problem is memory, device stability, or fabric communication.",
+        lookFor:[
+          "NVLink CRC or related link-error evidence tied to the fault",
+          "A communication-path issue rather than a pure GPU-compute failure",
+          "Hardware-link symptoms that can degrade collectives without fully crashing the node"
+        ],
+        meaning:"XID 74 usually points to NVLink link trouble such as CRC errors. This is a fabric-quality incident and should be reasoned about as a communication-path problem.",
+        changedFromPrevious:"The drill shifted again, from bus-stability recovery to interconnect diagnosis. The operator now needs fabric reasoning, not reset-only reasoning.",
+        justifiedConclusion:"The node may still compute locally, but GPU-to-GPU communication integrity is now in question and must be treated seriously.",
+        stillPremature:"It is still too early to blame the application stack alone when link-level evidence points to the fabric path.",
+        thresholdCrossed:"The fabric-diagnosis threshold is crossed once XID 74 aligns with NVLink error evidence.",
+        takeAction:[
+          "Read the incident as a link-health problem first.",
+          "Use topology and link counters to ground the diagnosis before tuning software.",
+          "Treat communication degradation as a production issue even if jobs still start."
+        ],
+        avoid:[
+          "Do not lump XID 74 together with memory or bus faults as if the response were identical.",
+          "Do not ignore fabric evidence just because the GPUs themselves still appear online."
+        ]
+      }
     ],
     draw: drawFaultDrill
   },
@@ -154,12 +517,155 @@ const LABS = {
     color: "#e05252",
     objective: "Diagnose TCP vs IB.",
     steps: [
-      { label:"Diagnose", cmd:"NCCL_DEBUG=INFO torchrun train.py", type:"fb_diag" },
-      { label:"Check Env", cmd:"env | grep NCCL", type:"fb_env" },
-      { label:"Check ibstat", cmd:"ibstat", type:"fb_ib" },
-      { label:"Set IB_HCA", cmd:"export NCCL_IB_HCA=mlx5_0", type:"fb_fix" },
-      { label:"Verify Fixed", cmd:"NCCL_DEBUG=INFO torchrun", type:"fb_verify" },
-      { label:"Compare BW", cmd:"./perf", type:"fb_bench" }
+      {
+        label:"Diagnose",
+        cmd:"NCCL_DEBUG=INFO torchrun train.py",
+        type:"fb_diag",
+        deeperContext:"This drill begins at the symptom layer. Beginners often stop at 'the job is slow'; this step teaches them to use NCCL logs to identify that the communication path is already telling a story.",
+        lookFor:[
+          "NCCL choosing Socket or TCP instead of the expected InfiniBand path",
+          "A communication mode that does not match the node's intended fabric design",
+          "The first concrete evidence that slow success is not normal success"
+        ],
+        meaning:"The workload is likely using a slower fallback path. The key lesson is that distributed jobs can still run while the communication layer is badly degraded.",
+        justifiedConclusion:"A path-selection problem is now a plausible explanation for the slowdown and deserves targeted investigation.",
+        stillPremature:"It is still too early to blame hardware or reboot anything until environment and IB availability are checked.",
+        thresholdCrossed:"The path-investigation threshold is crossed: the logs justify tracing why NCCL is not on the expected fast path.",
+        takeAction:[
+          "Treat the communication mode as evidence, not just noise in the logs.",
+          "Use the next steps to separate configuration mistakes from true fabric issues.",
+          "Keep the healthy-path expectation in mind while you investigate."
+        ],
+        avoid:[
+          "Do not accept slow TCP operation as 'good enough' just because the job launched.",
+          "Do not jump to driver surgery before checking the simpler path-selection causes."
+        ]
+      },
+      {
+        label:"Check Env",
+        cmd:"env | grep NCCL",
+        type:"fb_env",
+        deeperContext:"This step teaches a core debugging habit: check the highest-leverage, lowest-cost explanation first. Environment variables can override the whole fabric story with one bad setting.",
+        lookFor:[
+          "Variables such as NCCL_IB_DISABLE or a suspicious HCA override",
+          "A direct software explanation for why TCP was chosen",
+          "Whether the fallback could be self-inflicted by configuration"
+        ],
+        meaning:"If a disabling or mismatched environment variable is present, the fallback may be caused by configuration alone rather than hardware failure.",
+        changedFromPrevious:"The investigation moved from symptom recognition to the simplest high-impact cause: configuration override.",
+        justifiedConclusion:"A config-driven fallback is now more plausible if the environment contradicts the intended fabric path.",
+        stillPremature:"It is still too early to blame the InfiniBand fabric itself until you confirm the environment is not forcing the slower path.",
+        thresholdCrossed:"The configuration-cause threshold is crossed if NCCL environment settings directly explain the fallback.",
+        takeAction:[
+          "Use environment inspection to clear or confirm the easiest root-cause class first.",
+          "If the environment looks wrong, fix that before doing deeper cluster investigation.",
+          "Preserve the distinction between misconfiguration and hardware outage."
+        ],
+        avoid:[
+          "Do not ignore the environment because hardware debugging feels more serious.",
+          "Do not keep digging into fabric state if a single variable already explains the symptom."
+        ]
+      },
+      {
+        label:"Check ibstat",
+        cmd:"ibstat",
+        type:"fb_ib",
+        deeperContext:"Once configuration is checked, the next teaching move is to verify the transport is actually available. Beginners need to learn that software and fabric evidence must be compared, not studied in isolation.",
+        lookFor:[
+          "IB ports in Active state",
+          "Expected HCAs present and named as the environment would reference them",
+          "Whether the transport exists independently of the NCCL symptom"
+        ],
+        meaning:"This step shows whether the fast transport is genuinely available. Healthy IB state means the fallback is more likely a selection problem than a dead fabric.",
+        changedFromPrevious:"The reasoning moves from config-only suspicion to validating the transport layer itself.",
+        justifiedConclusion:"If IB is active, the fallback is increasingly likely to be a naming, selection, or override problem rather than a hard transport outage.",
+        stillPremature:"It is still too early to declare the fix obvious until the selected HCA and resulting behavior are verified.",
+        thresholdCrossed:"The transport-availability threshold is crossed when IB health confirms the fast path should be usable in principle.",
+        takeAction:[
+          "Compare actual HCA names against any configured NCCL HCA setting.",
+          "Use this step to decide whether you are debugging availability or selection.",
+          "Prepare a narrow fix that matches the observed HCA reality."
+        ],
+        avoid:[
+          "Do not say 'IB is fine' without checking the exact device names and active state.",
+          "Do not keep treating the issue as a total fabric outage if ibstat says the ports are healthy."
+        ]
+      },
+      {
+        label:"Set IB_HCA",
+        cmd:"export NCCL_IB_HCA=mlx5_0",
+        type:"fb_fix",
+        deeperContext:"This is a targeted correction step. The beginner lesson is that a good operator applies the smallest fix that matches the evidence instead of making broad uncontrolled changes.",
+        lookFor:[
+          "A corrected HCA selection that matches the actual active device",
+          "Removal of the mismatch between observed IB state and NCCL's chosen path",
+          "A fix that directly addresses the selection problem you just validated"
+        ],
+        meaning:"The system is now being pointed at the right transport interface. If the prior evidence was correct, this should restore NCCL's ability to use the fast path.",
+        changedFromPrevious:"The workflow moved from diagnosis into a narrowly targeted remediation based on evidence rather than guesswork.",
+        justifiedConclusion:"If the path issue was selection-related, this fix should materially change the next NCCL run.",
+        stillPremature:"It is still too early to declare success until the workload logs and bandwidth both confirm the path really changed.",
+        thresholdCrossed:"The remediation threshold is crossed once a specific mismatch has been identified and corrected.",
+        takeAction:[
+          "Keep the fix tied to the exact HCA evidence you observed.",
+          "Use the next step to prove the communication path actually changed.",
+          "Think in terms of verify-after-change, not hope-after-change."
+        ],
+        avoid:[
+          "Do not pile multiple environment edits on top of each other without verification.",
+          "Do not call the issue solved merely because a config export was issued."
+        ]
+      },
+      {
+        label:"Verify Fixed",
+        cmd:"NCCL_DEBUG=INFO torchrun",
+        type:"fb_verify",
+        deeperContext:"Verification is where remediation becomes trustworthy. This step teaches beginners that a change only counts when the system behavior changes in the expected direction.",
+        lookFor:[
+          "NCCL selecting the intended IB path instead of TCP",
+          "A log story that now matches the fabric design",
+          "Clear evidence that the prior fallback condition no longer applies"
+        ],
+        meaning:"If NCCL now selects the intended transport, the diagnosis and targeted fix were correct. The communication stack has moved back onto the expected path.",
+        changedFromPrevious:"The evidence shifts from proposed fix to observed post-fix behavior.",
+        justifiedConclusion:"The root cause was likely path selection or environment mismatch if the logs now show the proper transport.",
+        stillPremature:"It is still too early to declare full performance recovery until bandwidth is compared against the healthy baseline.",
+        thresholdCrossed:"The verification threshold is crossed when the software path changes in exactly the way the fix predicted.",
+        takeAction:[
+          "Use the logs to confirm the fix changed the actual transport choice.",
+          "Preserve the before/after reasoning so the diagnosis remains teachable.",
+          "Move to bandwidth comparison to prove user-visible recovery."
+        ],
+        avoid:[
+          "Do not stop at log improvement if the real performance result still needs proof.",
+          "Do not declare victory until the workload-visible throughput is checked."
+        ]
+      },
+      {
+        label:"Compare BW",
+        cmd:"./perf",
+        type:"fb_bench",
+        deeperContext:"This final step closes the loop from symptom to fix to user-visible impact. Aegis should teach that the real success condition is restored throughput, not just prettier logs.",
+        lookFor:[
+          "Bandwidth moving back toward the healthy expected range",
+          "A result that confirms the faster communication path matters to the actual workload",
+          "A coherent before-and-after story that ties logs to performance"
+        ],
+        meaning:"Recovered bandwidth proves the issue was real, the diagnosis was grounded, and the remediation materially restored cluster efficiency.",
+        changedFromPrevious:"The workflow moved from software-path verification to operational outcome verification.",
+        justifiedConclusion:"The fallback incident is resolved only if the throughput returns to the expected performance envelope.",
+        stillPremature:"It is still too early to call the environment permanently healthy until the improvement is repeatable across runs or jobs.",
+        thresholdCrossed:"The recovery threshold is crossed once the bandwidth result confirms the path correction actually restored performance.",
+        takeAction:[
+          "Use the recovered bandwidth as the proof that the system is back on the right path.",
+          "Tie remediation success to outcome, not just configuration state.",
+          "Capture the before/after lesson so future fallbacks are diagnosed faster."
+        ],
+        avoid:[
+          "Do not measure success only by whether logs look cleaner.",
+          "Do not forget that users experience throughput, not just transport names."
+        ]
+      }
     ],
     draw: drawNCCLFallback
   },
@@ -169,12 +675,155 @@ const LABS = {
     color: "#9b7fe8",
     objective: "Diagnose Sawtooth pattern.",
     steps: [
-      { label:"Watch GPU Util", cmd:"nvidia-smi dmon -s u", type:"stor_gpu" },
-      { label:"Check I/O", cmd:"iostat -x 1", type:"stor_io" },
-      { label:"Check Stripe", cmd:"lfs getstripe", type:"stor_lustre" },
-      { label:"Fix: Stripe", cmd:"lfs setstripe -c 8", type:"stor_fix" },
-      { label:"Tune Workers", cmd:"# num_workers=16", type:"stor_dl" },
-      { label:"Verify Fix", cmd:"nvidia-smi dmon", type:"stor_verify" }
+      {
+        label:"Watch GPU Util",
+        cmd:"nvidia-smi dmon -s u",
+        type:"stor_gpu",
+        deeperContext:"This drill starts where beginners usually start: the GPU. The teaching goal is to show that the most visible symptom is not always the root cause.",
+        lookFor:[
+          "Sawtooth or bursty GPU utilization instead of a stable high plateau",
+          "Idle gaps between compute bursts",
+          "A pattern suggesting the accelerator is waiting for something else"
+        ],
+        meaning:"The GPUs are not being fed smoothly. This is a symptom of starvation, not proof that the GPUs themselves are faulty.",
+        justifiedConclusion:"There is a pipeline problem worth investigating, and the GPU symptom points upstream.",
+        stillPremature:"It is still too early to blame storage specifically until I/O evidence supports that story.",
+        thresholdCrossed:"The starvation-investigation threshold is crossed once utilization becomes visibly bursty instead of steady.",
+        takeAction:[
+          "Treat utilization shape as a clue, not a complete diagnosis.",
+          "Follow the starvation trail into the input path.",
+          "Use the next steps to identify which upstream stage is limiting throughput."
+        ],
+        avoid:[
+          "Do not call the GPU broken just because utilization is low or bursty.",
+          "Do not stop at the most visible symptom."
+        ]
+      },
+      {
+        label:"Check I/O",
+        cmd:"iostat -x 1",
+        type:"stor_io",
+        deeperContext:"This step teaches cross-component reasoning. You are testing whether the waiting pattern you saw on the GPU side has a matching story on the storage side.",
+        lookFor:[
+          "High storage utilization or long wait patterns",
+          "An I/O path that looks saturated while GPUs are bursty",
+          "Evidence that the bottleneck is outside the accelerator itself"
+        ],
+        meaning:"If the storage side is saturated while GPU utilization is sawtoothing, the system now has a plausible storage-backed explanation for the training slowdown.",
+        changedFromPrevious:"The investigation moved from symptom at the GPU to corroborating evidence in the I/O path.",
+        justifiedConclusion:"The slowdown is increasingly likely to be storage-fed starvation rather than a GPU-compute problem.",
+        stillPremature:"It is still too early to say the fix is obvious until you inspect how the dataset is laid out and fed.",
+        thresholdCrossed:"The storage-suspicion threshold is crossed when I/O pressure aligns with the GPU starvation pattern.",
+        takeAction:[
+          "Use the I/O evidence to shift your mental model away from GPU fault-first thinking.",
+          "Investigate data layout and feeder configuration next.",
+          "Keep comparing symptoms across components rather than in isolation."
+        ],
+        avoid:[
+          "Do not keep debugging GPU hardware if the I/O system is clearly saturated.",
+          "Do not treat one metric alone as enough to finish the diagnosis."
+        ]
+      },
+      {
+        label:"Check Stripe",
+        cmd:"lfs getstripe",
+        type:"stor_lustre",
+        deeperContext:"This step teaches that storage layout is part of performance reasoning. A dataset can sit on healthy hardware but still be laid out badly for the workload.",
+        lookFor:[
+          "A stripe count that is too narrow for the workload",
+          "Dataset placement that would concentrate reads onto too few targets",
+          "A concrete mechanical reason for why the I/O path is not scaling"
+        ],
+        meaning:"Poor striping can create an avoidable storage bottleneck by limiting parallelism in the data path. The problem is no longer just 'storage is busy'; it becomes 'storage is laid out suboptimally.'",
+        changedFromPrevious:"The diagnosis moved from generic storage pressure to a specific layout-level cause.",
+        justifiedConclusion:"A striping problem is now a grounded candidate root cause for the starvation pattern.",
+        stillPremature:"It is still too early to say striping alone explains everything until you change it and observe improvement.",
+        thresholdCrossed:"The layout-remediation threshold is crossed once the stripe configuration clearly conflicts with expected throughput needs.",
+        takeAction:[
+          "Tie the bottleneck story to the dataset layout, not just the storage appliance.",
+          "Apply a narrow fix that increases data-path parallelism.",
+          "Use the next steps to separate storage-layout gain from input-pipeline gain."
+        ],
+        avoid:[
+          "Do not call the storage system universally bad if the dataset layout itself is poor.",
+          "Do not jump to many application changes before fixing an obvious layout issue."
+        ]
+      },
+      {
+        label:"Fix: Stripe",
+        cmd:"lfs setstripe -c 8",
+        type:"stor_fix",
+        deeperContext:"Now the workflow turns from diagnosis to targeted storage remediation. The beginner lesson is that fixes should correspond directly to the identified bottleneck mechanism.",
+        lookFor:[
+          "A striping change that increases expected data-path parallelism",
+          "A fix that directly addresses the layout issue you just identified",
+          "The setup needed for a meaningful before/after comparison"
+        ],
+        meaning:"You are increasing storage-side parallelism so reads can spread more effectively across targets. This should reduce one major source of starvation if striping was the limiting factor.",
+        changedFromPrevious:"The workflow moved from layout diagnosis into a targeted storage-layout remediation.",
+        justifiedConclusion:"If striping was a major bottleneck, the system should now be capable of feeding GPUs more smoothly than before.",
+        stillPremature:"It is still too early to call the issue solved because the data loader may still underfeed the GPUs even after the stripe fix.",
+        thresholdCrossed:"The storage-remediation threshold is crossed when the layout mismatch is specific enough to justify changing it.",
+        takeAction:[
+          "Treat this as one controlled performance intervention.",
+          "Keep the next tuning step separate so you can learn what each change contributed.",
+          "Verify the workload effect instead of assuming the stripe change was sufficient."
+        ],
+        avoid:[
+          "Do not change striping and loader settings simultaneously if you want a trustworthy causal read.",
+          "Do not assume a storage-side fix automatically eliminates all starvation."
+        ]
+      },
+      {
+        label:"Tune Workers",
+        cmd:"# num_workers=16",
+        type:"stor_dl",
+        deeperContext:"This step teaches that the input pipeline is part of the same story. Even after storage layout improves, the DataLoader can remain the bottleneck if it cannot parallelize enough work to keep the GPUs fed.",
+        lookFor:[
+          "Whether the data feeder itself is still underutilizing the improved storage path",
+          "A loader configuration that could limit batch delivery",
+          "The distinction between storage bandwidth and input-pipeline throughput"
+        ],
+        meaning:"The bottleneck may be partly in the data loader layer, not just in the storage layout. This step teaches that end-to-end feeding requires both a healthy path and a capable feeder.",
+        changedFromPrevious:"The reasoning moved from storage-layout correction into feeder-layer optimization.",
+        justifiedConclusion:"A full recovery may require both storage tuning and application-side input parallelism.",
+        stillPremature:"It is still too early to say the pipeline is fixed until GPU utilization actually becomes smoother in the verification step.",
+        thresholdCrossed:"The pipeline-optimization threshold is crossed when storage-side fixes alone are not enough to guarantee smooth GPU feeding.",
+        takeAction:[
+          "Use this step to teach that one bottleneck can hand off to another upstream stage.",
+          "Tune loader parallelism as a distinct hypothesis, not as a random extra tweak.",
+          "Prepare to verify on the GPU side again."
+        ],
+        avoid:[
+          "Do not assume storage and DataLoader are the same problem.",
+          "Do not lose track of which intervention changed which part of the pipeline."
+        ]
+      },
+      {
+        label:"Verify Fix",
+        cmd:"nvidia-smi dmon",
+        type:"stor_verify",
+        deeperContext:"Verification closes the loop. The final proof is not that settings changed, but that the GPU now receives data smoothly enough to stay busy.",
+        lookFor:[
+          "Higher and smoother GPU utilization than the original sawtooth baseline",
+          "Reduced idle gaps between work bursts",
+          "A visible before/after improvement that matches the storage and loader changes"
+        ],
+        meaning:"Smoother GPU utilization means the pipeline is feeding the accelerator more effectively. This proves the diagnosis and remediation addressed the true limiting path.",
+        changedFromPrevious:"The workflow moved from applying fixes to verifying whether end-to-end workload behavior improved.",
+        justifiedConclusion:"The storage and input pipeline have improved enough to restore healthier GPU feeding if utilization smooths out as expected.",
+        stillPremature:"It is still too early to assume the system is fully optimized for every workload, but the original starvation story is now materially improved.",
+        thresholdCrossed:"The recovery threshold is crossed once the GPU-side symptom improves in a way that matches the storage-side remediation story.",
+        takeAction:[
+          "Use the GPU utilization shape as the final proof that the right bottleneck was fixed.",
+          "Explain the complete causal chain from storage layout to loader tuning to accelerator behavior.",
+          "Capture the healthy post-fix pattern as a new comparison baseline."
+        ],
+        avoid:[
+          "Do not declare success based only on changed settings without workload-visible improvement.",
+          "Do not forget that the end user cares about throughput, not just cleaner infrastructure metrics."
+        ]
+      }
     ],
     draw: drawStorage
   },

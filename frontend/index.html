@@ -4,11 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aegis-GPU | NCA-AIIO</title>
-<link rel="stylesheet" href="css/styles.css?v=2.0.1">
-<script src="js/hardware.js?v=2.0.1"></script>
-<script src="js/render.js?v=2.0.1"></script>
-<script src="js/labs.js?v=2.0.1"></script>
-<script src="js/app.js?v=2.0.1" defer></script>
+<link rel="stylesheet" href="css/styles.css">
+<script src="js/hardware.js"></script>
+<script src="js/render.js"></script>
+<script src="js/labs.js?v=20260417f"></script>
+<script src="js/learning.js?v=20260417f"></script>
+<script src="js/explain.js?v=20260417g"></script>
+<script src="js/app.js?v=20260417j" defer></script>
 </head>
 <body>
 
@@ -41,11 +43,30 @@
     <div class="hdr-stat" id="sys-status" style="margin-right:15px">SYSTEM: <span>UNPROVISIONED</span></div>
     <div class="hdr-stat">Labs completed: <span id="h-done">0</span>/16</div>
     <div class="hdr-stat" style="margin-left:8px">Score: <span id="h-score">—</span></div>
-<div style="display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;">
-  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="toggle-live"> Live Telemetry</label>
-  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="toggle-thermal"> Thermal Map</label>
+<div class="explain-toolbar">
+  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-live"> Live Telemetry</label>
+  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-thermal"> Thermal Map</label>
+  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-beginner" checked> Beginner Mode</label>
+  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-llm-diagnosis"> Allow LLM Diagnosis</label>
+  <label class="explain-toolbar-select">Depth
+    <select id="sel-explain-level">
+      <option value="beginner">Beginner</option>
+      <option value="intermediate">Intermediate</option>
+      <option value="operator">Operator</option>
+    </select>
+  </label>
+  <label class="explain-toolbar-select">Role
+    <select id="sel-explain-role">
+      <option value="cluster_operator">Cluster Operator</option>
+      <option value="sre">SRE</option>
+      <option value="ml_engineer">ML Engineer</option>
+    </select>
+  </label>
 </div>
+    <button class="btn-sm" id="btn-blueprint" style="margin-left:8px">🖥 Blueprint</button>
+    <button class="btn-sm" id="btn-learn" style="margin-left:8px">📘 Learn</button>
     <button class="btn-sm" id="btn-quiz" style="margin-left:8px">📋 Quiz</button>
+    <button class="btn-sm" id="btn-incidents" style="margin-left:4px">🕐 Incidents</button>
     <button class="btn-sm" id="btn-logout" style="margin-left:4px;background:#1a2030;border-color:#f4a261;color:#f4a261">⏻ Logout</button>
     <button class="btn-sm" id="btn-reset" style="margin-left:4px">↺ Reset</button>
   </div>
@@ -106,12 +127,11 @@
       <div class="nav-item" id="nav-slurm"><span class="icon">📋</span> Slurm Scheduler <span class="badge" id="b-slurm">OPS</span></div>
       <div class="nav-item" id="nav-k8s"><span class="icon">☸️</span> Kubernetes GPU Ops <span class="badge" id="b-k8s">OPS</span></div>
 
-      <div class="sidebar-section sidebar-controls" style="margin-top:8px">
-        <label class="sidebar-check"><input type="checkbox" id="sidebar-toggle-live"> Live Telemetry</label>
-        <label class="sidebar-check"><input type="checkbox" id="sidebar-toggle-thermal"> Thermal Map</label>
-        <button class="btn-sm primary sidebar-quiz-btn" id="sidebar-btn-quiz">📋 Take Quiz</button>
+      <div class="sidebar-section" style="margin-top:8px">
+        <div class="sidebar-action-row">
+          <button class="btn-sm primary" id="sidebar-btn-quiz">📋 Take Quiz</button>
+        </div>
       </div>
-    </div>
   </nav>
 
   <div class="main">
@@ -163,6 +183,10 @@
             <div class="xid-entry">System ready.</div>
           </div>
         </div>
+        <div class="metric-group live-explainer" id="live-explainer">
+          <div class="metric-group-title">Live Explain</div>
+          <div id="live-explainer-body" class="live-explainer-body">Turn on Live Telemetry to see a beginner-friendly explanation of the current hardware state and evidence quality.</div>
+        </div>
       </div>
     </div>
 
@@ -175,6 +199,7 @@
         
         <div class="terminal-actions">
           <button class="btn-sm" id="btn-clear-term">Clear</button>
+          <button class="btn-sm" id="btn-toggle-coach">📘 Guide</button>
           <button class="btn-sm" id="toggle-ai-btn" style="display:none; background:#f4a261; color:#000; font-weight:bold;">&#128194; VIEW FULL AI DIAGNOSIS</button>
           <button class="btn-sm primary" id="run-btn">▶ Run</button>
         </div>
@@ -187,6 +212,21 @@
             <textarea id="log-input" style="flex:1; background:var(--bg); color:var(--text); border:1px solid var(--border); padding:10px; font-family:var(--font-mono); font-size:11px; resize:none;" placeholder="[86423.441] NVRM: Xid (PCI:0000:43:00): 79, pid=14823, name=python3..."></textarea>
             <button class="btn-sm primary" id="btn-analyze" style="padding:8px; width:150px;">ANALYZE INCIDENT</button>
         </div>
+        <aside class="lab-step-coach is-hidden" id="lab-step-coach">
+          <div class="lab-step-coach-shell">
+            <div class="lab-step-coach-topbar">
+              <div>
+                <div class="lab-step-coach-kicker">Lab Coach</div>
+                <div class="lab-step-coach-title">How To Use Labs</div>
+              </div>
+              <button class="lab-step-coach-close" id="btn-close-coach" aria-label="Close lab guide">✕</button>
+            </div>
+            <div class="lab-step-coach-content" id="lab-step-coach-content">
+              <p>Select a lab and start a step. This panel will explain what the command is trying to show, what to notice in the output, and how to tell whether the result is healthy or degraded.</p>
+            </div>
+          </div>
+        </aside>
+        <aside class="ai-static-overlay" id="ai-static-overlay"></aside>
       </div>
       
       <div class="terminal-input-row" id="terminal-input-row">
@@ -209,21 +249,19 @@
 </div>
 
 <div class="overlay" id="quiz-overlay">
-  <div class="panel" id="quiz-panel" style="width:760px">
-<div style="display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;">
-  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="quiz-toggle-live"> Live Telemetry</label>
-  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="quiz-toggle-thermal"> Thermal Map</label>
-</div>
+  <div class="panel quiz-panel" id="quiz-panel">
     <button class="close-btn" id="btn-quiz-close">✕</button>
-    <h2>NCA-AIIO Practice Quiz</h2>
-    <p style="color:var(--dim);font-size:12px;margin-bottom:20px">20 scenario-based questions covering all simulator labs. Answer all questions then click Submit.</p>
+    <div class="quiz-panel-header">
+      <h2>NCA-AIIO Practice Quiz</h2>
+      <p>20 scenario-based questions covering all simulator labs. Answer all questions then click Submit.</p>
+    </div>
     <div id="quiz-content"></div>
   </div>
 </div>
 
 
 <!-- AI Static Overlay: captures full remediation plan for slow reading -->
-<div id="ai-static-overlay" style="display:none; position:fixed; top:70px; right:20px; width:420px; max-height:75vh; overflow-y:auto; background:#0d1117; border:2px solid var(--gold,#f4a261); border-radius:6px; padding:20px; z-index:2000; font-family:monospace; font-size:11px; line-height:1.7; color:#c8d4e8; white-space:pre-wrap; box-shadow:0 4px 24px rgba(0,0,0,0.7);"></div>
+
 
 
 <!-- Remediation Status Panel: persistent success banner, persists until dismissed -->
@@ -234,6 +272,17 @@
     <div id="remediation-log" style="color:#5dbf80; font-size:11px; word-break:break-word;"></div>
   </div>
   <button id="btn-dismiss-remediation" style="flex-shrink:0; background:#00e676; color:#000; border:none; padding:8px 18px; font-weight:bold; cursor:pointer; border-radius:3px; font-family:monospace; font-size:12px;">Dismiss</button>
+</div>
+
+<!-- Incident History Overlay -->
+<div id="incident-overlay" style="display:none; position:fixed; inset:0; background:rgba(6,13,22,0.85); z-index:4000; align-items:center; justify-content:center;">
+  <div style="width:680px; max-height:80vh; background:#0d1117; border:1px solid #1e2d40; border-radius:8px; padding:28px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,0.8);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h2 style="margin:0; font-family:'DM Serif Display',serif; color:#e8f0fe; font-size:20px;">Incident History</h2>
+      <button id="btn-incidents-close" style="background:none; border:none; color:#4a5568; font-size:20px; cursor:pointer; line-height:1;">✕</button>
+    </div>
+    <div id="incident-body" style="overflow-y:auto; flex:1; color:#c8d4e8;"></div>
+  </div>
 </div>
 
 </body>

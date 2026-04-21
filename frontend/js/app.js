@@ -16,9 +16,20 @@ const API_BASE = window.__AEGIS_API_BASE__ || `${window.location.origin}/api/v1`
 // Sprint 16: JWT-based authentication — token fetched at login, never hard-coded.
 let JWT_TOKEN = sessionStorage.getItem('aegis_jwt') || '';
 let _appInitialized = false;
-let _uiBound = false;
 let USER_ROLE  = sessionStorage.getItem('aegis_role') || '';
 let currentFaultNode = 0;
+let _uiHandlersBound = false;
+let lastLiveTelemetry = null;
+let beginnerMode = localStorage.getItem('gpusim_beginner_mode');
+beginnerMode = beginnerMode === null ? true : beginnerMode === 'true';
+let explanationLevel = localStorage.getItem('gpusim_explain_level') || 'beginner';
+let explanationRole = localStorage.getItem('gpusim_explain_role') || 'cluster_operator';
+let llmDiagnosisEnabled = localStorage.getItem('gpusim_allow_llm_diagnosis');
+llmDiagnosisEnabled = llmDiagnosisEnabled === null ? true : llmDiagnosisEnabled === 'true';
+let backendLLMAvailable = false;
+let backendLLMMode = 'deterministic';
+let labCoachOpen = localStorage.getItem('gpusim_lab_coach_open');
+labCoachOpen = labCoachOpen === null ? true : labCoachOpen === 'true';
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -37,13 +48,7 @@ async function aegisLogin() {
   const u = (document.getElementById('login-user') || {}).value?.trim() || '';
   const p = (document.getElementById('login-pass') || {}).value || '';
   const errEl = document.getElementById('login-err');
-  const loginBtn = document.getElementById('btn-login');
   if (errEl) errEl.style.display = 'none';
-  if (loginBtn) {
-    loginBtn.disabled = true;
-    loginBtn.style.opacity = '0.65';
-    loginBtn.style.cursor = 'wait';
-  }
   try {
     const r = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
@@ -63,12 +68,6 @@ async function aegisLogin() {
     initApp();
   } catch(e) {
     if (errEl) { errEl.textContent = 'Connection error. Is the backend reachable?'; errEl.style.display = 'block'; }
-  } finally {
-    if (loginBtn) {
-      loginBtn.disabled = false;
-      loginBtn.style.opacity = '';
-      loginBtn.style.cursor = '';
-    }
   }
 }
 
@@ -83,7 +82,6 @@ function aegisLogout() {
     const el = document.getElementById(id);
     if (el) el.checked = false;
   });
-  _appInitialized = false;
   showLoginOverlay();
 }
 
@@ -91,6 +89,622 @@ function handle401() {
   logTerm([{t:'err', v:'[AUTH] Session expired or unauthorised. Please log in again.'}]);
   setTimeout(aegisLogout, 1500);
 }
+
+function escHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getLearningGuide(id) {
+  const guides = window.AEGIS_LEARNING || {};
+  return guides[id] || null;
+}
+
+function getExplainEngine() {
+  return window.AEGIS_EXPLAINER || null;
+}
+
+function getExplanationOptions() {
+  return {
+    beginnerMode,
+    level: explanationLevel,
+    role: explanationRole,
+  };
+}
+
+function syncBeginnerModeUI() {
+  const toggle = document.getElementById('toggle-beginner');
+  if (toggle) toggle.checked = beginnerMode;
+  const levelSel = document.getElementById('sel-explain-level');
+  if (levelSel) levelSel.value = explanationLevel;
+  const roleSel = document.getElementById('sel-explain-role');
+  if (roleSel) roleSel.value = explanationRole;
+  const llmToggle = document.getElementById('toggle-llm-diagnosis');
+  if (llmToggle) {
+    llmToggle.checked = llmDiagnosisEnabled && backendLLMAvailable;
+    llmToggle.disabled = !backendLLMAvailable;
+    llmToggle.title = backendLLMAvailable
+      ? `LLM-backed diagnosis is available via ${backendLLMMode}.`
+      : 'Backend is currently using deterministic runbooks only.';
+  }
+  const coachBtn = document.getElementById('btn-toggle-coach');
+  if (coachBtn) coachBtn.classList.toggle('active', labCoachOpen);
+  const learnBtn = document.getElementById('btn-learn');
+  if (learnBtn) {
+    const engine = getExplainEngine();
+    const level = engine ? engine.getLevel(explanationLevel).label : explanationLevel;
+    learnBtn.textContent = beginnerMode ? `📘 ${level} Guide` : '📘 Lab Brief';
+  }
+}
+
+function refreshExplanationSurfaces() {
+  if (currentLab && document.getElementById('intro-overlay')?.classList.contains('show')) showIntro(currentLab);
+  if (appMode === 'live') renderBeginnerTelemetryExplanation(lastLiveTelemetry);
+  renderLabStepCoach();
+}
+
+function setBeginnerMode(enabled) {
+  beginnerMode = !!enabled;
+  localStorage.setItem('gpusim_beginner_mode', beginnerMode ? 'true' : 'false');
+  syncBeginnerModeUI();
+  refreshExplanationSurfaces();
+}
+
+function setExplanationLevel(level) {
+  explanationLevel = level || 'beginner';
+  localStorage.setItem('gpusim_explain_level', explanationLevel);
+  syncBeginnerModeUI();
+  refreshExplanationSurfaces();
+}
+
+function setExplanationRole(role) {
+  explanationRole = role || 'cluster_operator';
+  localStorage.setItem('gpusim_explain_role', explanationRole);
+  syncBeginnerModeUI();
+  refreshExplanationSurfaces();
+}
+
+function setLLMDiagnosisEnabled(enabled) {
+  llmDiagnosisEnabled = !!enabled;
+  localStorage.setItem('gpusim_allow_llm_diagnosis', llmDiagnosisEnabled ? 'true' : 'false');
+  syncBeginnerModeUI();
+}
+
+function setBackendLLMCapability(mode, available) {
+  backendLLMMode = mode || 'deterministic';
+  backendLLMAvailable = !!available;
+  syncBeginnerModeUI();
+}
+
+function setLabCoachOpen(open) {
+  labCoachOpen = !!open;
+  localStorage.setItem('gpusim_lab_coach_open', labCoachOpen ? 'true' : 'false');
+  syncBeginnerModeUI();
+  renderLabStepCoach();
+}
+
+function toggleLabCoach() {
+  setLabCoachOpen(!labCoachOpen);
+}
+
+function handleLabCoachClick(event) {
+  if (event.target.closest('#btn-close-coach') || event.target.closest('.lab-step-coach-close')) {
+    event.preventDefault();
+    event.stopPropagation();
+    setLabCoachOpen(false);
+  }
+}
+
+function renderBulletList(items, cssClass) {
+  if (!items || !items.length) return '';
+  return `<ul class="${cssClass}">${items.map(item => `<li>${escHtml(item)}</li>`).join('')}</ul>`;
+}
+
+function getStepOutput(step) {
+  if (!step || typeof TERMINAL_OUTPUT === 'undefined') return [];
+  return TERMINAL_OUTPUT[step.type] || [];
+}
+
+function describeStepCommand(step) {
+  const cmd = step?.cmd || '';
+  if (!cmd || cmd.startsWith('#')) {
+    return 'This stage simulates a state change so you can focus on the operational effect before and after it appears in logs, metrics, and topology views.';
+  }
+
+  const lower = cmd.toLowerCase();
+  if (lower.includes('topo -m')) return 'Shows the GPU-to-GPU connectivity map so you can compare the intended fast path against the path the node is actually using.';
+  if (lower.includes('nvlink -e')) return 'Reads NVLink error counters so you can decide whether the visible links are electrically clean or already degraded.';
+  if (lower.includes('dcgmi dmon')) return 'Polls DCGM counters over time so you can spot trends instead of trusting one isolated sample.';
+  if (lower.includes('dmesg') && lower.includes('xid')) return 'Searches kernel logs for NVIDIA XID fault codes so you can confirm whether the issue crossed into an explicit driver-reported fault.';
+  if (lower.includes('kubectl drain') || lower.includes('state=drain')) return 'Removes a node from scheduling so new work does not land on hardware that is no longer safe to trust.';
+  if (lower.includes('all_reduce_perf') || lower.includes('./perf')) return 'Runs a collective benchmark so you can see whether the fabric is performing at the level the workload expects.';
+  if (lower.includes('nccl_debug=info')) return 'Turns on NCCL path logging so you can see whether collective traffic is using IB, NVLink, or a slower fallback path.';
+  if (lower.includes('env | grep nccl')) return 'Lists NCCL-related environment variables so you can catch configuration mistakes before blaming the network.';
+  if (lower.includes('ibstat')) return 'Shows InfiniBand adapter and port state so you can confirm whether the fabric is physically up.';
+  if (lower.includes('perfquery') || lower.includes('ib_write_bw')) return 'Checks InfiniBand error or bandwidth behavior so you can tell whether the fabric is healthy enough to trust.';
+  if (lower.includes('iostat')) return 'Shows storage utilization and latency so you can tell whether the GPUs are waiting on data instead of compute.';
+  if (lower.includes('lfs getstripe')) return 'Shows how a Lustre dataset is striped across storage targets so you can judge whether reads are parallel enough.';
+  if (lower.includes('lfs setstripe')) return 'Changes the Lustre striping layout so reads can spread across more OSTs and feed the GPUs faster.';
+  if (lower.includes('nvidia-smi dmon')) return 'Shows live GPU utilization and health counters so you can correlate workload behavior with hardware signals.';
+  if (lower.includes('kubectl describe pod') || lower.includes('kubectl describe node')) return 'Describes Kubernetes scheduling state so you can see why a workload did or did not land on a node.';
+  if (lower.includes('squeue') || lower.includes('scontrol') || lower.includes('sshare')) return 'Shows scheduler state so you can distinguish policy delay from hardware failure.';
+  return 'Runs the operator command for this stage so you can inspect the evidence it produces.';
+}
+
+function explainOutputLineText(text) {
+  const lower = String(text || '').toLowerCase();
+  if (lower.includes('nv4')) return 'NV4 means the GPUs are using a direct NVLink relationship, which is the fast path you want in this scenario.';
+  if (lower.includes('phb')) return 'PHB means traffic is going through the PCIe host bridge instead of direct NVLink, which is much slower for collectives.';
+  if (lower.includes('crc flit error count:       0') || lower.includes('crc errs: 0')) return 'Zero CRC or flit errors means the link looks clean right now.';
+  if (lower.includes('crc flit error count') || lower.includes('crc')) return 'A rising CRC or flit error count points to link-integrity trouble rather than a software-only issue.';
+  if (lower.includes('using network socket') || lower.includes('tcp fallback')) return 'This means NCCL is not using the preferred high-speed fabric path and has fallen back to TCP.';
+  if (lower.includes('using network ib')) return 'This means NCCL is using InfiniBand as intended, which is the healthy fast path in this scenario.';
+  if (lower.includes('xid 48')) return 'XID 48 is an uncorrectable ECC event, which means the card crossed from warning signs into a hardware fault.';
+  if (lower.includes('xid 74')) return 'XID 74 points to NVLink trouble, so GPU-to-GPU communication is now suspect.';
+  if (lower.includes('xid 79')) return 'XID 79 means the GPU fell off the bus or hung badly enough that reset or reboot is usually required.';
+  if (lower.includes('dbe')) return 'DBE means double-bit ECC. Unlike corrected single-bit errors, this is treated as an immediate hardware-integrity problem.';
+  if (lower.includes('sawtooth')) return 'A sawtooth utilization pattern usually means the GPUs are repeatedly waiting for storage or input data.';
+  if (lower.includes('100% util')) return 'A storage device at 100% utilization is saturated and can starve the GPUs.';
+  if (lower.includes('stripe_count: 1')) return 'A stripe count of 1 means reads are concentrated on one storage target instead of being spread out.';
+  if (lower.includes('insufficient nvidia.com/gpu')) return 'Kubernetes is telling you no schedulable GPU resource is free for this pod right now.';
+  if (lower.includes('fairshare')) return 'This is a scheduler policy clue: the job is delayed by user-share rules, not necessarily by broken hardware.';
+  if (lower.includes('state: active')) return 'Active means the fabric or port is up, so the next question is performance or configuration, not basic link existence.';
+  if (lower.includes('state: down')) return 'Down means the fabric path itself is unavailable, so this is a physical or low-level connectivity problem.';
+  if (lower.includes('187') || lower.includes('180 gb/s')) return 'This is the kind of high collective bandwidth you expect from a healthy fast-path configuration in this simulator.';
+  if (lower.includes('3 gb/s') || lower.includes('8 gb/s')) return 'This is a degraded throughput clue, not just a cosmetic number change.';
+  if (lower.includes('ready 1/1') || lower.includes('running (16/16)')) return 'This is the success signal that the control plane or gang-scheduled workload reached the expected ready state.';
+  if (lower.includes('gpu accessible') || lower.includes('available: true')) return 'This output confirms the container or runtime can actually see CUDA devices.';
+  return 'Treat this line as one of the important clues for the current stage and compare it with the step goal before moving on.';
+}
+
+function getKeyOutputClues(step) {
+  return getStepOutput(step)
+    .filter(line => line && line.v && line.t !== 'cmd' && line.t !== 'dim')
+    .slice(0, 3)
+    .map(line => ({
+      text: line.v,
+      meaning: explainOutputLineText(line.v),
+    }));
+}
+
+function getMetricsToWatch(labId, step) {
+  if (['ecc', 'nvlink_fault'].includes(labId) || ['ecc_healthy', 'ecc_sbe', 'ecc_trend', 'ecc_xid', 'xid48', 'xid48_confirm', 'xid79', 'xid74'].includes(step?.type)) {
+    return ['ECC Status: watch SBE, DBE, and XID together.', 'Event Log: treat new XID entries as fault-lifecycle milestones, not cosmetic text.'];
+  }
+  if (['nvlink', 'allreduce', 'nccl_fallback', 'ib_fabric', 'roce'].includes(labId)) {
+    return ['Network: compare IB State, NCCL path, and AllReduce bandwidth together.', 'Event Log: use fault entries to confirm whether the slowdown has a hardware-side explanation.'];
+  }
+  if (['storage', 'training', 'gds'].includes(labId)) {
+    return ['GPU Cluster + Storage: compare GPU util against storage %util and read throughput.', 'Sawtooth GPU utilization usually means the data path is the bottleneck, not the SMs themselves.'];
+  }
+  if (['monitoring'].includes(labId)) {
+    return ['ECC Status and Event Log: use them as the example alert signals for this observability lab.', 'The goal here is not only to see data, but to understand what operators would alert on.'];
+  }
+  if (['slurm', 'k8s'].includes(labId)) {
+    return ['Event Log and scheduler output: these labs are about control-plane state more than GPU counters.', 'The important question is why work did or did not schedule, not whether the GPU temperature changed.'];
+  }
+  return ['Use the terminal output as the primary clue, then compare it with the metrics sidebar and event log before deciding what the step means.'];
+}
+
+function renderLabStepCoach() {
+  const el = document.getElementById('lab-step-coach');
+  const content = document.getElementById('lab-step-coach-content');
+  if (!el || !content) return;
+
+  if (activeTab === 'parser') {
+    el.classList.add('is-hidden');
+    return;
+  }
+
+  el.classList.toggle('is-hidden', !labCoachOpen);
+
+  if (!currentLab) {
+    content.innerHTML = `
+      <p>Select a lab, read the intro, then start the first step. This panel stays beside the terminal so beginners do not have to remember what they are looking at.</p>
+      <div class="lab-step-coach-section">
+        <div class="lab-step-coach-section-title">How To Work</div>
+        <ul class="lab-step-coach-list">
+          <li>Use the step buttons or the Run button. You are not expected to memorize every command.</li>
+          <li>Read the terminal, metrics sidebar, and event log together.</li>
+          <li>Move on only when you can explain what changed and why it matters.</li>
+        </ul>
+      </div>
+    `;
+    content.scrollTop = 0;
+    return;
+  }
+
+  const lab = LABS[currentLab];
+  if (!lab) return;
+
+  if (currentStep < 0 || !lab.steps[currentStep]) {
+    content.innerHTML = `
+      <div class="lab-step-coach-section">
+        <div class="lab-step-coach-section-title">Before You Start</div>
+        <p>${beginnerMode ? 'This lab is guided. Start with step 1 and let the simulator show you the evidence in order.' : 'Use the step buttons to replay the scenario in order.'}</p>
+      </div>
+      <div class="lab-step-coach-section">
+        <div class="lab-step-coach-section-title">How To Use This Lab</div>
+        <ul class="lab-step-coach-list">
+          <li>Each step represents one operator question: what am I checking, and what answer do I expect?</li>
+          <li>Use the terminal output as the main clue, then confirm the story in the side metrics.</li>
+          <li>Fault steps are supposed to look bad. The lesson is learning what that bad output means.</li>
+        </ul>
+      </div>
+    `;
+    content.scrollTop = 0;
+    return;
+  }
+
+  const step = lab.steps[currentStep];
+  const outputClues = getKeyOutputClues(step);
+  const useTip = step.cmd?.startsWith('#')
+    ? 'This step is a simulated transition. You are meant to study the new state it creates, not to memorize a literal shell command.'
+    : 'Click Run to replay this step. The command is shown for realism, but the learning goal is understanding the evidence it produces, not memorizing the syntax.';
+  const completion = step.fault
+    ? (step.justifiedConclusion || step.meaning || 'This fault step is complete once you can explain why the degraded signal is significant.')
+    : (step.justifiedConclusion || step.meaning || 'This step is complete once the expected healthy signal is visible and you can explain why it matters.');
+  const nextAction = step.takeAction && step.takeAction.length ? step.takeAction[0] : 'Compare this step with the previous one before you move on.';
+  const observationList = step.lookFor && step.lookFor.length ? step.lookFor : ['Use the key output clues below to decide what changed and whether the step looks healthy or degraded.'];
+  const sidePanels = getMetricsToWatch(currentLab, step);
+  const tabNote = activeTab === 'term'
+    ? 'You are on the main Terminal tab, which is the primary output for the active step.'
+    : activeTab === 'dmesg'
+      ? 'You are on dmesg, which is useful for kernel and NVIDIA fault confirmation.'
+      : 'You are on dcgm, which is useful for counter and health correlation.';
+  const calloutClass = step.fault ? 'lab-step-coach-callout err' : 'lab-step-coach-callout';
+
+  const topKicker = document.querySelector('#lab-step-coach .lab-step-coach-kicker');
+  const topTitle = document.querySelector('#lab-step-coach .lab-step-coach-title');
+  if (topKicker) topKicker.textContent = `${lab.name} • Step ${currentStep + 1}/${lab.steps.length}`;
+  if (topTitle) topTitle.textContent = step.label;
+
+  content.innerHTML = `
+    <div class="${calloutClass}">
+      <p><strong>What this step is for:</strong> ${escHtml(describeStepCommand(step))}</p>
+      <p>${escHtml(useTip)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">Command In Focus</div>
+      <code class="lab-step-coach-code">${escHtml(step.cmd || '# simulated stage')}</code>
+      <p>${escHtml(tabNote)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">What To Look For</div>
+      ${renderBulletList(observationList, 'lab-step-coach-list')}
+    </div>
+    ${outputClues.length ? `
+      <div class="lab-step-coach-section">
+        <div class="lab-step-coach-section-title">How To Read This Output</div>
+        ${outputClues.map(clue => `
+          <div class="lab-step-coach-clue">
+            <div class="lab-step-coach-clue-line">${escHtml(clue.text)}</div>
+            <div class="lab-step-coach-clue-meaning">${escHtml(clue.meaning)}</div>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">What It Means</div>
+      <p>${escHtml(step.meaning || completion)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">How To Tell You Are Done</div>
+      <p>${escHtml(completion)}</p>
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">Watch These Side Panels</div>
+      ${renderBulletList(sidePanels, 'lab-step-coach-list')}
+    </div>
+    <div class="lab-step-coach-section">
+      <div class="lab-step-coach-section-title">Next Action</div>
+      <p>${escHtml(nextAction)}</p>
+    </div>
+  `;
+  content.scrollTop = 0;
+}
+
+function renderGuidedStepDetails(step, prevStep) {
+  if (!step) return '';
+
+  const deeperContext = beginnerMode && step.deeperContext
+    ? `<div class="guided-step-block guided-step-context"><div class="guided-step-title">Why This Stage Matters</div><p>${escHtml(step.deeperContext)}</p></div>`
+    : '';
+  const comparisonItems = [];
+  if (beginnerMode && step.changedFromPrevious) {
+    const prevLabel = prevStep ? ` compared with ${prevStep.label}` : '';
+    comparisonItems.push(`<li><strong>What changed${escHtml(prevLabel)}</strong>: ${escHtml(step.changedFromPrevious)}</li>`);
+  }
+  if (beginnerMode && step.justifiedConclusion) {
+    comparisonItems.push(`<li><strong>Conclusion you can justify now</strong>: ${escHtml(step.justifiedConclusion)}</li>`);
+  }
+  if (beginnerMode && step.stillPremature) {
+    comparisonItems.push(`<li><strong>What is still too early to conclude</strong>: ${escHtml(step.stillPremature)}</li>`);
+  }
+  if (beginnerMode && step.thresholdCrossed) {
+    comparisonItems.push(`<li><strong>Threshold crossed</strong>: ${escHtml(step.thresholdCrossed)}</li>`);
+  }
+  const comparativeReasoning = comparisonItems.length
+    ? `<div class="guided-step-block guided-step-compare"><div class="guided-step-title">Reasoning Check</div><ul class="guided-step-list">${comparisonItems.join('')}</ul></div>`
+    : '';
+  const lookFor = step.lookFor && step.lookFor.length
+    ? `<div class="guided-step-block"><div class="guided-step-title">Look For</div>${renderBulletList(step.lookFor, 'guided-step-list')}</div>`
+    : '';
+  const meaning = step.meaning
+    ? `<div class="guided-step-block"><div class="guided-step-title">What It Means</div><p>${escHtml(step.meaning)}</p></div>`
+    : '';
+  const action = step.takeAction && step.takeAction.length
+    ? `<div class="guided-step-block"><div class="guided-step-title">Do This</div>${renderBulletList(step.takeAction, 'guided-step-list')}</div>`
+    : '';
+  const avoid = step.avoid && step.avoid.length
+    ? `<div class="guided-step-block"><div class="guided-step-title">Avoid This</div>${renderBulletList(step.avoid, 'guided-step-list')}</div>`
+    : '';
+  const engine = getExplainEngine();
+  const coach = engine ? engine.renderStepCoach(step, prevStep, getExplanationOptions()) : '';
+
+  return [deeperContext, comparativeReasoning, lookFor, meaning, action, avoid, coach].filter(Boolean).join('');
+}
+
+function renderGuidedFlowSteps(lab) {
+  return `
+    <div class="guided-steps">
+      ${lab.steps.map((s, i) => {
+        const prevStep = i > 0 ? lab.steps[i - 1] : null;
+        return `
+        <article class="guided-step-card${s.fault ? ' guided-step-card-fault' : ''}">
+          <div class="guided-step-top">
+            <div class="step-num">${i + 1}</div>
+            <div class="guided-step-header">
+              <div class="guided-step-label">${escHtml(s.label)}</div>
+              <div class="step-hint">${escHtml(s.cmd).slice(0, 100)}</div>
+            </div>
+          </div>
+          ${renderGuidedStepDetails(s, prevStep)}
+        </article>
+      `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderLearningGuide(id) {
+  const guide = getLearningGuide(id);
+  if (!guide) return '';
+
+  const engine = getExplainEngine();
+  const explainOptions = getExplanationOptions();
+  const sections = [];
+  if (engine) sections.push(engine.renderProfileBanner(explainOptions));
+  sections.push(`
+    <section class="learn-section learn-callout">
+      <h4>Quick Answer</h4>
+      <p>${escHtml(guide.quickAnswer || '')}</p>
+    </section>
+  `);
+
+  if (beginnerMode && guide.whyItMatters) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Why This Matters</h4>
+        <p>${escHtml(guide.whyItMatters)}</p>
+      </section>
+    `);
+  }
+
+  if (guide.coreTerms && guide.coreTerms.length) {
+    sections.push(`
+      <section class="learn-section">
+        <div class="learn-heading-row">
+          <h4>Key Terms</h4>
+          <span class="learn-mode-tag">${beginnerMode ? 'Annotated jargon' : 'Core vocabulary'}</span>
+        </div>
+        <div class="term-grid">
+          ${guide.coreTerms.map(term => `
+            <article class="term-card">
+              <div class="term-name">${escHtml(term.term)}</div>
+              <p>${escHtml(term.plain)}</p>
+              ${beginnerMode && term.why ? `<div class="term-why">Why it matters: ${escHtml(term.why)}</div>` : ''}
+            </article>
+          `).join('')}
+        </div>
+      </section>
+    `);
+  }
+
+  if (beginnerMode && guide.lifecycle && guide.lifecycle.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Lifecycle</h4>
+        <ol class="learn-timeline">
+          ${guide.lifecycle.map(step => `
+            <li>
+              <div class="timeline-title">${escHtml(step.title)}</div>
+              <div class="timeline-body">${escHtml(step.detail)}</div>
+            </li>
+          `).join('')}
+        </ol>
+      </section>
+    `);
+  }
+
+  if (beginnerMode && guide.watchFor && guide.watchFor.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>What To Watch</h4>
+        ${renderBulletList(guide.watchFor, 'learn-list')}
+      </section>
+    `);
+  }
+
+  if (guide.safeActions && guide.safeActions.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Safe Beginner Actions</h4>
+        ${renderBulletList(guide.safeActions, 'learn-list')}
+      </section>
+    `);
+  }
+
+  if (beginnerMode && guide.whatNotToDo && guide.whatNotToDo.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>What Not To Do</h4>
+        ${renderBulletList(guide.whatNotToDo, 'learn-list')}
+      </section>
+    `);
+  }
+
+  if (beginnerMode && guide.escalateWhen && guide.escalateWhen.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Escalate When</h4>
+        ${renderBulletList(guide.escalateWhen, 'learn-list')}
+      </section>
+    `);
+  }
+
+  if (beginnerMode && guide.readMore && guide.readMore.length) {
+    sections.push(`
+      <section class="learn-section">
+        <h4>Read This Slowly</h4>
+        ${guide.readMore.map(item => `<p>${escHtml(item)}</p>`).join('')}
+      </section>
+    `);
+  }
+
+  if (engine) {
+    const glossaryNetwork = engine.renderGlossaryNetwork(guide.coreTerms || [], explainOptions);
+    if (glossaryNetwork) sections.push(glossaryNetwork);
+  }
+
+  return sections.join('');
+}
+
+function describeCollectionError(code) {
+  const messages = {
+    dcgm_unavailable: 'DCGM is unavailable, so advanced GPU health counters and deeper fleet metrics are missing.',
+    nvidia_smi_unavailable: 'nvidia-smi is unavailable or returned unusable data, so direct GPU telemetry could not be collected.',
+    nvlink_status_unavailable: 'NVLink status could not be collected, so link-health conclusions are limited.',
+  };
+  return messages[code] || `${code} means one expected evidence source could not be collected.`;
+}
+
+function describeGroundingStatus(status) {
+  const messages = {
+    grounded: 'Grounded means the diagnosis is strongly backed by live evidence collected from the node.',
+    partial: 'Partial grounding means some evidence was collected, but important sources were still missing.',
+    kb_only: 'Knowledge-base only means the system is explaining the fault from trusted runbooks and fault references, not from live node evidence.',
+  };
+  return messages[status] || 'Grounding status explains how much of the diagnosis is backed by live machine evidence.';
+}
+
+function renderBeginnerTelemetryExplanation(liveData) {
+  const body = document.getElementById('live-explainer-body');
+  if (!body) return;
+
+  if (!liveData) {
+    body.innerHTML = '<p>Turn on Live Telemetry to see a beginner-friendly explanation of the current hardware state and evidence quality.</p>';
+    return;
+  }
+
+  const engine = getExplainEngine();
+  const runtimeCoach = engine ? engine.renderRuntimeCoach('telemetry', liveData, getExplanationOptions()) : '';
+
+  if (!beginnerMode) {
+    const source = escHtml(liveData.source || 'unknown-source');
+    const quality = liveData.degraded ? 'best-effort' : 'direct';
+    body.innerHTML = `<p><strong>Compact view:</strong> this telemetry is coming from <strong>${source}</strong> using a <strong>${quality}</strong> evidence path. Turn on Beginner Mode for deeper explanations of telemetry scope, missing evidence, diagnosis trust, and action confidence.</p>`;
+    return;
+  }
+
+  const scopeText = liveData.telemetry_scope === 'host'
+    ? 'Telemetry scope is <strong>host</strong>, which means the backend is reading machine-level fallback data instead of direct GPU counters.'
+    : `Telemetry scope is <strong>${escHtml(liveData.telemetry_scope || 'unknown')}</strong>, which means the backend has more direct hardware visibility.`;
+
+  const sourceText = (liveData.telemetry_sources && liveData.telemetry_sources.length)
+    ? `Sources in use: ${liveData.telemetry_sources.map(escHtml).join(', ')}.`
+    : 'No telemetry source list was provided.';
+
+  const degradedText = liveData.degraded
+    ? `<p><strong>Degraded mode</strong> means the system is still showing you useful signals, but the best hardware evidence was not available. ${escHtml(liveData.degraded_reason || '')}</p>`
+    : '<p><strong>Healthy evidence path</strong> means the backend is collecting its preferred hardware telemetry sources.</p>';
+
+  const collectionErrors = (liveData.collection_errors || []).map(code => `<li><strong>${escHtml(code)}</strong>: ${escHtml(describeCollectionError(code))}</li>`).join('');
+  const fabricSummary = liveData.fabric_summary
+    ? `<li><strong>fabric_summary</strong>: NVLink is ${escHtml(liveData.fabric_summary.nvlink || 'unknown')}, DCGM is ${escHtml(liveData.fabric_summary.dcgm || 'unknown')}.</li>`
+    : '';
+  const perGpu = Array.isArray(liveData.per_gpu) && liveData.per_gpu.length
+    ? `<li><strong>per_gpu</strong>: ${liveData.per_gpu.length} GPU-specific snapshots are available.</li>`
+    : '<li><strong>per_gpu</strong>: no per-GPU snapshots were collected.</li>';
+
+  body.innerHTML = `
+    ${runtimeCoach}
+    <p>${scopeText}</p>
+    ${degradedText}
+    <p><strong>telemetry_sources</strong> is the system's way of telling you where the numbers came from. ${sourceText}</p>
+    <ul class="live-explainer-list">
+      ${fabricSummary}
+      ${perGpu}
+    </ul>
+    ${collectionErrors ? `<div class="live-explainer-block"><div class="live-explainer-title">Missing evidence sources</div><ul class="live-explainer-list">${collectionErrors}</ul></div>` : ''}
+  `;
+}
+
+function renderDiagnosisExplanation(data) {
+  if (!beginnerMode) return '';
+
+  const grounding = describeGroundingStatus(data.grounding_status);
+  const grounded = (data.grounded_sources || []).length
+    ? `<li><strong>grounded_sources</strong>: ${data.grounded_sources.map(escHtml).join(', ')}</li>`
+    : '<li><strong>grounded_sources</strong>: none were collected for this diagnosis.</li>';
+  const unavailable = (data.unavailable_sources || []).length
+    ? `<li><strong>unavailable_sources</strong>: ${data.unavailable_sources.map(escHtml).join(', ')}</li>`
+    : '<li><strong>unavailable_sources</strong>: none were reported.</li>';
+  const engine = getExplainEngine();
+  const runtimeCoach = engine ? engine.renderRuntimeCoach('diagnosis', data, getExplanationOptions()) : '';
+
+  return `
+    <div class="diag-block">
+      <div class="diag-title">Beginner Explanation</div>
+      ${runtimeCoach}
+      <p><strong>diagnosis_source</strong> tells you where the explanation came from. Here it is <strong>${escHtml(data.diagnosis_source || 'unknown')}</strong>.</p>
+      <p><strong>grounding_status</strong> is <strong>${escHtml(data.grounding_status || 'unknown')}</strong>. ${escHtml(grounding)}</p>
+      <ul class="diag-list">
+        ${grounded}
+        ${unavailable}
+      </ul>
+      <p><strong>hallucination_check</strong> is the system's honesty note about whether the diagnosis had live evidence or relied on runbooks.</p>
+    </div>
+  `;
+}
+
+function setLiveExplainerIdle(message) {
+  const body = document.getElementById('live-explainer-body');
+  if (!body) return;
+  body.innerHTML = `<p>${escHtml(message)}</p>`;
+}
+
+function describeIncidentKind(kind) {
+  const messages = {
+    diagnose: 'A diagnose entry means the system analyzed a fault and produced a remediation recommendation.',
+    remediate: 'A remediate entry means the system tried to act on a runbook or recovery workflow.',
+  };
+  return messages[kind] || 'This incident entry records one step in the fault response workflow.';
+}
+
+function explainParsedXid(xid) {
+  const messages = {
+    '48': 'XID 48 usually points to an uncorrectable ECC memory event, which is a hardware-integrity problem rather than just a performance warning.',
+    '74': 'XID 74 usually points to NVLink link trouble such as CRC errors, which means GPU-to-GPU communication may be degraded.',
+    '79': 'XID 79 usually means the GPU became unreachable on the bus, which is a severe stability failure and often requires reset or reboot.',
+  };
+  return messages[xid] || 'The parser found a known NVIDIA fault code, but this code does not yet have a beginner-specific explanation in the UI.';
+}
+
 
 let metrics = {
   util:82, vram_used:54, vram_total:80, temp:71, power:420,
@@ -147,6 +761,7 @@ function loadLab(id) {
   clearTerminal();
   currentLab = id;
   currentStep = -1;
+  if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
 
   const lab = LABS[id];
   document.getElementById('scen-title').textContent = lab.name;
@@ -170,6 +785,7 @@ function loadLab(id) {
   termLines.dcgm  = typeof DCGM_CLEAN !== 'undefined' ? DCGM_CLEAN : [];
   if(activeTab==='dmesg') renderTab('dmesg');
   if(activeTab==='dcgm')  renderTab('dcgm');
+  renderLabStepCoach();
 
   showIntro(id);
 
@@ -182,6 +798,7 @@ function loadLab(id) {
 function runStep(labId, stepIdx) {
   if(currentLab !== labId) return;
   currentStep = stepIdx;
+  if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
   const lab = LABS[labId];
   const step = lab.steps[stepIdx];
 
@@ -192,6 +809,8 @@ function runStep(labId, stepIdx) {
   document.getElementById('scen-step').style.display = '';
   document.getElementById('scen-step').textContent = `Step ${stepIdx+1}/${lab.steps.length}`;
   document.getElementById('scen-desc').textContent = step.label;
+  const cmdInput = document.getElementById('cmd-input');
+  if (cmdInput) cmdInput.value = step.cmd || '';
 
   switchTab('term');
   clearTerminal();
@@ -214,6 +833,7 @@ function runStep(labId, stepIdx) {
 
   updateMetrics(labId, stepIdx, step);
   addXIDLog(labId, stepIdx, step);
+  renderLabStepCoach();
 
   // Sprint 18: Surface AIOps Engine for fault steps
   const aiFaultTargets = {
@@ -234,6 +854,7 @@ function runStep(labId, stepIdx) {
 
   if(stepIdx === lab.steps.length-1) {
     completedLabs.add(labId);
+    localStorage.setItem('gpusim_completed', JSON.stringify([...completedLabs]));
     document.getElementById('b-'+labId).textContent = '✓';
     document.getElementById('nav-'+labId).classList.add('done');
     document.getElementById('h-done').textContent = completedLabs.size;
@@ -379,6 +1000,7 @@ function switchTab(tab) {
         });
       }
   }
+  renderLabStepCoach();
 }
 
 function renderTab(tab) {
@@ -403,28 +1025,36 @@ function handleCustomCommand(cmd) {
   } else if(c.includes('kubectl get pods')) {
     if(typeof TERMINAL_OUTPUT !== 'undefined') TERMINAL_OUTPUT.k8s_operator?.forEach(l=>logTerm([l]));
   } else {
-    logTerm([{t:'dim',v:'# Tip: use the step buttons above for guided lab output'}]);
+    logTerm([{t:'dim',v:'# Tip: use the step buttons above for guided lab output and read the Lab Coach panel on the right for what to look for.'}]);
   }
 }
 
 function showIntro(id) {
   const lab = LABS[id];
+  const guide = getLearningGuide(id);
   const el = document.getElementById('intro-content');
+  if (!lab || !el) return;
+
+  const guideMarkup = renderLearningGuide(id);
+  const modeNote = beginnerMode
+    ? '<div class="learn-banner"><div class="learn-banner-title">Beginner Mode is on</div><p>Real operator jargon stays visible, but each term is explained in plain language so you build vocabulary while you learn.</p></div>'
+    : '<div class="learn-banner learn-banner-compact"><div class="learn-banner-title">Compact lab brief</div><p>Turn on Beginner Mode for deeper explanations, lifecycle context, and slower reading material.</p></div>';
+
   el.innerHTML = `
     <h2>${lab.icon} ${lab.name}</h2>
+    ${modeNote}
     <div class="objective">
       <h4>Objective</h4>
-      <p>${lab.objective}</p>
+      <p>${escHtml(lab.objective)}</p>
     </div>
-    <ul class="steps-list">
-      ${lab.steps.map((s,i)=>`<li>
-        <div class="step-num">${i+1}</div>
-        <div>
-          <div>${s.label}</div>
-          <div class="step-hint">${s.cmd.replace(/</g,'&lt;').slice(0,60)}</div>
-        </div>
-      </li>`).join('')}
-    </ul>
+    ${guide ? guideMarkup : ''}
+    <section class="learn-section">
+      <div class="learn-heading-row">
+        <h4>Lab Steps</h4>
+        <span class="learn-mode-tag">Guided flow</span>
+      </div>
+      ${renderGuidedFlowSteps(lab)}
+    </section>
   `;
   document.getElementById('intro-overlay').classList.add('show');
 }
@@ -533,25 +1163,69 @@ let quizState = {};
 function openQuiz() {
   quizState = { answers:{}, submitted:false };
   const el = document.getElementById('quiz-content');
-  el.innerHTML = QUIZ.map((q,i)=>`
-    <div class="quiz-q" id="qq-${i}">
-      <div class="q-text">${i+1}. ${q.q}</div>
-      ${q.opts.map((opt,j)=>`
-        <div class="quiz-option" onclick="selectAnswer(${i},${j})" id="qo-${i}-${j}">
-          <span class="opt-key">${String.fromCharCode(65+j)}</span>
-          ${opt}
-        </div>
-      `).join('')}
-      <div class="quiz-explain" id="qe-${i}">${q.exp}</div>
-    </div>
-  `).join('') + `
-    <div style="display:flex;gap:10px;margin-top:16px;align-items:center">
-      <button class="btn-sm primary" onclick="submitQuiz()">Submit Answers</button>
-      <button class="btn-sm" onclick="resetQuiz()">Reset</button>
-      <div id="quiz-progress" style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--dim)">0/${QUIZ.length} answered</div>
-    </div>
-    <div id="quiz-result"></div>
-  `;
+  if (!el) return;
+
+  el.replaceChildren();
+  QUIZ.forEach((q, i) => {
+    const question = document.createElement('div');
+    question.className = 'quiz-q';
+    question.id = `qq-${i}`;
+
+    const text = document.createElement('div');
+    text.className = 'q-text';
+    text.textContent = `${i + 1}. ${q.q}`;
+    question.appendChild(text);
+
+    q.opts.forEach((opt, j) => {
+      const option = document.createElement('div');
+      option.className = 'quiz-option';
+      option.id = `qo-${i}-${j}`;
+      option.dataset.quizQuestion = String(i);
+      option.dataset.quizOption = String(j);
+
+      const key = document.createElement('span');
+      key.className = 'opt-key';
+      key.textContent = String.fromCharCode(65 + j);
+      option.appendChild(key);
+      option.appendChild(document.createTextNode(opt));
+      question.appendChild(option);
+    });
+
+    const explain = document.createElement('div');
+    explain.className = 'quiz-explain';
+    explain.id = `qe-${i}`;
+    explain.textContent = q.exp;
+    question.appendChild(explain);
+
+    el.appendChild(question);
+  });
+
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:10px;margin-top:16px;align-items:center';
+
+  const submitBtn = document.createElement('button');
+  submitBtn.className = 'btn-sm primary';
+  submitBtn.dataset.quizAction = 'submit';
+  submitBtn.textContent = 'Submit Answers';
+  actions.appendChild(submitBtn);
+
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'btn-sm';
+  resetBtn.dataset.quizAction = 'reset';
+  resetBtn.textContent = 'Reset';
+  actions.appendChild(resetBtn);
+
+  const progress = document.createElement('div');
+  progress.id = 'quiz-progress';
+  progress.style.cssText = 'margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--dim)';
+  progress.textContent = `0/${QUIZ.length} answered`;
+  actions.appendChild(progress);
+
+  const result = document.createElement('div');
+  result.id = 'quiz-result';
+
+  el.appendChild(actions);
+  el.appendChild(result);
   document.getElementById('quiz-overlay').classList.add('show');
 }
 
@@ -577,19 +1251,102 @@ function submitQuiz() {
   const pct = Math.round((correct/QUIZ.length)*100);
   document.getElementById('quiz-result').innerHTML = `<div class="quiz-score"><span class="score-num">${pct}%</span></div>`;
   document.getElementById('h-score').textContent = pct+'%';
+  localStorage.setItem('gpusim_score', pct);
 }
 
 function resetQuiz() { quizState = {}; openQuiz(); }
 function closeQuiz() { document.getElementById('quiz-overlay').classList.remove('show'); }
 
+function renderRunbookButton(xid) {
+  const stepControls = document.getElementById('step-controls');
+  if (!stepControls) return;
+
+  stepControls.replaceChildren();
+  const button = document.createElement('button');
+  button.className = 'btn';
+  button.style.cssText = 'background:var(--copper); color:#000; font-weight:bold; width:100%; margin-top:10px;';
+  button.textContent = '▶ EXECUTE AUTONOMOUS RUNBOOK';
+  button.addEventListener('click', () => executeRunbook(xid));
+  stepControls.appendChild(button);
+}
+
+function setIncidentBodyMessage(body, message, color = 'var(--dim)') {
+  body.replaceChildren();
+  const notice = document.createElement('div');
+  notice.style.cssText = `color:${color};font-size:11px;padding:10px`;
+  notice.textContent = message;
+  body.appendChild(notice);
+}
+
+function renderIncidentHistory(body, rows) {
+  body.replaceChildren();
+  const fmt = ts => new Date(ts * 1000).toISOString().replace('T',' ').slice(0,19);
+  const kindColor = kind => kind === 'diagnose' ? 'var(--blue)' : 'var(--copper)';
+
+  rows.forEach(row => {
+    const item = document.createElement('div');
+    item.style.cssText = 'border-bottom:1px solid var(--border);padding:8px 0;font-size:11px;font-family:var(--font-mono)';
+
+    const kind = document.createElement('span');
+    kind.style.cssText = `color:${kindColor(row.kind)};text-transform:uppercase;font-weight:700`;
+    kind.textContent = String(row.kind || 'unknown');
+    item.appendChild(kind);
+
+    const fault = document.createElement('span');
+    fault.style.cssText = 'color:var(--text);margin:0 8px';
+    fault.textContent = `XID ${row.fault ?? 'unknown'}`;
+    item.appendChild(fault);
+
+    const timestamp = document.createElement('span');
+    timestamp.style.cssText = 'color:var(--dim)';
+    timestamp.textContent = fmt(row.ts);
+    item.appendChild(timestamp);
+
+    const user = document.createElement('span');
+    user.style.cssText = 'color:var(--dim);margin-left:8px';
+    user.textContent = `by ${row.user || 'unknown'}`;
+    item.appendChild(user);
+
+    if (row.status) {
+      const status = document.createElement('span');
+      status.style.cssText = 'color:var(--green);margin-left:8px';
+      status.textContent = `[${row.status}]`;
+      item.appendChild(status);
+    }
+
+    if (row.source) {
+      const source = document.createElement('span');
+      source.style.cssText = 'color:var(--dim);margin-left:8px';
+      source.textContent = `src:${row.source}`;
+      item.appendChild(source);
+    }
+
+    if (row.summary) {
+      const summary = document.createElement('div');
+      summary.style.cssText = 'color:var(--dim);margin-top:4px;white-space:pre-wrap;word-break:break-word';
+      const truncated = row.summary.length > 200 ? `${row.summary.slice(0, 200)}…` : row.summary;
+      summary.textContent = truncated;
+      item.appendChild(summary);
+    }
+
+    if (beginnerMode) {
+      const explain = document.createElement('div');
+      explain.className = 'incident-explain';
+      explain.textContent = describeIncidentKind(row.kind || 'unknown');
+      item.appendChild(explain);
+    }
+
+    body.appendChild(item);
+  });
+}
+
 function resetAll() {
   completedLabs.clear();
   document.getElementById('h-done').textContent='0';
   document.getElementById('h-score').textContent='—';
-  document.querySelectorAll('.nav-item').forEach(el=>{
-    el.classList.remove('active','done');
-    el.style.opacity = '1';
-  });
+  localStorage.removeItem('gpusim_completed');
+  localStorage.removeItem('gpusim_score');
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active','done'));
   clearCanvas();
   clearTerminal();
   currentLab=null; currentStep=-1;
@@ -608,8 +1365,8 @@ function resetAll() {
 
 // ── Sprint 21: bindUIHandlers — replaces all inline HTML event handlers ──
 function bindUIHandlers() {
-  if (_uiBound) return;
-  _uiBound = true;
+  if (_uiHandlersBound) return;
+  _uiHandlersBound = true;
   const on = (id, ev, fn) => { const el = document.getElementById(id); if(el) el.addEventListener(ev, fn); };
 
   // Login overlay
@@ -619,8 +1376,18 @@ function bindUIHandlers() {
 
   // Header
   on('btn-quiz',    'click', openQuiz);
+  on('btn-blueprint', 'click', () => { document.getElementById('recon-overlay').style.display = 'flex'; });
+  on('btn-learn',   'click', () => { if (currentLab) showIntro(currentLab); });
   on('btn-logout',  'click', aegisLogout);
   on('btn-reset',   'click', resetAll);
+  on('toggle-beginner', 'change', e => setBeginnerMode(e.target.checked));
+  on('toggle-llm-diagnosis', 'change', e => setLLMDiagnosisEnabled(e.target.checked));
+  on('sel-explain-level', 'change', e => setExplanationLevel(e.target.value));
+  on('sel-explain-role', 'change', e => setExplanationRole(e.target.value));
+  on('btn-toggle-coach', 'click', toggleLabCoach);
+  on('btn-close-coach', 'click', () => setLabCoachOpen(false));
+  const coachEl = document.getElementById('lab-step-coach');
+  if (coachEl) coachEl.addEventListener('click', handleLabCoachClick);
 
   // Sidebar
   on('sidebar-btn-quiz', 'click', openQuiz);
@@ -658,32 +1425,88 @@ function bindUIHandlers() {
 
   // Quiz modal
   on('btn-quiz-close', 'click', closeQuiz);
+  const quizContent = document.getElementById('quiz-content');
+  if (quizContent) quizContent.addEventListener('click', e => {
+    const option = e.target.closest('.quiz-option[data-quiz-question]');
+    if (option) {
+      selectAnswer(Number(option.dataset.quizQuestion), Number(option.dataset.quizOption));
+      return;
+    }
+
+    const action = e.target.closest('[data-quiz-action]');
+    if (!action) return;
+    if (action.dataset.quizAction === 'submit') submitQuiz();
+    if (action.dataset.quizAction === 'reset') resetQuiz();
+  });
 
   // Remediation panel
   on('btn-dismiss-remediation', 'click', dismissRemediationPanel);
 
+  // Incident history
+  on('btn-incidents', 'click', openIncidentHistory);
+  on('btn-incidents-close', 'click', closeIncidentHistory);
+
   // Lab navigation — event delegation
-  const navList = document.querySelector('.nav-list');
+  const navList = document.querySelector('.sidebar-scroll');
   if(navList) navList.addEventListener('click', e => {
     const item = e.target.closest('[id^="nav-"]');
     if(item) loadLab(item.id.replace('nav-', ''));
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'ArrowRight' && currentLab) runCurrentStep();
+    if (e.key === 'ArrowLeft' && currentLab && currentStep > 0) runStep(currentLab, currentStep - 1);
   });
 }
 
 // --- INIT BOOTSTRAP ---
 function initApp() {
   bindUIHandlers();
-  const reconEl = document.getElementById("recon-overlay"); if (reconEl) reconEl.style.display = "flex";
-  // Restore provisioning state from localStorage
+  syncBeginnerModeUI();
+  // Always show the cluster chooser after login instead of auto-entering a saved rack.
   const savedBp  = localStorage.getItem('gpusim_blueprint');
   const savedFab = localStorage.getItem('gpusim_fabric');
-  if (savedBp && savedFab) {
-    const bpSelect  = document.getElementById('sel-blueprint');
-    const fabSelect = document.getElementById('sel-fabric');
-    if (bpSelect)  bpSelect.value  = savedBp;
-    if (fabSelect) fabSelect.value = savedFab;
-    applyProvisioning();
+  const bpSelect  = document.getElementById('sel-blueprint');
+  const fabSelect = document.getElementById('sel-fabric');
+  const defaultBlueprint = (savedBp && typeof HARDWARE_LIBRARY !== 'undefined' && HARDWARE_LIBRARY[savedBp])
+    ? savedBp
+    : 'H100_HGX';
+
+  if (bpSelect) {
+    bpSelect.value = defaultBlueprint;
   }
+  if (fabSelect) {
+    const fallbackFabric = (typeof HARDWARE_LIBRARY !== 'undefined' && bpSelect && HARDWARE_LIBRARY[bpSelect.value])
+      ? HARDWARE_LIBRARY[bpSelect.value].fabricDefault
+      : 'IB_NDR';
+    fabSelect.value = savedFab || fallbackFabric;
+  }
+
+  isProvisioned = false;
+  currentBlueprint = null;
+  runInstantSentinel();
+  const reconOverlay = document.getElementById('recon-overlay');
+  if (reconOverlay) reconOverlay.style.display = 'flex';
+  const initialSvg = document.getElementById('diagram-canvas');
+  if (initialSvg && typeof drawWelcome === 'function') drawWelcome(initialSvg);
+
+  // Restore completed labs and quiz score from previous session
+  const _savedCompleted = localStorage.getItem('gpusim_completed');
+  if (_savedCompleted) {
+    try {
+      completedLabs = new Set(JSON.parse(_savedCompleted));
+      completedLabs.forEach(id => {
+        const badge = document.getElementById('b-' + id);
+        const nav   = document.getElementById('nav-' + id);
+        if (badge) badge.textContent = '✓';
+        if (nav)   nav.classList.add('done');
+      });
+      document.getElementById('h-done').textContent = completedLabs.size;
+    } catch(e) { localStorage.removeItem('gpusim_completed'); }
+  }
+  const _savedScore = localStorage.getItem('gpusim_score');
+  if (_savedScore) document.getElementById('h-score').textContent = _savedScore + '%';
 
   // Attach Terminal listener once per session bootstrap
   if (!_appInitialized) {
@@ -707,7 +1530,7 @@ function initApp() {
   // Draw Initial State
   const svg = document.getElementById('diagram-canvas');
   setTimeout(()=>{
-    if(svg) {
+    if(svg && !isProvisioned) {
         const w=svg.clientWidth, h=svg.clientHeight;
         svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
         if(typeof drawWelcome === 'function') drawWelcome(svg);
@@ -716,7 +1539,7 @@ function initApp() {
 }
 
 window.addEventListener('load', async ()=>{
-  bindUIHandlers(); // bind login overlay immediately
+  bindUIHandlers();
   // Sprint 16: Verify existing JWT or show login overlay
   if (JWT_TOKEN) {
     try {
@@ -769,6 +1592,11 @@ function analyzeLog() {
             else if (xid === '74') logTerm([{t:'err', v:`[DECODE] XID 74 = NVLink CRC Flit Error (Cable or Switch failure).`}]);
             else logTerm([{t:'err', v:`[DECODE] Unrecognized hardware fault.`}]);
 
+            if (beginnerMode) {
+                logTerm([{t:'info', v:`[BEGINNER] ${explainParsedXid(xid)}`}]);
+                logTerm([{t:'dim', v:'[BEGINNER] XID is the NVIDIA driver fault code. The parser keeps the real code visible so you learn the operator vocabulary while reading the explanation.'}]);
+            }
+
             let failingNodeIndex = 0; 
             if (gpuNum) {
                 failingNodeIndex = parseInt(gpuNum);
@@ -788,6 +1616,9 @@ function analyzeLog() {
             }
 
             logTerm([{t:'info', v:`[MAPPING] PCIe Address maps to physical node index: 0${failingNodeIndex + 1}`}]);
+            if (beginnerMode) {
+                logTerm([{t:'dim', v:'[BEGINNER] Mapping means the parser is translating a low-level bus or GPU identifier into the physical machine you would inspect or drain.'}]);
+            }
             logTerm([{t:'warn', v:`[ACTION] Pushing CRITICAL fault telemetry to Rack Digital Twin...`}]);
 
             const svg = document.getElementById('diagram-canvas');
@@ -835,8 +1666,10 @@ async function toggleAppMode(forcedState) {
             const data = await response.json();
 
             if(data.status === 'online') {
+                setBackendLLMCapability(data.active_llm, data.llm_available);
                 logTerm([{t:'good', v:`[NETWORK] SUCCESS! Handshake complete.`}]);
                 logTerm([{t:'info', v:`[DAEMON] Aegis-GPU daemon active.`}]);
+                logTerm([{t:'dim', v:data.llm_available ? `[DIAGNOSIS MODE] ${data.active_llm} available. Users may opt in to LLM-backed diagnosis.` : '[DIAGNOSIS MODE] Deterministic runbooks only. LLM diagnosis is currently unavailable.'}]);
                 document.getElementById('scen-desc').textContent = 'Connected. Waiting for live telemetry...';
 
                 // --- START LIVE POLLING ---
@@ -850,6 +1683,7 @@ async function toggleAppMode(forcedState) {
     } else {
         logTerm([{t:'info', v:'[SYSTEM] Connection severed. Reverting to Student Simulation Mode.'}]);
         document.querySelectorAll('.nav-item').forEach(el => el.style.opacity = '1');
+        setLiveExplainerIdle('Live Telemetry is off. Turn it on to see beginner explanations of evidence quality, telemetry scope, and diagnosis trust level.');
         resetAll();
         if(liveInterval) clearInterval(liveInterval);
     }
@@ -884,6 +1718,7 @@ async function fetchLiveMetrics() {
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
 
         const liveData = await res.json();
+        lastLiveTelemetry = liveData;
         const source = liveData.source || 'unknown-source';
         const modeMsg = liveData.degraded
             ? `Connected in degraded mode (${source}). Displaying best-effort host telemetry.`
@@ -903,8 +1738,10 @@ async function fetchLiveMetrics() {
         setBar('mb-vram', liveData.vram_total ? (liveData.vram_used / liveData.vram_total) * 100 : 0, 'var(--blue)');
         setBar('mb-temp', (liveData.temp / 100) * 100, liveData.temp > 80 ? 'var(--yellow)' : 'var(--blue)');
         setBar('mb-power', liveData.power > 0 ? (liveData.power / 700) * 100 : 0, 'var(--copper)');
+        renderBeginnerTelemetryExplanation(liveData);
 
     } catch (e) {
+        setLiveExplainerIdle('Live telemetry polling failed, so the beginner explainer cannot interpret the current hardware state.');
         logTerm([{t:'err', v:`[POLLING ERROR] ${e.message}`}]);
         scrollTerminal();
     }
@@ -936,7 +1773,7 @@ async function requestAI_Remediation(xid, nodeIndex = 6) {
         const res = await fetch(`${API_BASE}/diagnose/${xid}`, {
             method: 'POST',
             headers: { ...authHdr(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
+            body: JSON.stringify({ allow_llm: llmDiagnosisEnabled && backendLLMAvailable })
         });
         if (res.status === 401) { handle401(); return; }
         const data = await res.json();
@@ -951,8 +1788,7 @@ async function requestAI_Remediation(xid, nodeIndex = 6) {
             captureStaticDiagnosis(data);
 
             // 4. Spawn the Self-Healing Runbook Button
-            document.getElementById('step-controls').innerHTML = 
-                `<button class="btn" style="background:var(--copper); color:#000; font-weight:bold; width:100%; margin-top:10px;" onclick="executeRunbook('${xid}')">▶ EXECUTE AUTONOMOUS RUNBOOK</button>`;
+            renderRunbookButton(xid);
         }
     } catch(e) {
         logTerm([{t:'err', v:`[AIOps ERROR] Backend unreachable: ${e.message}`}]);
@@ -1054,9 +1890,26 @@ function captureStaticDiagnosis(data) {
     if (!overlay || !btn) return;
 
     if (data.remediation_plan) {
-        const fault  = data.fault ? "FAULT : " + data.fault + "\n" : "";
-        const source = data.diagnosis_source ? "SOURCE: " + data.diagnosis_source + "\n" : "";
-        overlay.innerText = fault + source + "\n" + data.remediation_plan;
+        const beginnerExplain = renderDiagnosisExplanation(data);
+        overlay.innerHTML = `
+          <div class="diag-block">
+            <div class="diag-title">Fault</div>
+            <p>${escHtml(data.fault || 'Unknown fault')}</p>
+          </div>
+          <div class="diag-block">
+            <div class="diag-title">Diagnosis Source</div>
+            <p>${escHtml(data.diagnosis_source || 'unknown')}</p>
+          </div>
+          ${beginnerExplain}
+          <div class="diag-block">
+            <div class="diag-title">Remediation Plan</div>
+            ${data.remediation_plan.split('\n').filter(Boolean).map(line => `<p>${escHtml(line)}</p>`).join('')}
+          </div>
+          <div class="diag-block">
+            <div class="diag-title">Honesty Check</div>
+            <p>${escHtml(data.hallucination_check || 'No explanation provided.')}</p>
+          </div>
+        `;
 
         overlay.style.display = "none";
         btn.style.display = "inline-block";
@@ -1067,6 +1920,35 @@ function captureStaticDiagnosis(data) {
         logTerm([{t:"good", v:"[AIOps] Full diagnosis captured. Click the button above to read the remediation plan."}]);
         scrollTerminal();
     }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// INCIDENT HISTORY
+// ════════════════════════════════════════════════════════════════════
+async function openIncidentHistory() {
+  const overlay = document.getElementById('incident-overlay');
+  const body    = document.getElementById('incident-body');
+  if (!overlay || !body) return;
+  setIncidentBodyMessage(body, 'Loading…');
+  overlay.style.display = 'flex';
+  try {
+    const r = await fetch(`${API_BASE}/incidents?limit=50`, { headers: authHdr() });
+    if (r.status === 401) { handle401(); return; }
+    if (!r.ok) { setIncidentBodyMessage(body, 'Failed to load incidents.', 'var(--red)'); return; }
+    const rows = await r.json();
+    if (!rows.length) {
+      setIncidentBodyMessage(body, 'No incidents recorded yet.');
+      return;
+    }
+    renderIncidentHistory(body, rows);
+  } catch(e) {
+    setIncidentBodyMessage(body, `Error: ${e.message}`, 'var(--red)');
+  }
+}
+
+function closeIncidentHistory() {
+  const overlay = document.getElementById('incident-overlay');
+  if (overlay) overlay.style.display = 'none';
 }
 
 // Click-outside handler: close ai-static-overlay when clicking outside it
