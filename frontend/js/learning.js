@@ -62,124 +62,124 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are learning how to read NVIDIA XID fault codes as operator signals instead of mysterious numbers. Think of this like learning emergency alarm tones: the code is short, but it tells you what kind of failure you may be dealing with and how fast you need to react.",
-    plainPicture: "An XID code is the GPU driver's shorthand for a fault family. The number itself is not the goal. The goal is to translate it into a likely hardware story, judge the severity, and take the least risky correct next action.",
+    objectiveText: "We are learning how to read NVIDIA XID fault codes as operator signals instead of treating them like mysterious numbers. The beginner goal is not to memorize every code. It is to look at a code, classify the fault family, and decide what evidence and containment step should come next.",
+    plainPicture: "An XID code is the GPU driver's shorthand for a fault category. The number is only the starting point. What matters is the story behind it: is this more consistent with memory corruption, a hung GPU, or a degraded interconnect? This lab teaches that you do not stop at the code. You compare it with the screenshot evidence, confirm the fault family, and then choose the smallest safe action.",
     whyOperatorsCare: [
-      "Operators often see the code before they see the explanation. Logs, alerts, and support tickets may only show an XID number, so the operator has to turn that number into a containment decision quickly.",
-      "This matters because different XIDs imply different fault families. A memory-integrity problem, a hung GPU, and a fabric fault do not all deserve the same response.",
-      "The beginner skill here is not memorizing every number. It is learning the workflow: identify the code, classify the fault family, confirm with evidence, contain the blast radius, and escalate appropriately."
+      "Operators often see the XID code before they see a human explanation. Logs, alerts, and support tickets may give you only a short number, so the operator has to turn that into a safe containment decision quickly.",
+      "This matters because different XIDs imply different fault families. A memory-integrity problem, a bus or hang problem, and a fabric problem do not all deserve the same response or the same recovery path.",
+      "The real operator skill here is not memorizing numbers. It is learning the workflow: identify the code, classify the fault family, confirm with evidence, contain the blast radius, and only then decide how far recovery should go."
     ],
     wholePlatform: [
-      "In the bigger platform, XID faults are one of the ways a single failing GPU turns into a node, rack, or workload problem. The code helps operators decide whether the issue stays local or threatens the wider cluster.",
-      "A good XID response protects schedulers, users, and neighboring workloads from landing on hardware that is already unstable or from depending on a broken fabric path.",
-      "So this is not just about reading logs. It is about keeping the whole platform reliable by turning short fault codes into fast, grounded operational decisions."
+      "In the bigger platform, XID faults are one of the ways a single bad GPU turns into a node, rack, or workload problem. The code helps operators decide whether the issue stays local to one device or threatens the wider cluster.",
+      "A good XID response protects schedulers, users, and neighboring workloads from landing on unstable hardware or from depending on a broken communication path.",
+      "So this is not just about reading logs. It is about keeping the platform reliable by turning a short driver signal into a fast, evidence-backed operational decision."
     ],
     coreTerms: [
-      { term: "XID", plain: "An NVIDIA driver event code used to classify GPU faults.", why: "These codes are what operators usually see in logs first." },
-      { term: "XID 48", plain: "A fault code often tied to an uncorrectable ECC event.", why: "This usually points to memory hardware trouble." },
-      { term: "XID 79", plain: "A code associated with a GPU that has fallen off the bus or become unreachable.", why: "This often means reset or reboot level recovery." },
-      { term: "XID 74", plain: "A fault often associated with NVLink problems such as link CRC errors.", why: "It connects log data to interconnect health." },
-      { term: "Containment", plain: "The first phase of response where you stop the fault from hurting more jobs or more hardware paths.", why: "Beginners need to know the first goal is control, not perfect diagnosis." }
+      { term: "XID", plain: "An NVIDIA driver event code used to classify GPU faults.", why: "These are often the first hardware fault signals operators see in logs." },
+      { term: "XID 48", plain: "A fault code commonly associated with an uncorrectable ECC event.", why: "This usually points toward memory-integrity trouble and containment." },
+      { term: "XID 79", plain: "A code associated with a GPU that has fallen off the bus or become unreachable.", why: "This often points toward reset-or-reboot style recovery, not memory-only reasoning." },
+      { term: "XID 74", plain: "A fault often associated with NVLink problems such as link CRC errors.", why: "It connects log evidence to interconnect-path health instead of memory or bus failure." },
+      { term: "Containment", plain: "The first phase of response where you stop the fault from hurting more jobs or more hardware paths.", why: "Beginners need to know the first goal is control, not perfect root cause." }
     ],
     commonMisreads: [
-      "The number itself is the diagnosis. That is false. The number is the starting point for a hardware story, not the whole story.",
-      "All XIDs deserve the same response. That is false. Memory faults, bus faults, and fabric faults often have different confirmation and recovery paths.",
-      "If the job is still partly alive, the fault must be minor. That is false. Some severe faults still leave part of the system standing while the hardware underneath is no longer trustworthy."
+      "The number itself is the diagnosis. That is false. The code is the start of the hardware story, not the whole story.",
+      "All XIDs deserve the same response. That is false. Memory faults, bus faults, and fabric faults often need different confirmation and recovery steps.",
+      "If the job is still partly alive, the fault must be minor. That is false. Some severe faults still leave part of the system standing while the hardware underneath is no longer safe to trust."
     ],
     safeActions: [
-      "Capture the exact XID code and the GPU or PCI address involved.",
-      "Drain or isolate the affected node before trying risky recovery steps.",
-      "Use the code to choose the right next check instead of guessing."
+      "Capture the exact XID code and the GPU or PCI address involved before changing anything.",
+      "Use the code to choose the next confirmation step instead of guessing across fault families.",
+      "Drain or isolate the affected node before risky recovery steps if the evidence points to unsafe hardware state."
     ]
   },
   nvlink: {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are checking whether 8 H100 GPUs are talking to each other over the fast NVLink fabric they were designed to use. Think of this like checking whether traffic is flowing on the dedicated express lanes instead of being forced onto a slower city street.",
-    plainPicture: "NVLink is the fast direct path between GPUs. If that path disappears, the workload may still run, but communication can fall back to a much slower route through PCIe and the CPU host bridge.",
+    objectiveText: "We are checking whether 8 H100 GPUs are communicating over the direct NVLink fabric the node was designed to use. The beginner goal is not just to spot whether GPUs exist. It is to tell the difference between a healthy fast interconnect and a slower fallback path that can quietly waste the whole node.",
+    plainPicture: "NVLink is the short, high-bandwidth path between GPUs. When that path is healthy, collectives such as AllReduce stay fast. When it degrades, the job may still run, but traffic can fall back to a slower PCIe host-bridge path such as PHB. That is why this lab starts with the topology screenshot first: the map tells you what healthy communication should look like before you judge counters, logs, or bandwidth.",
     whyOperatorsCare: [
-      "Operators care about NVLink because distributed training is not just about whether GPUs are visible. It is about whether they can exchange data over the path the cluster was designed for.",
-      "A node can look alive and still be operationally degraded. That is what makes topology reading important for beginners: uptime is not the same as healthy interconnect performance.",
-      "This lab teaches a core operator habit: first learn the expected fabric layout, then check whether the links are clean, then confirm whether the workload sees the same story."
+      "Operators care about NVLink because distributed training health is not just 'can I see eight GPUs?' The real question is whether those GPUs can exchange data over the fast path the node was designed to use.",
+      "A node can stay online, launch jobs, and still be operationally degraded. That is why the first screenshot in this lab matters: uptime is not the same as healthy interconnect performance.",
+      "The operator workflow here is deliberate: read the healthy topology screenshot first, compare later screenshots against it, then decide whether counters, benchmark results, and NCCL behavior still tell the same story."
     ],
     wholePlatform: [
-      "In the bigger platform, NVLink is part of the communication spine inside the server. If it is healthy, multi-GPU jobs get the fast collective path they were sized and scheduled for.",
-      "If it degrades, the whole node can still appear online, but distributed workloads may slow down sharply, waste expensive GPU time, or fall back to less efficient communication paths.",
-      "So this is not just a low-level fabric detail. It affects how well the server contributes to the rack, how efficiently the scheduler uses the node, and whether real training workloads get the performance the platform promised."
+      "In the bigger platform, NVLink is part of the communication spine inside the server. If it is healthy, the node contributes the fast collective path the scheduler and workload owners think they are getting.",
+      "If it degrades, the node may still look schedulable, but multi-GPU jobs can slow down sharply, consume expensive GPU hours inefficiently, and fall back to weaker communication paths without a hard outage.",
+      "So this is not just a low-level topology detail. It changes whether the server is still safe to keep in service for distributed work, how large the blast radius is, and whether the rack is actually delivering the performance it promised."
     ],
     coreTerms: [
-      { term: "NVLink", plain: "A direct high-bandwidth GPU-to-GPU connection used for fast communication inside systems like DGX or HGX.", why: "This is the fast path that high-performance collective workloads expect." },
-      { term: "Topology", plain: "The map of which GPUs connect directly to which other GPUs and what path traffic takes between them.", why: "You cannot reason about good or bad communication performance without knowing the intended map." },
-      { term: "PHB", plain: "PCIe Host Bridge, meaning traffic is taking a slower PCIe-and-host path instead of a direct NVLink path.", why: "Seeing PHB where you expected NVLink is one of the clearest signs of degraded communication." },
-      { term: "CRC error", plain: "A link-integrity error showing that data on the interconnect may be arriving damaged and needing retry or correction.", why: "This is often how a sick fabric announces itself before or during performance degradation." }
+      { term: "NVLink", plain: "A direct high-bandwidth GPU-to-GPU connection used for fast communication inside systems like DGX or HGX.", why: "This is the fast path that collective workloads expect to use." },
+      { term: "Topology", plain: "The map of which GPUs connect directly to which other GPUs and what path traffic takes between them.", why: "The topology screenshot is your baseline for deciding whether later output is healthy or degraded." },
+      { term: "PHB", plain: "PCIe Host Bridge, meaning traffic is taking a slower PCIe-and-host path instead of a direct NVLink path.", why: "Seeing PHB where the baseline screenshot showed NV4 is one of the clearest degradation signals in this lab." },
+      { term: "CRC error", plain: "A link-integrity error showing that data on the interconnect may be arriving damaged and needing retry or correction.", why: "CRC counters help you decide whether the path is only present on paper or actually healthy enough to trust." }
     ],
     commonMisreads: [
-      "If the GPUs are visible, the fabric must be healthy. That is false. Visibility only tells you the devices exist, not that the fast path is working.",
-      "A training slowdown must be an NCCL or software tuning problem. That is often false when the interconnect path itself has degraded.",
-      "A topology map is just background information. It is not. It is the baseline that makes later fault signals meaningful."
+      "If the GPUs are visible, the fabric must be healthy. That is false. Visibility only proves the devices exist, not that the direct path is intact.",
+      "A training slowdown must start in NCCL or software tuning. That is often false when the topology screenshot, counter screenshot, and fallback screenshot already show a hardware-path problem.",
+      "The topology screenshot is just background information. It is not. It is the design contract that makes later PHB fallbacks and bandwidth collapse meaningful."
     ],
     safeActions: [
-      "Read the expected topology before you interpret any benchmark numbers.",
-      "Use link-error counters to decide whether the fabric is clean before blaming higher software layers.",
-      "Document which GPU pairs or links look degraded so the right physical path can be inspected later.",
-      "Treat a PHB fallback as an operator signal about blast radius, not just as a cosmetic label in the matrix."
+      "Start with the healthy topology screenshot before you interpret any benchmark or NCCL output.",
+      "Use the error-counter screenshot and live counters to decide whether the visible path is clean before blaming higher software layers.",
+      "Document which GPU pairs or links changed from the healthy screenshot to the degraded screenshot so the right physical path can be inspected later.",
+      "Treat a PHB fallback as an operator signal about containment and blast radius, not just as a cosmetic label in the matrix."
     ]
   },
   mig: {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are taking one H100 GPU and carving it into 7 isolated slices with MIG. Think of it like cutting one large pizza into seven personal slices: each slice is smaller, but each one is deliberately separated from the others.",
-    plainPicture: "MIG is hardware partitioning, not just scheduling. The GPU itself changes shape so multiple workloads can use isolated slices instead of fighting over one full device.",
+    objectiveText: "We are taking one H100 GPU and carving it into 7 isolated MIG slices. The beginner goal is not just to see that partitioning exists. It is to understand that the hardware itself changes shape, and that this changes what the node can safely advertise to users and schedulers.",
+    plainPicture: "MIG is hardware partitioning, not just scheduling. The GPU itself changes mode and begins exposing smaller isolated instances instead of one full device. That is why this lab starts with the enablement screenshot, then the creation screenshot, then the verification screenshot. Operators do not stop at 'the command ran.' They prove the hardware contract changed the way they intended.",
     whyOperatorsCare: [
       "When you partition a GPU, you are not only sharing capacity. You are changing the isolation story of the node.",
-      "That matters because operators care about blast radius: if one tenant, one process, or one slice has a problem, how much of the machine is affected?",
-      "Beginners often assume MIG is just a Kubernetes trick. It is not. The GPU must enter MIG mode first, and that changes what the hardware advertises to the software stack."
+      "That matters because operators care about blast radius: if one tenant, one process, or one slice has a problem, how much of the machine is affected and what still remains safe to use?",
+      "Beginners often assume MIG is just a Kubernetes or scheduler trick. It is not. The GPU must enter MIG mode first, and that changes what the hardware advertises to the software stack."
     ],
     wholePlatform: [
-      "In the bigger platform, MIG partitions become the GPU resources that schedulers and users actually consume. A workload does not just get 'GPU access' in the abstract; it gets one specific slice with a specific amount of compute and memory.",
-      "That means the partition layout affects tenancy, capacity planning, fairness, and performance expectations across the node. A badly planned layout can make the server look shared while still giving users the wrong resource shape.",
-      "So MIG is not only a hardware trick inside one card. It changes how the node presents capacity to Kubernetes, Slurm, or users, and it directly shapes how the rack's GPU inventory is consumed."
+      "In the bigger platform, MIG partitions become the GPU resources that schedulers and users actually consume. A workload does not get 'GPU access' in the abstract. It gets one specific slice with one specific compute and memory shape.",
+      "That means the partition layout affects tenancy, fairness, capacity planning, and user expectations across the node. A badly planned layout can make the server look shared while still advertising the wrong resource shape to the cluster.",
+      "So MIG is not only a hardware trick inside one card. It changes how the node presents capacity to Kubernetes, Slurm, and users, and it directly shapes how the rack's GPU inventory is consumed."
     ],
     coreTerms: [
       { term: "MIG", plain: "Multi-Instance GPU, a way to carve one physical GPU into smaller isolated hardware slices.", why: "This is how one expensive GPU can be shared more safely across teams." },
       { term: "Instance", plain: "One slice of GPU compute and memory that behaves like its own small accelerator.", why: "Each instance is what a workload actually lands on after partitioning." },
-      { term: "Fault domain", plain: "The part of the system affected when something breaks.", why: "Operators use this idea to reason about isolation and blast radius." }
+      { term: "Fault domain", plain: "The part of the system affected when something breaks.", why: "Operators use this to reason about isolation and blast radius after partitioning." }
     ],
     commonMisreads: [
-      "MIG is not just software scheduling. The hardware itself must switch modes before slices can exist.",
-      "A slice is not a full GPU. If a team gets one slice, they are getting part of the accelerator, not the whole card.",
-      "Successful partition creation does not prove the node is ready. You still verify the final layout and check it matches the tenant plan."
+      "MIG is just software scheduling. That is false. The hardware itself must switch modes before slices can exist.",
+      "A slice is a full GPU in smaller packaging. That is false. A slice is only part of the accelerator, with narrower compute and memory limits.",
+      "Successful partition creation proves the node is ready. That is false. You still verify the final layout and check it matches the tenant plan."
     ],
     safeActions: [
       "Explain the partition plan before you create any instances.",
-      "Verify the final layout after creation instead of assuming the command worked exactly as intended.",
+      "Use the creation and listing screenshots as proof points instead of assuming the command worked exactly as intended.",
       "Tell users clearly that one slice is not the same thing as one full GPU.",
-      "Check whether the node is still safe to keep in service before changing MIG mode on a busy machine."
+      "Check whether the node is safe to reconfigure before changing MIG mode on a busy machine."
     ]
   },
   cuda_stack: {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are checking whether the software layers above the GPU actually fit together. Think of this like checking whether every adapter in a power chain matches before blaming the appliance at the end.",
-    plainPicture: "The CUDA stack is a compatibility chain: driver, CUDA runtime, libraries, framework, and application. If one layer does not match the others, the workload can fail even when the GPU hardware itself is perfectly healthy.",
+    objectiveText: "We are checking whether the software layers above the GPU actually fit together. The beginner goal is to stop treating every CUDA failure like a hardware incident and to learn how to find the exact layer where the contract breaks.",
+    plainPicture: "The CUDA stack is a compatibility chain: driver, CUDA runtime, framework, and application. If one layer does not fit the others, the workload can fail even when the GPU hardware is perfectly healthy. That is why this lab walks upward through screenshots step by step: driver first, then CUDA, then framework, then the mismatch case, then the validated-image recovery path.",
     whyOperatorsCare: [
-      "Beginners often blame the GPU first when the real problem is software compatibility. Operators learn to check the whole stack before calling it a hardware incident.",
+      "Beginners often blame the GPU first when the real problem is software compatibility. Operators check the stack before calling it a hardware incident.",
       "This matters because a stack mismatch can waste expensive debugging time, pull healthy nodes out of service, or make supposedly identical servers behave differently under the same workload.",
-      "The key operator skill here is to move layer by layer and prove where the contract breaks instead of changing multiple parts of the stack at once."
+      "The operator skill here is to move layer by layer and prove where the contract breaks instead of changing many parts of the stack at once."
     ],
     wholePlatform: [
       "In the bigger platform, the CUDA stack is what turns rack GPU capacity into usable compute for real workloads. Healthy hardware does not help if the software layers above it cannot agree on versions and capabilities.",
-      "Schedulers, images, frameworks, and users all depend on a valid stack contract. If that contract breaks, the node may stay online but become unusable for the jobs that were supposed to land there.",
-      "So this is not just a developer problem inside one environment. Stack compatibility affects whether the server contributes reliable capacity to the cluster and whether operations can trust the node for production work."
+      "Schedulers, images, frameworks, and users all depend on a valid stack contract. If that contract breaks, the node may stay online but still be unusable for the jobs that were supposed to land there.",
+      "So this is not just a developer problem inside one environment. Stack compatibility decides whether the server contributes reliable capacity to the cluster and whether operations can trust the node for production work."
     ],
     coreTerms: [
-      { term: "Driver", plain: "The software that lets the operating system talk to the GPU.", why: "Without it, GPU tools and workloads cannot function correctly." },
-      { term: "CUDA runtime", plain: "The software layer applications use to run work on NVIDIA GPUs.", why: "It must be compatible with the GPU architecture and driver." },
-      { term: "NGC", plain: "NVIDIA GPU Cloud container images with validated software stacks.", why: "These images reduce mismatch risk for beginners." },
-      { term: "Compatibility matrix", plain: "A vendor-supported mapping of which driver, CUDA, library, and framework versions work together.", why: "This is how experts reduce guesswork during stack incidents." }
+      { term: "Driver", plain: "The software that lets the operating system talk to the GPU.", why: "Without it, higher GPU tools and frameworks cannot function correctly." },
+      { term: "CUDA runtime", plain: "The software layer applications use to run work on NVIDIA GPUs.", why: "It must be compatible with the driver and the framework above it." },
+      { term: "NGC", plain: "NVIDIA GPU Cloud container images with validated software stacks.", why: "These images reduce mismatch risk when you need a known-good baseline." },
+      { term: "Compatibility matrix", plain: "A vendor-supported mapping of which driver, CUDA, library, and framework versions work together.", why: "This is how operators reduce guesswork during stack incidents." }
     ],
     commonMisreads: [
       "If the GPU is visible, the software stack must be fine. That is false. Visibility only proves one layer is partly working.",
@@ -188,6 +188,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Record exact versions instead of saying something is just old or new.",
+      "Use the step screenshots to keep the stack order clear: driver, then CUDA, then framework.",
       "Prefer validated container images for first recovery attempts.",
       "Avoid changing multiple stack layers at once."
     ]
@@ -196,21 +197,21 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are learning how to use a validated GPU container image as a known-good runtime environment. Think of this like shipping a sealed toolkit instead of rebuilding every tool by hand at each destination.",
-    plainPicture: "A GPU container image packages the application environment so the same stack can be reused across nodes. The goal is not just convenience. The goal is consistency: the same image should behave the same way wherever the platform runs it.",
+    objectiveText: "We are learning how to use a validated GPU container image as a known-good runtime environment. The beginner goal is to separate image quality from runtime quality and to prove both before trusting the workload.",
+    plainPicture: "A GPU container image packages the application environment so the same stack can be reused across nodes. The goal is not just convenience. The goal is consistency. But a good image is only half the story: the runtime still has to expose GPUs correctly. That is why this lab moves from image pull, to GPU runtime, to in-container verification, to real workload progress, to live monitoring.",
     whyOperatorsCare: [
       "Operators care about containers because they reduce environment drift. Instead of debugging every node as a unique snowflake, they can start from one reproducible image baseline.",
       "This matters because many 'GPU problems' are really environment problems: the wrong libraries, the wrong framework build, or a runtime that does not actually expose the GPU inside the container.",
-      "The beginner skill here is to separate two questions clearly: is the image itself valid, and is the GPU runtime path configured so that the image can really use the hardware?"
+      "The operator skill here is to separate two questions clearly: is the image itself valid, and is the GPU runtime path configured so that the image can really use the hardware?"
     ],
     wholePlatform: [
-      "In the bigger platform, container images are one of the main ways schedulers and users consume GPU infrastructure. Jobs do not land on bare hardware in the abstract; they land with a specific image, runtime, and environment contract.",
+      "In the bigger platform, container images are one of the main ways schedulers and users consume GPU infrastructure. Jobs do not land on bare hardware in the abstract. They land with a specific image, runtime, and environment contract.",
       "That means image quality affects whether the server contributes usable capacity to the cluster. A healthy node with a broken image path is still operationally useless to the workload.",
       "So container flow is not just packaging detail. It is part of how the rack turns GPU hardware into repeatable, schedulable, user-facing compute."
     ],
     coreTerms: [
       { term: "Container image", plain: "A packaged application environment with code, libraries, and dependencies.", why: "It reduces drift between systems." },
-      { term: "NGC", plain: "NVIDIA's registry of GPU-focused container images.", why: "It gives beginners a supported starting point." },
+      { term: "NGC", plain: "NVIDIA's registry of GPU-focused container images.", why: "It gives operators a supported starting point and a known-good baseline." },
       { term: "Runtime", plain: "The environment used when the container actually runs with GPU access.", why: "A good image still fails if the runtime is not configured for GPUs." }
     ],
     commonMisreads: [
@@ -220,6 +221,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Pull a known-good image first.",
+      "Use the screenshots to prove the path in order: image, runtime, in-container framework, workload, live GPU activity.",
       "Verify GPU visibility inside the container before starting a long job.",
       "Keep the image tag with your incident notes so others can reproduce the environment."
     ]
@@ -228,17 +230,17 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are walking through how one distributed training step actually works across many GPUs. Think of this like a relay team: each runner does their part, but the overall pace depends on how well the handoffs work too.",
-    plainPicture: "Distributed training is not just many GPUs computing at once. Each GPU does local work, then the group has to synchronize before the whole job can move forward together.",
+    objectiveText: "We are walking through how one distributed training step actually works across many GPUs. The beginner goal is to separate local compute from shared synchronization so you can tell where a training job is actually healthy and where it is only pretending to be healthy.",
+    plainPicture: "Distributed training is not just many GPUs computing at once. Each rank does local work, then the group has to synchronize before the job can move forward together. That is why this lab now uses screenshots for each phase: launch, forward, backward, AllReduce, and update. Operators do not treat 'the job is running' as enough. They ask which phase is healthy, which phase is slow, and whether the whole loop still makes sense end to end.",
     whyOperatorsCare: [
       "Many cluster incidents look like model or code problems when they are actually synchronization, storage, or network timing problems.",
       "A distributed job only moves as well as its slowest critical stage. One weak rank, one slow input path, or one bad communication phase can drag the whole run down.",
-      "The beginner skill here is learning to separate local compute work from shared synchronization work, and to understand that both matter to job health."
+      "The operator skill here is learning to separate local compute work from shared synchronization work and to decide which phase deserves the next investigation step."
     ],
     wholePlatform: [
       "At the platform level, distributed training is one of the main reasons the rack exists at all. The server, fabric, storage path, and scheduler all matter because they feed the same training loop.",
       "That means a distributed training issue is rarely 'just the model.' It can expose weakness anywhere in the platform: one bad node, one slow storage path, one bad communication phase, or one unhealthy rank.",
-      "So this lab matters because it teaches how real workloads experience the platform end to end, not just how individual GPUs look in isolation."
+      "So this lab matters because it teaches how real workloads experience the platform end to end, not just how one GPU looks in isolation."
     ],
     coreTerms: [
       { term: "DDP", plain: "Distributed Data Parallel, a way to run the same training process across many GPUs and combine their gradients.", why: "It is a common default for multi-GPU training." },
@@ -253,6 +255,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Separate compute issues from sync issues.",
+      "Use the phase screenshots to keep the loop order clear: launch, local compute, synchronization, update.",
       "Watch utilization during forward, backward, and synchronization phases.",
       "Treat storage stalls as part of training performance, not a separate unrelated problem."
     ]
@@ -261,17 +264,17 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are tracing how many GPUs combine their gradient updates into one shared answer. Think of it like a group trying to agree on one final number before everyone can continue working.",
-    plainPicture: "AllReduce is the teamwork checkpoint inside distributed training. Each GPU has part of the update, and the job only stays correct if the group combines that information and gives the same result back to everyone.",
+    objectiveText: "We are tracing how many GPUs combine their gradient updates into one shared answer. The beginner goal is to stop treating collectives as invisible library magic and to see how one weak communication path can slow the whole job.",
+    plainPicture: "AllReduce is the shared checkpoint inside distributed training. Each rank has part of the update, and the job only stays correct if the group combines that information and gives the same result back to everyone. That is why this lab now walks through the path screenshot, the ring-reduce screenshot, the ring-gather screenshot, the benchmark screenshot, and the fallback screenshot. Operators care about the whole communication story, not just the final number.",
     whyOperatorsCare: [
       "This is one of the clearest places where a cluster can fail softly. The job stays up, but communication slows down enough to waste large amounts of GPU time.",
       "A weak transport path, bad rank, or wrong NCCL path selection usually shows up here before users can explain why training suddenly feels slow.",
-      "The main beginner takeaway is that healthy distributed jobs are not just about compute. Shared synchronization quality matters just as much."
+      "The operator takeaway is that healthy distributed jobs are not just about compute. Shared synchronization quality matters just as much."
     ],
     wholePlatform: [
       "Across the platform, AllReduce is where the node, rack fabric, and scheduler promises meet the workload. Fast GPUs do not help much if the communication phase between them is weak.",
       "A bad AllReduce path can make an expensive rack behave like a much smaller system because every iteration waits on the slowest communication link.",
-      "That is why this lab matters beyond one command. It teaches how a user actually experiences platform quality during distributed work."
+      "That is why this lab matters beyond one command. It teaches how users actually experience platform quality during distributed work."
     ],
     coreTerms: [
       { term: "Ring algorithm", plain: "A pattern where each rank passes data to neighbors in stages until the reduction is complete.", why: "It helps beginners picture why one weak link hurts the whole group." },
@@ -286,6 +289,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Check what path NCCL actually chose before touching deeper code.",
+      "Use the screenshot sequence to compare healthy path, healthy benchmark, and degraded fallback as one story.",
       "Compare collective throughput to a healthy baseline, not just to your intuition.",
       "Treat one weak communication phase as a cluster-efficiency problem, not merely a library detail."
     ]
@@ -294,12 +298,12 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are checking whether the cluster's InfiniBand network is actually healthy enough for multi-node GPU jobs. Think of this like inspecting the highway between servers, not just the servers themselves.",
-    plainPicture: "InfiniBand is the fast fabric that lets servers exchange data quickly during distributed work. A node can look healthy by itself while the path between nodes is still weak, noisy, or partially down.",
+    objectiveText: "We are checking whether the cluster's InfiniBand network is actually healthy enough for multi-node GPU jobs. The beginner goal is to stop thinking only in terms of nodes and to start thinking in terms of the path between nodes.",
+    plainPicture: "InfiniBand is the fast fabric that lets servers exchange data quickly during distributed work. A node can look healthy by itself while the path between nodes is still weak, noisy, or partially down. That is why this lab starts with the active-port screenshot, then the clean-counter screenshot, then the bandwidth screenshot, then the down-port and fabric-sweep views. Operators move from path existence, to path cleanliness, to path performance, to blast radius.",
     whyOperatorsCare: [
       "Many distributed training problems feel like software issues until someone checks the fabric and finds bad ports, dirty counters, or an unstable path.",
       "The interconnect decides whether multi-node GPU jobs scale cleanly or waste time waiting on the network.",
-      "The beginner skill here is learning that the network path is part of the AI system, not just background plumbing."
+      "The operator skill here is learning that the network path is part of the AI system, not just background plumbing."
     ],
     wholePlatform: [
       "Across the rack, InfiniBand is what turns many separate GPU servers into one usable cluster for distributed jobs. If the fabric is unhealthy, the rack stops behaving like one coordinated system.",
@@ -319,6 +323,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Check link state before tuning anything.",
+      "Use the screenshots to keep the order clear: port state, counters, bandwidth, then wider sweep.",
       "Use counters to see whether the fabric is clean or noisy.",
       "Document the exact host and port that is unhealthy."
     ]
@@ -327,12 +332,12 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are checking whether Ethernet is configured well enough to carry RDMA traffic for distributed GPU jobs. Think of this as testing whether an ordinary-looking road has the traffic rules needed for very fast freight, not just whether the road exists.",
-    plainPicture: "RoCE lets GPU jobs use RDMA over Ethernet, but that only works well if the congestion controls across the path are aligned. The network can still look up while behaving badly for the kind of traffic AI jobs depend on.",
+    objectiveText: "We are checking whether Ethernet is configured well enough to carry RDMA traffic for distributed GPU jobs. The beginner goal is to understand that a link can be up and still be wrong for AI traffic if congestion behavior is unhealthy.",
+    plainPicture: "RoCE lets GPU jobs use RDMA over Ethernet, but that only works well if congestion controls across the path are aligned. The network can still look up while behaving badly for the kind of traffic AI jobs depend on. That is why this lab walks through the MTU screenshot, the PFC screenshot, the ECN screenshot, the bandwidth screenshot, and then the pause-storm fault screenshot. Operators care about the control behavior under pressure, not just whether the cable is alive.",
     whyOperatorsCare: [
       "RoCE teaches that a network can be available yet still be wrong for distributed training because congestion handling, not just link speed, determines whether the path stays healthy under load.",
       "Pause storms, MTU mismatches, or weak ECN behavior can quietly turn a high-speed fabric into a bottleneck for many jobs at once.",
-      "The key beginner lesson is that policy and flow control are part of system health, not background details reserved for network specialists."
+      "The key operator lesson is that policy and flow control are part of system health, not background details reserved for network specialists."
     ],
     wholePlatform: [
       "At the platform level, RoCE sits between the GPU servers, the switches, and the job scheduler. If the Ethernet fabric is mis-tuned, distributed jobs lose efficiency even when the servers themselves look fine.",
@@ -352,6 +357,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Check MTU, PFC, and ECN together rather than in isolation.",
+      "Use the screenshot sequence to compare healthy path-control settings against the pause-storm failure mode.",
       "Treat a rising pause-frame count as a clue, not a final diagnosis.",
       "Document switch-side counters when network problems affect training."
     ]
@@ -360,12 +366,12 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are learning how to recognize when NCCL silently drops onto a slower communication path. Think of this like a highway trip that still reaches the destination, but only after being forced onto small local roads.",
-    plainPicture: "NCCL fallback means distributed training is still alive, but it is no longer using the fast transport the platform was designed to provide. The job keeps moving, yet the rack delivers much less value than it should.",
+    objectiveText: "We are learning how to recognize when NCCL silently drops onto a slower communication path. The beginner goal is to stop treating a running job as proof of a healthy job and to learn how to spot expensive slow success.",
+    plainPicture: "NCCL fallback means distributed training is still alive, but it is no longer using the fast transport the platform was designed to provide. The job keeps moving, yet the rack delivers much less value than it should. That is why this lab now walks through the fallback screenshot, the environment screenshot, the healthy InfiniBand screenshot, the targeted HCA fix, the verified fast-path screenshot, and the recovered-bandwidth screenshot. Operators care about the before-and-after transport story, not just whether the process stayed up.",
     whyOperatorsCare: [
       "This is one of the clearest beginner examples of slow success. Nothing crashes, but throughput drops enough to waste expensive GPU time.",
       "Fallback often points to configuration mistakes, transport selection problems, or hidden fabric issues that users only notice as 'training feels slow.'",
-      "The key beginner lesson is that availability is not the same as health. A running job can still be operationally wrong."
+      "The operator lesson is that availability is not the same as health. A running job can still be operationally wrong."
     ],
     wholePlatform: [
       "From the platform view, NCCL fallback means the scheduler, nodes, and network may all look normal while the workload still misses the fast path the cluster was built for.",
@@ -385,6 +391,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Check environment variables before changing hardware or drivers.",
+      "Use the screenshot sequence to compare slow fallback, configuration cause, verified fast path, and recovered bandwidth as one story.",
       "Confirm the network path NCCL actually selected.",
       "Compare observed bandwidth with the cluster's expected healthy range."
     ]
@@ -393,12 +400,12 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are figuring out whether the GPUs are being starved by the data path instead of by their own compute limits. Think of this like checking whether a factory line is waiting on raw materials instead of running out of machine power.",
-    plainPicture: "A storage bottleneck means the GPUs are ready to work, but data is not arriving fast enough to keep them busy. The visible symptom shows up on the GPU, but the real limiting stage may live in storage layout or the input pipeline.",
+    objectiveText: "We are figuring out whether the GPUs are being starved by the data path instead of by their own compute limits. The beginner goal is to stop blaming the most visible component first and to learn how to trace starvation upstream.",
+    plainPicture: "A storage bottleneck means the GPUs are ready to work, but data is not arriving fast enough to keep them busy. The visible symptom shows up on the GPU, but the real limiting stage may live in storage layout or the input pipeline. That is why this lab now uses the sawtooth-GPU screenshot first, then the saturated-I/O screenshot, then the under-striped dataset screenshot, then the stripe fix, the loader-tuning step, and the smoother post-fix utilization screenshot. Operators follow the starvation trail instead of stopping at the first graph they see.",
     whyOperatorsCare: [
       "This is one of the best beginner lessons in whole-system reasoning because the most visible symptom appears on the accelerator while the actual bottleneck sits elsewhere.",
       "Expensive GPUs lose value quickly when they spend time waiting on datasets, loaders, or shared storage paths instead of computing.",
-      "The beginner skill here is learning to ask which stage is starving which other stage, rather than blaming the most visible component first."
+      "The operator skill here is learning to ask which stage is starving which other stage instead of blaming the most visible component first."
     ],
     wholePlatform: [
       "Across the platform, storage performance is part of the same user experience as GPU speed and network speed. A fast rack still feels slow if the data path cannot feed it.",
@@ -418,6 +425,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Look at storage counters at the same time as GPU utilization.",
+      "Use the screenshot sequence to keep the causal chain clear: symptom, I/O evidence, layout issue, fix, feeder tuning, verification.",
       "Treat low GPU utilization as a symptom, not always the root cause.",
       "Change one bottleneck-control knob at a time, such as stripe count or worker count."
     ]
@@ -426,12 +434,12 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are comparing the normal storage-to-GPU path with a more direct one. Think of this like removing unnecessary handoffs in a delivery route so the package gets to the destination faster and with less handling.",
-    plainPicture: "GPUDirect Storage shortens the route data takes from storage to GPU memory. The point is not just that it sounds advanced, but that fewer copies and fewer CPU-managed steps can improve end-to-end throughput.",
+    objectiveText: "We are comparing the normal storage-to-GPU path with a more direct one. The beginner goal is to understand the path change first, verify the feature second, and only then trust the benchmark result.",
+    plainPicture: "GPUDirect Storage shortens the route data takes from storage to GPU memory. The point is not just that it sounds advanced, but that fewer copies and fewer CPU-managed steps can improve end-to-end throughput. That is why this lab now walks through the traditional-path screenshot, the direct-path screenshot, the feature-verification screenshot, the old-path benchmark, and the new-path benchmark. Operators do not celebrate the acronym. They prove the path exists and then measure whether it actually helped.",
     whyOperatorsCare: [
       "This lab teaches that performance is often about path design, not just raw device speed. A faster route can matter as much as a faster component.",
       "GDS can reduce CPU overhead and improve data movement for storage-heavy workloads when the environment really supports it.",
-      "The main beginner lesson is that optimizations only count if the direct path is real, measurable, and stable under workload."
+      "The operator lesson is that optimizations only count if the direct path is real, measurable, and stable under workload."
     ],
     wholePlatform: [
       "At the platform level, GDS is about how storage, drivers, and GPUs cooperate as one data path. A good rack is not only fast at compute; it is also efficient at moving data to where compute happens.",
@@ -451,6 +459,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Verify the feature exists before benchmarking it.",
+      "Use the screenshot sequence to keep design, verification, and benchmark evidence separate.",
       "Compare the old path and new path with the same workload.",
       "Treat GDS as an optimization, not a default assumption."
     ]
@@ -459,12 +468,12 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are turning GPU health from something you check manually into something the platform watches continuously. Think of this like putting gauges and alarms on a machine so you notice drift before the machine fully breaks.",
-    plainPicture: "Monitoring means the cluster keeps collecting health signals over time instead of waiting for a user to say something feels wrong. The value is not just seeing numbers, but turning patterns into earlier decisions.",
+    objectiveText: "We are turning GPU health from something you check manually into something the platform watches continuously. The beginner goal is to understand the full monitoring path from metric source to alert, not just the dashboard at the end.",
+    plainPicture: "Monitoring means the cluster keeps collecting health signals over time instead of waiting for a user to say something feels wrong. The value is not just seeing numbers, but turning patterns into earlier decisions. That is why this lab now walks through the exporter screenshot, the metrics-endpoint screenshot, the scrape-health screenshot, the dashboard view, the alert-rule screenshot, and the alert-test screenshot. Operators care about the full chain: source, collection, visibility, and action.",
     whyOperatorsCare: [
       "Monitoring is where operators stop relying on luck and start seeing trends like rising ECC, thermal drift, or missing telemetry before jobs fail visibly.",
       "Dashboards and alerts shorten the time between a problem starting and someone responding to it.",
-      "The key beginner lesson is that metrics are only useful when they help explain what is changing and what action should follow."
+      "The operator lesson is that metrics are only useful when they help explain what is changing and what action should follow."
     ],
     wholePlatform: [
       "Across the platform, monitoring connects GPUs, nodes, dashboards, and alerting systems into one operational feedback loop. It is how a rack becomes observable instead of mysterious.",
@@ -484,6 +493,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Know which signals are health indicators and which are just workload indicators.",
+      "Use the screenshot sequence to keep the monitoring chain clear: source, metrics, scrape, dashboard, rule, test.",
       "Create alerts for trend-based failures, not only binary outages.",
       "Use dashboards to compare before and after, not just to stare at a single value."
     ]
@@ -492,12 +502,12 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are learning how the scheduler decides when jobs run, why they wait, and how operators keep bad nodes from receiving fresh work. Think of this like air-traffic control for cluster jobs: not every delay means the airport is broken.",
-    plainPicture: "Slurm decides when jobs start and where they land. A job can be delayed for healthy reasons like policy or resource pressure, or it can be delayed because a node is unhealthy and intentionally protected.",
+    objectiveText: "We are learning how the scheduler decides when jobs run, why they wait, and how operators keep bad nodes from receiving fresh work. The beginner goal is to stop treating every delay like failure and to learn when waiting is normal, when policy is doing its job, and when containment is the right move.",
+    plainPicture: "Slurm decides when jobs start and where they land. A job can wait for healthy reasons such as policy or temporary pressure, or it can wait because a node is intentionally protected. That is why this lab now walks through the submit screenshot, the queue screenshot, the pending-reason screenshot, the fairshare screenshot, the drain screenshot, and the resume screenshot. Operators read the scheduler's own story before they touch cluster state.",
     whyOperatorsCare: [
       "Slurm is where operators separate user frustration from actual system failure. A waiting job and a broken cluster can look similar from far away, but they are not the same incident.",
       "Scheduler state controls safety as well as fairness. Draining a node is often the cleanest way to contain hardware trouble without shutting down the whole cluster.",
-      "The main beginner lesson is that queueing, policy, and containment are part of normal operations, not just signs of trouble."
+      "The operator lesson is that queueing, policy, and containment are part of normal operations, not just signs of trouble."
     ],
     wholePlatform: [
       "At the platform level, Slurm sits between users and hardware. It translates resource requests, policy, and node state into the actual job flow across the cluster.",
@@ -517,6 +527,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Check why a job is pending before changing cluster state.",
+      "Use the screenshot sequence to keep the scheduler story clear: submitted, queued, explained, policy-affected, contained, resumed.",
       "Use drain as a protective step during hardware incidents.",
       "Record policy-driven delays differently from hardware failures."
     ]
@@ -525,12 +536,12 @@ window.AEGIS_LEARNING = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are learning how Kubernetes turns a GPU request in a pod spec into a real running workload on a node. Think of this like adding another dispatch layer between users and hardware: more automation, but also more places where translation can go wrong.",
-    plainPicture: "Kubernetes GPU operations are about making the control plane, the GPU operator, the node, and the workload all agree on what resources exist and how they should be started. A pod being stuck does not automatically mean the GPU itself is broken.",
+    objectiveText: "We are learning how Kubernetes turns a GPU request in a pod spec into a real running workload on a node. The beginner goal is to stop treating every stuck pod like a dead GPU and to learn where the translation can fail: operator, resource advertisement, scheduling, policy, or coordinated startup.",
+    plainPicture: "Kubernetes GPU operations are about making the control plane, the GPU operator, the node, and the workload all agree on what resources exist and how they should be started. A pod being stuck does not automatically mean the GPU itself is broken. That is why this lab now walks through the operator-health screenshot, the node-resource screenshot, the pending-pod screenshot, the network-policy screenshot, the node-drain screenshot, and the gang-scheduling screenshot. Operators follow the control-plane story before they blame hardware.",
     whyOperatorsCare: [
       "Kubernetes introduces another control layer between the user and the node, which means incidents can live in the request, the scheduler, the operator, or the node runtime.",
       "GPU availability in Kubernetes depends on both infrastructure health and correct resource advertisement through the control plane.",
-      "The key beginner lesson is that orchestration issues often feel like hardware issues until you separate where the translation failed."
+      "The operator lesson is that orchestration issues often feel like hardware issues until you separate where the translation failed."
     ],
     wholePlatform: [
       "Across the platform, Kubernetes is the system that turns cluster hardware into a shared service. It connects users, control-plane policy, node software, and accelerator runtime into one delivery path.",
@@ -550,6 +561,7 @@ window.AEGIS_LEARNING = {
     ],
     safeActions: [
       "Read the scheduling reason before changing nodes or workloads.",
+      "Use the screenshot sequence to keep the control-plane order clear: operator, resource view, pending reason, policy, containment, coordinated placement.",
       "Check both operator health and node resource advertisement.",
       "Use gang scheduling for tightly coupled distributed jobs."
     ]
