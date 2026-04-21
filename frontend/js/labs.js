@@ -682,11 +682,131 @@ const LABS = {
     color: "#76b900",
     objective: "Pull and run validated stacks.",
     steps: [
-      { label:"Pull NGC", cmd:"docker pull nvcr.io/nvidia/pytorch", type:"ngc_pull" },
-      { label:"Run with GPU", cmd:"docker run --gpus all", type:"ngc_run" },
-      { label:"Verify Inside", cmd:"docker run --gpus all python3 -c \"import torch\"", type:"ngc_verify" },
-      { label:"Start Training", cmd:"docker run --gpus all python3 train.py", type:"ngc_train" },
-      { label:"Monitor Inside", cmd:"docker exec nvidia-smi dmon", type:"ngc_monitor" }
+      {
+        label:"Pull NGC",
+        cmd:"docker pull nvcr.io/nvidia/pytorch",
+        type:"ngc_pull",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are pulling a validated NVIDIA GPU image so you start from a tested software baseline instead of building the environment from scratch.",
+        deeperContext:"This first step teaches that reproducibility starts with the image choice. Beginners should see that image selection is part of operations, not just developer preference.",
+        lookFor:[
+          "A known-good NGC image tag",
+          "A successful image pull from a trusted source",
+          "A baseline environment you can reuse across nodes"
+        ],
+        meaning:"This step establishes the software package you intend to trust and reuse.",
+        commonMistake:"Treating the image as just a blob you happened to pull. The image is the environment baseline, so its source and tag matter operationally.",
+        operatorTakeaway:"Operators reduce drift by standardizing on known-good images before they begin blaming nodes or frameworks.",
+        takeAction:[
+          "Record the exact image tag.",
+          "Treat this image as your reproducible baseline.",
+          "Use a trusted image before attempting custom stack repair."
+        ],
+        avoid:[
+          "Do not pull an untracked image and expect easy reproduction later.",
+          "Do not start rebuilding the stack manually if a validated baseline already exists."
+        ]
+      },
+      {
+        label:"Run with GPU",
+        cmd:"docker run --gpus all",
+        type:"ngc_run",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are starting the container with explicit GPU access so the runtime can expose the hardware inside the image.",
+        deeperContext:"A good image alone is not enough. The runtime has to pass GPU devices and libraries through correctly, or the container becomes an isolated shell with no usable accelerator access.",
+        lookFor:[
+          "A container run path that explicitly requests GPU access",
+          "No obvious runtime-side failure to expose the accelerator",
+          "Evidence that the container is not just running, but running with the intended hardware path"
+        ],
+        meaning:"This step checks the bridge between the image and the physical GPU runtime.",
+        commonMistake:"Confusing 'the container started' with 'the GPU is available inside the container.' Those are not the same success condition.",
+        operatorTakeaway:"Operators verify both halves of the contract: image correctness and runtime GPU exposure.",
+        takeAction:[
+          "Treat GPU runtime setup as a separate verification point.",
+          "Use this step to confirm the image is being launched in the right mode.",
+          "Keep going upward only after the runtime path looks plausible."
+        ],
+        avoid:[
+          "Do not assume container startup proves CUDA access.",
+          "Do not debug training logic before the runtime path is confirmed."
+        ]
+      },
+      {
+        label:"Verify Inside",
+        cmd:"docker run --gpus all python3 -c \"import torch\"",
+        type:"ngc_verify",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking from inside the container whether the framework actually sees and can use the GPU.",
+        deeperContext:"This is the user-facing proof step. The operator is no longer just asking whether the container launched, but whether the application layer inside it can really use the accelerator.",
+        lookFor:[
+          "Successful framework import inside the container",
+          "Framework visibility into the GPU",
+          "No mismatch between container startup success and actual CUDA usability"
+        ],
+        meaning:"This step confirms whether the containerized application environment can actually see the GPU as intended.",
+        commonMistake:"Stopping after the runtime launch step and never proving the application layer works inside the container.",
+        operatorTakeaway:"A valid container path is only real when the software inside it confirms the GPU is available.",
+        takeAction:[
+          "Use in-container framework checks as the proof step.",
+          "Compare inside-container behavior against the host-level expectation.",
+          "Treat this as the minimum bar before longer workloads."
+        ],
+        avoid:[
+          "Do not launch long jobs before doing a quick in-container GPU sanity check.",
+          "Do not assume host GPU health automatically means in-container framework health."
+        ]
+      },
+      {
+        label:"Start Training",
+        cmd:"docker run --gpus all python3 train.py",
+        type:"ngc_train",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are moving from environment validation into a real workload path to see whether the containerized stack behaves like a usable training environment.",
+        deeperContext:"This is where the platform view matters. A container flow is not truly validated until a real workload can run through it instead of just passing tiny smoke checks.",
+        lookFor:[
+          "A training job that starts and advances normally",
+          "No obvious collapse between smoke-test success and workload reality",
+          "A usable path from image to runtime to real application behavior"
+        ],
+        meaning:"This step shows whether the containerized environment is operationally useful to a real GPU workload.",
+        commonMistake:"Declaring the path healthy after a tiny import test without seeing whether a real job can actually run through it.",
+        operatorTakeaway:"The real measure of a good image path is whether it supports the workload the platform is supposed to carry.",
+        takeAction:[
+          "Treat workload launch as the first meaningful end-to-end proof.",
+          "Use it to separate 'image boots' from 'platform is usable.'",
+          "Keep watching for the difference between startup success and stable runtime behavior."
+        ],
+        avoid:[
+          "Do not stop at toy checks if the actual user workload is still unproven.",
+          "Do not assume end-to-end success until the job really progresses."
+        ]
+      },
+      {
+        label:"Monitor Inside",
+        cmd:"docker exec nvidia-smi dmon",
+        type:"ngc_monitor",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking live GPU behavior from inside the running containerized workflow.",
+        deeperContext:"This final step teaches that validation does not end at launch. Operators watch the live runtime to confirm the containerized workload is truly using the GPU the way they expected.",
+        lookFor:[
+          "Real GPU activity while the containerized job runs",
+          "Metrics that show the containerized workload is exercising the accelerator",
+          "No disconnect between application launch and live GPU usage"
+        ],
+        meaning:"This step confirms that the running containerized workload is really consuming GPU resources, not just pretending to be healthy.",
+        commonMistake:"Trusting a started job without checking whether it is actually driving the GPU.",
+        operatorTakeaway:"Operators verify live behavior, not only startup logs. Real GPU use is the final proof that the container flow is doing what the platform needs.",
+        takeAction:[
+          "Use live metrics to confirm the containerized job is real GPU work.",
+          "Treat runtime monitoring as part of validation, not a separate optional task.",
+          "Preserve the image tag and live behavior together as your known-good baseline."
+        ],
+        avoid:[
+          "Do not assume progress messages alone prove the GPU path is healthy.",
+          "Do not separate environment validation from runtime observation."
+        ]
+      }
     ],
     draw: drawContainer
   },

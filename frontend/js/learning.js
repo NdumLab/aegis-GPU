@@ -193,11 +193,30 @@ window.AEGIS_LEARNING = {
     ]
   },
   container: {
-    quickAnswer: "Container flow labs teach how to use prebuilt GPU images without rebuilding the software stack from scratch. The lesson is consistency: the same image should behave the same way across nodes.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are learning how to use a validated GPU container image as a known-good runtime environment. Think of this like shipping a sealed toolkit instead of rebuilding every tool by hand at each destination.",
+    plainPicture: "A GPU container image packages the application environment so the same stack can be reused across nodes. The goal is not just convenience. The goal is consistency: the same image should behave the same way wherever the platform runs it.",
+    whyOperatorsCare: [
+      "Operators care about containers because they reduce environment drift. Instead of debugging every node as a unique snowflake, they can start from one reproducible image baseline.",
+      "This matters because many 'GPU problems' are really environment problems: the wrong libraries, the wrong framework build, or a runtime that does not actually expose the GPU inside the container.",
+      "The beginner skill here is to separate two questions clearly: is the image itself valid, and is the GPU runtime path configured so that the image can really use the hardware?"
+    ],
+    wholePlatform: [
+      "In the bigger platform, container images are one of the main ways schedulers and users consume GPU infrastructure. Jobs do not land on bare hardware in the abstract; they land with a specific image, runtime, and environment contract.",
+      "That means image quality affects whether the server contributes usable capacity to the cluster. A healthy node with a broken image path is still operationally useless to the workload.",
+      "So container flow is not just packaging detail. It is part of how the rack turns GPU hardware into repeatable, schedulable, user-facing compute."
+    ],
     coreTerms: [
       { term: "Container image", plain: "A packaged application environment with code, libraries, and dependencies.", why: "It reduces drift between systems." },
       { term: "NGC", plain: "NVIDIA's registry of GPU-focused container images.", why: "It gives beginners a supported starting point." },
       { term: "Runtime", plain: "The environment used when the container actually runs with GPU access.", why: "A good image still fails if the runtime is not configured for GPUs." }
+    ],
+    commonMisreads: [
+      "If the image starts, the GPU path must be working. That is false. A container can run fine while still having no usable CUDA access.",
+      "Containers remove the need to verify the environment. That is false. They reduce drift, but the runtime and GPU exposure still have to be checked.",
+      "A custom image is always better than a validated vendor image. That is false when the real need is a known-good baseline."
     ],
     safeActions: [
       "Pull a known-good image first.",
