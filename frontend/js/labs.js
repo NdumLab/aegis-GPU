@@ -1618,6 +1618,8 @@ const LABS = {
         label:"Watch GPU Util",
         cmd:"nvidia-smi dmon -s u",
         type:"stor_gpu",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are looking at GPU utilization to see whether the accelerators are working steadily or repeatedly waiting for more data.",
         deeperContext:"This drill starts where beginners usually start: the GPU. The teaching goal is to show that the most visible symptom is not always the root cause.",
         lookFor:[
           "Sawtooth or bursty GPU utilization instead of a stable high plateau",
@@ -1625,9 +1627,8 @@ const LABS = {
           "A pattern suggesting the accelerator is waiting for something else"
         ],
         meaning:"The GPUs are not being fed smoothly. This is a symptom of starvation, not proof that the GPUs themselves are faulty.",
-        justifiedConclusion:"There is a pipeline problem worth investigating, and the GPU symptom points upstream.",
-        stillPremature:"It is still too early to blame storage specifically until I/O evidence supports that story.",
-        thresholdCrossed:"The starvation-investigation threshold is crossed once utilization becomes visibly bursty instead of steady.",
+        commonMistake:"Calling this a GPU problem immediately. The utilization shape only tells you the accelerator is waiting; it does not yet tell you which upstream stage is responsible.",
+        operatorTakeaway:"Operators use the GPU view as the first clue, then trace the starvation upstream instead of stopping at the most obvious screen.",
         takeAction:[
           "Treat utilization shape as a clue, not a complete diagnosis.",
           "Follow the starvation trail into the input path.",
@@ -1642,6 +1643,8 @@ const LABS = {
         label:"Check I/O",
         cmd:"iostat -x 1",
         type:"stor_io",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the storage system shows pressure at the same time the GPUs look starved.",
         deeperContext:"This step teaches cross-component reasoning. You are testing whether the waiting pattern you saw on the GPU side has a matching story on the storage side.",
         lookFor:[
           "High storage utilization or long wait patterns",
@@ -1649,10 +1652,8 @@ const LABS = {
           "Evidence that the bottleneck is outside the accelerator itself"
         ],
         meaning:"If the storage side is saturated while GPU utilization is sawtoothing, the system now has a plausible storage-backed explanation for the training slowdown.",
-        changedFromPrevious:"The investigation moved from symptom at the GPU to corroborating evidence in the I/O path.",
-        justifiedConclusion:"The slowdown is increasingly likely to be storage-fed starvation rather than a GPU-compute problem.",
-        stillPremature:"It is still too early to say the fix is obvious until you inspect how the dataset is laid out and fed.",
-        thresholdCrossed:"The storage-suspicion threshold is crossed when I/O pressure aligns with the GPU starvation pattern.",
+        commonMistake:"Keeping the investigation stuck on the GPU side after the storage path is already showing the same problem story.",
+        operatorTakeaway:"Operators compare components side by side because good diagnosis comes from matching symptoms across the whole platform, not from staring at one metric.",
         takeAction:[
           "Use the I/O evidence to shift your mental model away from GPU fault-first thinking.",
           "Investigate data layout and feeder configuration next.",
@@ -1667,6 +1668,8 @@ const LABS = {
         label:"Check Stripe",
         cmd:"lfs getstripe",
         type:"stor_lustre",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are checking whether the dataset is spread widely enough across the storage system to feed the workload in parallel.",
         deeperContext:"This step teaches that storage layout is part of performance reasoning. A dataset can sit on healthy hardware but still be laid out badly for the workload.",
         lookFor:[
           "A stripe count that is too narrow for the workload",
@@ -1674,10 +1677,8 @@ const LABS = {
           "A concrete mechanical reason for why the I/O path is not scaling"
         ],
         meaning:"Poor striping can create an avoidable storage bottleneck by limiting parallelism in the data path. The problem is no longer just 'storage is busy'; it becomes 'storage is laid out suboptimally.'",
-        changedFromPrevious:"The diagnosis moved from generic storage pressure to a specific layout-level cause.",
-        justifiedConclusion:"A striping problem is now a grounded candidate root cause for the starvation pattern.",
-        stillPremature:"It is still too early to say striping alone explains everything until you change it and observe improvement.",
-        thresholdCrossed:"The layout-remediation threshold is crossed once the stripe configuration clearly conflicts with expected throughput needs.",
+        commonMistake:"Blaming the whole storage platform when the real issue may be how this dataset is laid out on otherwise healthy hardware.",
+        operatorTakeaway:"Operators look for mechanical causes they can fix directly. Bad layout is often more actionable than vague 'storage is slow' complaints.",
         takeAction:[
           "Tie the bottleneck story to the dataset layout, not just the storage appliance.",
           "Apply a narrow fix that increases data-path parallelism.",
@@ -1692,6 +1693,8 @@ const LABS = {
         label:"Fix: Stripe",
         cmd:"lfs setstripe -c 8",
         type:"stor_fix",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are widening the storage layout so reads can be served from more targets in parallel.",
         deeperContext:"Now the workflow turns from diagnosis to targeted storage remediation. The beginner lesson is that fixes should correspond directly to the identified bottleneck mechanism.",
         lookFor:[
           "A striping change that increases expected data-path parallelism",
@@ -1699,10 +1702,8 @@ const LABS = {
           "The setup needed for a meaningful before/after comparison"
         ],
         meaning:"You are increasing storage-side parallelism so reads can spread more effectively across targets. This should reduce one major source of starvation if striping was the limiting factor.",
-        changedFromPrevious:"The workflow moved from layout diagnosis into a targeted storage-layout remediation.",
-        justifiedConclusion:"If striping was a major bottleneck, the system should now be capable of feeding GPUs more smoothly than before.",
-        stillPremature:"It is still too early to call the issue solved because the data loader may still underfeed the GPUs even after the stripe fix.",
-        thresholdCrossed:"The storage-remediation threshold is crossed when the layout mismatch is specific enough to justify changing it.",
+        commonMistake:"Making the change and assuming the whole pipeline is fixed without checking whether another upstream stage is still underfeeding the GPUs.",
+        operatorTakeaway:"Operators make narrow, evidence-based changes so they can tell which intervention actually improved the workload.",
         takeAction:[
           "Treat this as one controlled performance intervention.",
           "Keep the next tuning step separate so you can learn what each change contributed.",
@@ -1717,6 +1718,8 @@ const LABS = {
         label:"Tune Workers",
         cmd:"# num_workers=16",
         type:"stor_dl",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are tuning the input pipeline so it can take advantage of the improved storage path and keep batches flowing to the GPUs.",
         deeperContext:"This step teaches that the input pipeline is part of the same story. Even after storage layout improves, the DataLoader can remain the bottleneck if it cannot parallelize enough work to keep the GPUs fed.",
         lookFor:[
           "Whether the data feeder itself is still underutilizing the improved storage path",
@@ -1724,10 +1727,8 @@ const LABS = {
           "The distinction between storage bandwidth and input-pipeline throughput"
         ],
         meaning:"The bottleneck may be partly in the data loader layer, not just in the storage layout. This step teaches that end-to-end feeding requires both a healthy path and a capable feeder.",
-        changedFromPrevious:"The reasoning moved from storage-layout correction into feeder-layer optimization.",
-        justifiedConclusion:"A full recovery may require both storage tuning and application-side input parallelism.",
-        stillPremature:"It is still too early to say the pipeline is fixed until GPU utilization actually becomes smoother in the verification step.",
-        thresholdCrossed:"The pipeline-optimization threshold is crossed when storage-side fixes alone are not enough to guarantee smooth GPU feeding.",
+        commonMistake:"Thinking storage and feeder logic are the same bottleneck. In reality, one can improve while the other still limits the job.",
+        operatorTakeaway:"Operators separate storage-path fixes from loader-path fixes so the team can understand where the remaining starvation actually lives.",
         takeAction:[
           "Use this step to teach that one bottleneck can hand off to another upstream stage.",
           "Tune loader parallelism as a distinct hypothesis, not as a random extra tweak.",
@@ -1742,6 +1743,8 @@ const LABS = {
         label:"Verify Fix",
         cmd:"nvidia-smi dmon",
         type:"stor_verify",
+        explainerMode:"beginner_story",
+        whatsHappening:"You are going back to the GPU view to see whether the earlier storage and loader fixes actually smoothed out the workload.",
         deeperContext:"Verification closes the loop. The final proof is not that settings changed, but that the GPU now receives data smoothly enough to stay busy.",
         lookFor:[
           "Higher and smoother GPU utilization than the original sawtooth baseline",
@@ -1749,10 +1752,8 @@ const LABS = {
           "A visible before/after improvement that matches the storage and loader changes"
         ],
         meaning:"Smoother GPU utilization means the pipeline is feeding the accelerator more effectively. This proves the diagnosis and remediation addressed the true limiting path.",
-        changedFromPrevious:"The workflow moved from applying fixes to verifying whether end-to-end workload behavior improved.",
-        justifiedConclusion:"The storage and input pipeline have improved enough to restore healthier GPU feeding if utilization smooths out as expected.",
-        stillPremature:"It is still too early to assume the system is fully optimized for every workload, but the original starvation story is now materially improved.",
-        thresholdCrossed:"The recovery threshold is crossed once the GPU-side symptom improves in a way that matches the storage-side remediation story.",
+        commonMistake:"Declaring success based only on changed settings rather than on whether the user-visible symptom actually improved.",
+        operatorTakeaway:"Operators close the loop by proving that the visible workload behavior changed for the reason they expected, not just because configuration drift happened.",
         takeAction:[
           "Use the GPU utilization shape as the final proof that the right bottleneck was fixed.",
           "Explain the complete causal chain from storage layout to loader tuning to accelerator behavior.",

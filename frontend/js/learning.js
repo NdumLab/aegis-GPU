@@ -390,42 +390,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   storage: {
-    quickAnswer: "A storage bottleneck means GPUs spend time waiting for data instead of computing. Beginners often misread this as a GPU issue because the slow symptom shows up in GPU utilization.",
-    whyItMatters: "Storage is where beginners learn that the GPU can be innocent while still looking underutilized.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are figuring out whether the GPUs are being starved by the data path instead of by their own compute limits. Think of this like checking whether a factory line is waiting on raw materials instead of running out of machine power.",
+    plainPicture: "A storage bottleneck means the GPUs are ready to work, but data is not arriving fast enough to keep them busy. The visible symptom shows up on the GPU, but the real limiting stage may live in storage layout or the input pipeline.",
+    whyOperatorsCare: [
+      "This is one of the best beginner lessons in whole-system reasoning because the most visible symptom appears on the accelerator while the actual bottleneck sits elsewhere.",
+      "Operators care because expensive GPUs lose value quickly when they spend time waiting on datasets, loaders, or shared storage paths instead of computing.",
+      "The beginner skill here is learning to ask which stage is starving which other stage, rather than blaming the most visible component first."
+    ],
+    wholePlatform: [
+      "In the bigger platform, storage performance is part of the same user experience as GPU speed and network speed. A fast rack still feels slow if the data path cannot feed it.",
+      "That means this lab is not just about one dataset. Shared storage design, striping policy, loader settings, and job concurrency all shape how much useful work the cluster can actually deliver.",
+      "So this matters because storage bottlenecks can waste cluster-wide capacity even when the GPUs, drivers, and network all look healthy on their own."
+    ],
     coreTerms: [
       { term: "Sawtooth utilization", plain: "A repeated pattern where GPU utilization spikes and then falls because data arrives in bursts.", why: "It is a classic sign of an input pipeline problem." },
       { term: "Stripe count", plain: "How many storage targets a file or directory spreads data across.", why: "Low stripe count can limit read bandwidth." },
       { term: "DataLoader", plain: "The part of a training pipeline that feeds data batches to the GPU workload.", why: "Storage issues often appear through the DataLoader first." },
       { term: "I/O bottleneck", plain: "A point where storage throughput or latency limits the whole workload.", why: "This is the key operational story behind a storage-bound training job." }
     ],
-    lifecycle: [
-      { title: "GPU finishes its batch", detail: "The accelerator is ready for more work and waits for the input pipeline." },
-      { title: "Storage cannot keep up", detail: "The dataset path, stripe layout, or loader settings deliver data too slowly." },
-      { title: "Utilization turns into a sawtooth", detail: "The GPU alternates between busy bursts and idle waiting, which creates the visible pattern beginners often notice first." },
-      { title: "Pipeline tuning restores flow", detail: "Storage layout and input-pipeline changes are used to feed the GPU continuously again." }
-    ],
-    watchFor: [
-      "GPU utilization oscillating instead of staying consistently high",
-      "High storage utilization or poor dataset striping at the same time as slow training",
-      "More waiting in the data path than in the model compute path"
+    commonMisreads: [
+      "Low GPU utilization must mean the GPU is faulty or weak. That is false when the accelerator is mostly waiting for data.",
+      "If storage is the issue, the symptom should appear only on storage dashboards. That is false. The user often notices it first as bursty or disappointing GPU behavior.",
+      "One fix in the storage layer should solve everything. That is often false because storage layout and loader settings can each contribute to the same starvation pattern."
     ],
     safeActions: [
       "Look at storage counters at the same time as GPU utilization.",
       "Treat low GPU utilization as a symptom, not always the root cause.",
       "Change one bottleneck-control knob at a time, such as stripe count or worker count."
-    ],
-    whatNotToDo: [
-      "Do not assume low GPU utilization means the GPU itself is failing.",
-      "Do not tune many loader and storage settings at once if you want to know what actually helped."
-    ],
-    escalateWhen: [
-      "Multiple jobs show the same storage-starvation pattern",
-      "Storage counters indicate the shared data path itself is saturated",
-      "Fixes at the application layer are not enough to restore expected throughput"
-    ],
-    readMore: [
-      "Storage bottlenecks are a good beginner lesson because they break the habit of blaming the most visible component. The visible component is the GPU, but the limiting component is elsewhere.",
-      "A good operator asks which stage is starving which other stage."
     ]
   },
   gds: {
