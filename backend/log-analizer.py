@@ -1,68 +1,164 @@
+
 import concurrent.futures
 import json
 import logging
 import logging.handlers
 import os
 import re
-import socket
+import sqlite3
 import time
-from datetime import datetime, timedelta
-from typing import Any, Dict
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import bcrypt
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
 
+try:
+    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
+except ImportError:  # pragma: no cover - local fallback when prometheus_client is unavailable
+    CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
+
+    class _MetricStub:
+        def labels(self, **_kwargs):
+            return self
+
+        def inc(self, *_args, **_kwargs):
+            return None
+
+        def observe(self, *_args, **_kwargs):
+            return None
+
+        def set(self, *_args, **_kwargs):
+            return None
+
+    def Counter(*_args, **_kwargs):
+        return _MetricStub()
+
+    def Gauge(*_args, **_kwargs):
+        return _MetricStub()
+
+    def Histogram(*_args, **_kwargs):
+        return _MetricStub()
+
+    def generate_latest():
+        return b'aegis_prometheus_client_missing 1\n'
+
 import node_scraper
 
 
-load_dotenv('/etc/aegis-gpu/aegis.env')
-import sys as _sys
-_jwt_secret = os.getenv("JWT_SECRET", "")
-if not _jwt_secret or _jwt_secret == "change-me" or len(_jwt_secret) < 32:
-    print("FATAL: JWT_SECRET missing, default, or too short (<32 chars). Refusing to start.", file=_sys.stderr)
-    _sys.exit(1)
+APP_ROOT = Path(__file__).resolve().parent
+DEFAULT_ENV_CANDIDATES = [
+    os.getenv('AEGIS_ENV_FILE', '').strip(),
+    '/etc/aegis-gpu/aegis.env',
+    str(APP_ROOT / '.env'),
+]
 
-JWT_SECRET = os.getenv('JWT_SECRET', 'change-me')
+
+def load_first_available_env(candidates: List[str]) -> Optional[str]:
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate)
+        try:
+            if not path.exists():
+                continue
+            load_dotenv(path, override=False)
+            return str(path)
+        except (OSError, PermissionError):
+            continue
+    return None
+
+
+LOADED_ENV_FILE = load_first_available_env(DEFAULT_ENV_CANDIDATES)
+
+JWT_SECRET = os.getenv('JWT_SECRET', '')
+if not JWT_SECRET or JWT_SECRET == 'change-me' or len(JWT_SECRET) < 32:
+    raise SystemExit('FATAL: JWT_SECRET missing, default, or too short (<32 chars). Refusing to start.')
+
 JWT_ALGO = 'HS256'
 JWT_HOURS = int(os.getenv('JWT_HOURS', '8'))
 ACTIVE_LLM = os.getenv('ACTIVE_LLM', 'deterministic').strip().lower()
 ALLOW_DESTRUCTIVE_REMEDIATION = os.getenv('ALLOW_DESTRUCTIVE_REMEDIATION', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
-ALLOWED_ORIGINS = [item.strip() for item in os.getenv('ALLOWED_ORIGINS', 'https://10.1.10.177').split(',') if item.strip()]
+ALLOWED_ORIGINS = [item.strip() for item in os.getenv('ALLOWED_ORIGINS', 'http://localhost:8080,http://127.0.0.1:8080').split(',') if item.strip()]
+AEGIS_NODE_HOST = os.getenv('AEGIS_NODE_HOST', '127.0.0.1').strip() or '127.0.0.1'
+AEGIS_NODE_USERNAME = os.getenv('AEGIS_NODE_USERNAME', 'aegis').strip() or 'aegis'
+KB_PATH = Path(os.getenv('AEGIS_KB_PATH', str(APP_ROOT / 'nvidia_kb' / 'xid_reference.json')))
+AUDIT_LOG_PATH = os.getenv('AEGIS_AUDIT_LOG_PATH', '/var/log/aegis-gpu/audit.log')
+INCIDENTS_DB_PATH = os.getenv('AEGIS_INCIDENTS_DB', '/var/lib/aegis-gpu/incidents.db')
+FRONTEND_DIR = Path(os.getenv('AEGIS_FRONTEND_DIR', '/var/www/html'))
+
+
+def _init_db() -> None:
+    with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS incidents (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts        INTEGER NOT NULL,
+                kind      TEXT    NOT NULL,
+                fault     TEXT    NOT NULL,
+                user      TEXT    NOT NULL,
+                source    TEXT,
+                status    TEXT,
+                summary   TEXT
+            )
+        ''')
+        conn.commit()
+
+
+_init_db()
+
+
+def save_incident(kind: str, fault_code: str, user: str, source: str = None,
+                  status: str = None, summary: str = None) -> None:
+    try:
+        with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+            conn.execute(
+                'INSERT INTO incidents (ts, kind, fault, user, source, status, summary) VALUES (?,?,?,?,?,?,?)',
+                (int(time.time()), kind, fault_code, user, source, status, summary),
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+
+def resolve_user_hash(hash_env: str, password_env: str) -> str:
+    configured_hash = os.getenv(hash_env, '').strip()
+    if configured_hash:
+        return configured_hash
+    configured_password = os.getenv(password_env, '').strip()
+    if configured_password:
+        return bcrypt.hashpw(configured_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    return ''
+
 
 USERS = {
-    'admin': {'hash': os.getenv('ADMIN_HASH', ''), 'role': 'admin'},
-    'analyst': {'hash': os.getenv('ANALYST_HASH', ''), 'role': 'analyst'},
+    'admin': {'hash': resolve_user_hash('ADMIN_HASH', 'AEGIS_ADMIN_PASSWORD'), 'role': 'admin'},
+    'analyst': {'hash': resolve_user_hash('ANALYST_HASH', 'AEGIS_ANALYST_PASSWORD'), 'role': 'analyst'},
 }
 
 PLACEHOLDER_VALUES = {'', 'your-anthropic-key-here', 'your-openai-key-here', 'change-me', 'change-this-immediately'}
 
-DETERMINISTIC_RUNBOOKS = {
-    '48': [
-        '1. Confirm the DBE in ECC telemetry and stop scheduling new work onto the node.',
-        '2. Drain the node from Slurm or Kubernetes before any further GPU access.',
-        '3. Review retired pages and ECC health to determine whether the GPU must be replaced.',
-        '4. Open a vendor ticket or RMA if DBEs persist or page retirement thresholds are exceeded.',
-    ],
-    '74': [
-        '1. Inspect NVLink counters and identify the failing link or switch port.',
-        '2. Drain jobs that rely on NVLink bandwidth before the fabric degrades further.',
-        '3. Schedule physical inspection of the bridge, cable, OSFP, or switch port.',
-        '4. Re-test topology and counters after reseat or replacement.',
-    ],
-    '79': [
-        '1. Quiesce workloads using the affected GPU and capture recent kernel logs.',
-        '2. Attempt a controlled GPU reset only under an approved maintenance window.',
-        '3. If reset fails or the GPU remains missing, reboot the node and escalate as hardware instability.',
-        '4. Check PCIe power, seating, and repeated XID history before returning the node to service.',
-    ],
-}
+HTTP_REQUESTS = Counter('aegis_http_requests_total', 'HTTP requests handled by Aegis-GPU.', ['method', 'path', 'status'])
+HTTP_LATENCY = Histogram('aegis_http_request_duration_seconds', 'HTTP request latency for Aegis-GPU.', ['method', 'path'])
+DIAGNOSE_REQUESTS = Counter('aegis_diagnose_requests_total', 'Diagnose requests handled by the API.', ['fault_code', 'source'])
+REMEDIATION_REQUESTS = Counter('aegis_remediation_requests_total', 'Remediation requests handled by the API.', ['fault_code', 'status'])
+GPU_UTILIZATION = Gauge('aegis_gpu_utilization_percent', 'Average GPU utilization reported by the backend.')
+GPU_MEMORY_USED = Gauge('aegis_gpu_memory_used_gib', 'Total GPU memory used reported by the backend.')
+GPU_MEMORY_TOTAL = Gauge('aegis_gpu_memory_total_gib', 'Total GPU memory capacity reported by the backend.')
+GPU_TEMPERATURE = Gauge('aegis_gpu_temperature_celsius', 'Average GPU temperature reported by the backend.')
+GPU_POWER = Gauge('aegis_gpu_power_watts', 'Average GPU power draw reported by the backend.')
+GPU_FAULT_COUNT = Gauge('aegis_gpu_active_faults', 'Number of active GPU faults currently reported by the backend.')
+GPU_DEGRADED = Gauge('aegis_gpu_metrics_degraded', 'Whether the backend is using degraded telemetry mode (1=yes, 0=no).')
+GPU_COUNT = Gauge('aegis_gpu_count', 'Number of GPUs visible to the backend telemetry collector.')
+APP_INFO = Gauge('aegis_build_info', 'Static Aegis-GPU build information.', ['version', 'active_llm'])
+APP_INFO.labels(version='1.0.0', active_llm=ACTIVE_LLM).set(1)
 
 
 def configured_secret(name: str) -> str:
@@ -70,11 +166,17 @@ def configured_secret(name: str) -> str:
     return '' if value.lower() in PLACEHOLDER_VALUES else value
 
 
-# Audit logger
+def normalized_path(path: str) -> str:
+    if path.startswith('/api/v1/diagnose/'):
+        return '/api/v1/diagnose/{fault_code}'
+    if path.startswith('/api/v1/remediate/'):
+        return '/api/v1/remediate/{fault_code}'
+    return path
+
+
 logging.getLogger('aegis.audit').handlers.clear()
 audit_logger = logging.getLogger('aegis.audit')
 audit_logger.setLevel(logging.INFO)
-AUDIT_LOG_PATH = os.getenv('AEGIS_AUDIT_LOG_PATH', '/var/log/aegis-gpu/audit.log')
 os.makedirs(os.path.dirname(AUDIT_LOG_PATH), exist_ok=True)
 _fh = logging.FileHandler(AUDIT_LOG_PATH)
 _fh.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt='%Y-%m-%dT%H:%M:%SZ'))
@@ -89,9 +191,11 @@ except Exception:
 
 def audit(request: Request, event: str, detail: str = '', user: str = None) -> None:
     principal = user or getattr(request.state, 'user', 'unauthenticated')
-    ip = (request.headers.get('x-real-ip') or
-          request.headers.get('x-forwarded-for', '').split(',')[0].strip() or
-          (request.client.host if request.client else 'unknown'))
+    ip = (
+        request.headers.get('x-real-ip')
+        or request.headers.get('x-forwarded-for', '').split(',')[0].strip()
+        or (request.client.host if request.client else 'unknown')
+    )
     audit_logger.info(f'user="{principal}" ip="{ip}" event="{event}" detail="{detail}"')
 
 
@@ -103,8 +207,21 @@ app.add_middleware(
     allow_methods=['GET', 'POST'],
     allow_headers=['Authorization', 'Content-Type', 'X-Forwarded-Proto'],
 )
-
 security = HTTPBearer()
+
+
+@app.middleware('http')
+async def prometheus_middleware(request: Request, call_next):
+    path = normalized_path(request.url.path)
+    start = time.perf_counter()
+    response = None
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        status_code = response.status_code if response is not None else 500
+        HTTP_REQUESTS.labels(method=request.method, path=path, status=str(status_code)).inc()
+        HTTP_LATENCY.labels(method=request.method, path=path).observe(time.perf_counter() - start)
 
 
 class LoginRequest(BaseModel):
@@ -112,21 +229,24 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class DiagnoseRequest(BaseModel):
+    allow_llm: Optional[bool] = None
+
+
 class RemediateRequest(BaseModel):
     node_id: int = 0
 
 
 def create_token(username: str, role: str) -> str:
-    exp = datetime.utcnow() + timedelta(hours=JWT_HOURS)
+    exp = datetime.now(timezone.utc) + timedelta(hours=JWT_HOURS)
     return jwt.encode({'sub': username, 'role': role, 'exp': exp}, JWT_SECRET, algorithm=JWT_ALGO)
 
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGO])
-        return payload
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid or expired token.')
+        return jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGO])
+    except JWTError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid or expired token.') from exc
 
 
 def require_admin(payload: dict = Depends(verify_token)) -> dict:
@@ -136,14 +256,13 @@ def require_admin(payload: dict = Depends(verify_token)) -> dict:
 
 
 def get_engine() -> node_scraper.OSIntrospectionEngine:
-    return node_scraper.OSIntrospectionEngine(hostname='127.0.0.1', username='aegis')
+    return node_scraper.OSIntrospectionEngine(hostname=AEGIS_NODE_HOST, username=AEGIS_NODE_USERNAME)
 
 
 def load_kb_entry(fault_code: str) -> Dict[str, str]:
-    kb_file = '/opt/aegis-gpu/nvidia_kb/xid_reference.json'
-    if not os.path.exists(kb_file):
+    if not KB_PATH.exists():
         return {'title': 'NVIDIA XID Error Codes Reference', 'last_updated': 'unknown', 'entry': ''}
-    with open(kb_file, 'r', encoding='utf-8') as handle:
+    with KB_PATH.open('r', encoding='utf-8') as handle:
         payload = json.load(handle)
     return {
         'title': payload.get('title', 'NVIDIA XID Error Codes Reference'),
@@ -152,42 +271,168 @@ def load_kb_entry(fault_code: str) -> Dict[str, str]:
     }
 
 
+def extract_xid_codes(text: str) -> List[str]:
+    matches = re.findall(r'\bXid[^0-9]*(\d{1,4})\b', text or '', flags=re.IGNORECASE)
+    ordered: List[str] = []
+    for match in matches:
+        if match not in ordered:
+            ordered.append(match)
+    return ordered
+
+
+def summarize_fault_alignment(fault_code: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    commands = context.get('commands', {}) or {}
+    recent_xids = commands.get('recent_xids', '') or ''
+    observed_fault_codes = extract_xid_codes(recent_xids)
+
+    if context.get('error'):
+        return {
+            'status': 'unknown',
+            'observed_fault_codes': observed_fault_codes,
+            'note': 'Fault alignment could not be checked because the target node was unreachable.',
+        }
+
+    if not recent_xids.strip():
+        return {
+            'status': 'unknown',
+            'observed_fault_codes': observed_fault_codes,
+            'note': 'Fault alignment could not be checked because no recent XID log evidence was available.',
+        }
+
+    if fault_code in observed_fault_codes:
+        return {
+            'status': 'confirmed',
+            'observed_fault_codes': observed_fault_codes,
+            'note': f'Recent XID log evidence includes XID {fault_code}.',
+        }
+
+    if observed_fault_codes:
+        return {
+            'status': 'mismatch',
+            'observed_fault_codes': observed_fault_codes,
+            'note': (
+                f'Recent XID log evidence did not show XID {fault_code}; '
+                f'observed XIDs: {", ".join(observed_fault_codes)}.'
+            ),
+        }
+
+    return {
+        'status': 'not_found',
+        'observed_fault_codes': observed_fault_codes,
+        'note': f'Recent XID log evidence was collected but did not contain XID {fault_code}.',
+    }
+
+
+def summarize_grounding(context: Dict[str, Any]) -> Dict[str, Any]:
+    preferred_order = ('recent_xids', 'gpu_inventory', 'gpu_health', 'dcgm_discovery', 'dcgm_health', 'topology', 'nvlink', 'fabric', 'fabric_manager', 'nccl_env', 'storage')
+    commands = context.get('commands', {}) or {}
+    status_map = context.get('command_status', {}) or {}
+    grounded_sources: List[str] = []
+    unavailable_sources: List[str] = []
+
+    for key in preferred_order:
+        status_value = status_map.get(key)
+        if status_value is None:
+            value = (commands.get(key) or '').strip()
+            if not value:
+                status_value = 'empty'
+            elif value.startswith('ERROR:'):
+                status_value = 'error'
+            else:
+                status_value = 'ok'
+        if status_value == 'ok':
+            grounded_sources.append(key)
+        else:
+            unavailable_sources.append(key)
+
+    if context.get('error'):
+        status = 'unreachable'
+        note = 'No live node evidence was collected because the target node was unreachable. Diagnosis falls back to the NVIDIA XID knowledge base and static runbooks.'
+    elif grounded_sources and unavailable_sources:
+        status = 'partial'
+        note = (
+            'Partial grounding: live evidence was collected from '
+            + ', '.join(grounded_sources)
+            + '. Missing or unusable checks: '
+            + ', '.join(unavailable_sources)
+            + '. Diagnosis is limited to the available evidence plus the NVIDIA XID knowledge base.'
+        )
+    elif grounded_sources:
+        status = 'grounded'
+        note = 'Grounded against the NVIDIA XID knowledge base and live node evidence from ' + ', '.join(grounded_sources) + '.'
+    else:
+        status = 'kb_only'
+        note = 'No usable live node evidence was collected. Diagnosis falls back to the NVIDIA XID knowledge base and static runbooks.'
+
+    return {
+        'status': status,
+        'grounded_sources': grounded_sources,
+        'unavailable_sources': unavailable_sources,
+        'note': note,
+    }
+
+
 def build_context_summary(context: Dict[str, Any]) -> str:
     commands = context.get('commands', {})
+    grounding = summarize_grounding(context)
     sections = []
-    for key in ('recent_xids', 'gpu_inventory', 'gpu_health', 'topology', 'nvlink', 'fabric', 'storage'):
+    for key in grounding['grounded_sources']:
         value = (commands.get(key) or '').strip()
         if value:
             sections.append(f'[{key}]\n{value[:1200]}')
     return '\n\n'.join(sections)[:6000]
 
 
+def llm_available() -> bool:
+    if ACTIVE_LLM == 'claude':
+        return bool(configured_secret('CLAUDE_API_KEY'))
+    if ACTIVE_LLM == 'openai':
+        return bool(configured_secret('OPENAI_API_KEY'))
+    return False
+
+
 def build_deterministic_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict[str, Any]) -> str:
     summary = kb_entry.get('entry') or f'XID {fault_code} detected with no vendor KB entry available.'
     context_summary = build_context_summary(context)
+    grounding = summarize_grounding(context)
+    alignment = summarize_fault_alignment(fault_code, context)
     lines = [
         f'Fault summary: XID {fault_code}. {summary}',
-        'Grounding sources used: NVIDIA XID KB, live node inspection, kernel log review, and GPU command output.',
+        grounding['note'],
+        alignment['note'],
     ]
-    lines.extend(DETERMINISTIC_RUNBOOKS.get(str(fault_code), [
-        '1. Capture the current hardware state and isolate the affected node.',
-        '2. Drain or cordon the node before any disruptive action.',
-        '3. Escalate to vendor-guided remediation because no safe automated runbook exists for this fault code.',
-    ]))
+    if grounding['unavailable_sources']:
+        lines.append('Unavailable or unusable live checks: ' + ', '.join(grounding['unavailable_sources']))
+    lines.extend(node_scraper.RUNBOOKS.get(str(fault_code), node_scraper._DEFAULT_RUNBOOK)['steps'])
     if context_summary:
         lines.append('Observed node context:\n' + context_summary)
     return '\n'.join(lines)
 
 
-def maybe_llm_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict[str, Any]) -> tuple[str, str]:
-    prompt = f'''You are a senior GPU infrastructure engineer.
+_CLAUDE_SYSTEM_PROMPT = (
+    'You are a senior GPU infrastructure engineer. '
+    'Write a concise, numbered remediation plan. '
+    'Stay strictly within the provided evidence. '
+    'If evidence is missing, say so plainly.'
+)
 
-Fault code: XID {fault_code}
-Vendor reference: {kb_entry.get('entry') or 'No vendor KB entry provided.'}
-Node context:
-{build_context_summary(context)}
 
-Write a concise, numbered remediation plan. Stay strictly within the provided evidence. If evidence is missing, say so plainly.'''
+def maybe_llm_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict[str, Any], allow_llm: bool = True) -> Union[Tuple[str, str], dict]:
+    grounding = summarize_grounding(context)
+    alignment = summarize_fault_alignment(fault_code, context)
+    context_summary = build_context_summary(context) or 'No usable live node context was collected.'
+    user_content = (
+        f'Fault code: XID {fault_code}\n'
+        f'Vendor reference: {kb_entry.get("entry") or "No vendor KB entry provided."}\n'
+        f'Grounding status: {grounding["status"]}\n'
+        f'Fault alignment: {alignment["status"]}\n'
+        f'Observed XIDs: {", ".join(alignment["observed_fault_codes"] or ["none"])}\n'
+        f'Unavailable checks: {", ".join(grounding["unavailable_sources"] or ["none"])}\n'
+        f'Node context:\n{context_summary}'
+    )
+
+    if not allow_llm or not llm_available():
+        return build_deterministic_diagnosis(fault_code, kb_entry, context), 'deterministic-runbook'
 
     def _call_llm():
         if ACTIVE_LLM == 'claude':
@@ -198,7 +443,12 @@ Write a concise, numbered remediation plan. Stay strictly within the provided ev
                 response = client.messages.create(
                     model=os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-6'),
                     max_tokens=1024,
-                    messages=[{'role': 'user', 'content': prompt}],
+                    system=[{
+                        'type': 'text',
+                        'text': _CLAUDE_SYSTEM_PROMPT,
+                        'cache_control': {'type': 'ephemeral'},
+                    }],
+                    messages=[{'role': 'user', 'content': user_content}],
                 )
                 return response.content[0].text, 'anthropic-grounded'
 
@@ -209,7 +459,7 @@ Write a concise, numbered remediation plan. Stay strictly within the provided ev
                 client = OpenAI(api_key=api_key)
                 response = client.chat.completions.create(
                     model=os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
-                    messages=[{'role': 'user', 'content': prompt}],
+                    messages=[{'role': 'user', 'content': user_content}],
                 )
                 return response.choices[0].message.content, 'openai-grounded'
 
@@ -223,9 +473,34 @@ Write a concise, numbered remediation plan. Stay strictly within the provided ev
             return {'error': 'LLM call timed out after 30 seconds. Try again.'}
 
 
+def update_live_metric_gauges(metrics: Dict[str, Any]) -> None:
+    GPU_UTILIZATION.set(metrics.get('util', 0) or 0)
+    GPU_MEMORY_USED.set(metrics.get('vram_used', 0) or 0)
+    GPU_MEMORY_TOTAL.set(metrics.get('vram_total', 0) or 0)
+    GPU_TEMPERATURE.set(metrics.get('temp', 0) or 0)
+    GPU_POWER.set(metrics.get('power', 0) or 0)
+    GPU_FAULT_COUNT.set(len(metrics.get('active_faults', []) or []))
+    GPU_DEGRADED.set(1 if metrics.get('degraded') else 0)
+    GPU_COUNT.set(metrics.get('gpu_count', 0) or 0)
+
+
 @app.get('/api/v1/status')
 def get_status():
-    return {'status': 'online', 'timestamp': time.time()}
+    return {
+        'status': 'online',
+        'timestamp': time.time(),
+        'message': 'Aegis-GPU daemon active.',
+        'auth_enabled': True,
+        'active_llm': ACTIVE_LLM,
+        'llm_available': llm_available(),
+        'destructive_remediation_enabled': ALLOW_DESTRUCTIVE_REMEDIATION,
+        'node_target': AEGIS_NODE_HOST,
+    }
+
+
+@app.get('/metrics')
+def metrics_endpoint():
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post('/api/v1/auth/login')
@@ -253,56 +528,62 @@ def me(payload: dict = Depends(verify_token)):
 @app.get('/api/v1/hardware/metrics')
 def get_metrics(request: Request, payload: dict = Depends(verify_token)):
     request.state.user = payload['sub']
-    engine = get_engine()
-    metrics = engine.collect_live_metrics()
+    metrics = get_engine().collect_live_metrics()
     metrics['timestamp'] = int(time.time())
+    update_live_metric_gauges(metrics)
     return metrics
 
 
 @app.post('/api/v1/diagnose/{fault_code}')
-def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(verify_token)):
+def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(verify_token), body: DiagnoseRequest = None):
     request.state.user = payload['sub']
     if not re.match(r'^\d{1,4}$', fault_code):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid fault code: must be 1-4 digits.')
 
     audit(request, 'diagnose_requested', f'xid={fault_code}', user=payload['sub'])
     kb_entry = load_kb_entry(fault_code)
-    engine = get_engine()
-    context = engine.collect_fault_context(fault_code)
-    diagnosis = maybe_llm_diagnosis(fault_code, kb_entry, context)
+    context = get_engine().collect_fault_context(fault_code)
+    grounding = summarize_grounding(context)
+    alignment = summarize_fault_alignment(fault_code, context)
+    use_llm = body.allow_llm if (body and body.allow_llm is not None) else True
+    diagnosis = maybe_llm_diagnosis(fault_code, kb_entry, context, allow_llm=use_llm)
     if isinstance(diagnosis, dict) and diagnosis.get('error'):
+        DIAGNOSE_REQUESTS.labels(fault_code=fault_code, source='timeout').inc()
         return diagnosis
     remediation_plan, source = diagnosis
+    DIAGNOSE_REQUESTS.labels(fault_code=fault_code, source=source).inc()
     audit(request, 'diagnose_completed', f'xid={fault_code} source={source}', user=payload['sub'])
+    save_incident('diagnose', fault_code, payload['sub'], source=source,
+                  summary=remediation_plan[:500] if remediation_plan else None)
     return {
         'fault': f'XID {fault_code}',
         'diagnosis_source': source,
         'remediation_plan': remediation_plan,
-        'hallucination_check': 'Grounded against local host inspection and the NVIDIA XID knowledge base.',
+        'hallucination_check': grounding['note'],
         'kb_last_updated': kb_entry.get('last_updated', 'unknown'),
-        'grounded_sources': list(context.get('commands', {}).keys()),
+        'grounded_sources': grounding['grounded_sources'],
+        'unavailable_sources': grounding['unavailable_sources'],
+        'grounding_status': grounding['status'],
+        'fault_alignment': alignment['status'],
+        'fault_alignment_note': alignment['note'],
+        'observed_fault_codes': alignment['observed_fault_codes'],
+        'llm_requested': use_llm,
+        'llm_available': llm_available(),
     }
 
 
 @app.post('/api/v1/remediate/{fault_code}')
-def remediate_fault(
-    fault_code: str,
-    request: Request,
-    payload: dict = Depends(require_admin),
-    body: RemediateRequest = None,
-):
+def remediate_fault(fault_code: str, request: Request, payload: dict = Depends(require_admin), body: RemediateRequest = None):
     request.state.user = payload['sub']
     if not re.match(r'^\d{1,4}$', fault_code):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid fault code.')
     audit(request, 'runbook_requested', f'xid={fault_code}', user=payload['sub'])
-    engine = get_engine()
     node_id = body.node_id if body else 0
-    result = engine.execute_runbook(
-        fault_code,
-        node_id=node_id,
-        allow_destructive=ALLOW_DESTRUCTIVE_REMEDIATION,
-    )
+    result = get_engine().execute_runbook(fault_code, node_id=node_id, allow_destructive=ALLOW_DESTRUCTIVE_REMEDIATION)
+    REMEDIATION_REQUESTS.labels(fault_code=fault_code, status=result.get('status', 'unknown')).inc()
     audit(request, 'runbook_executed', f'xid={fault_code} node_id={node_id}', user=payload['sub'])
+    save_incident('remediate', fault_code, payload['sub'],
+                  status=result.get('status'), summary=result.get('message'))
     result['requested_by'] = payload['sub']
     result['fault'] = f'XID {fault_code}'
     result['timestamp'] = int(time.time())
@@ -310,6 +591,32 @@ def remediate_fault(
     return result
 
 
-FRONTEND_DIR = os.getenv('AEGIS_FRONTEND_DIR', '/var/www/html')
-if os.path.isdir(FRONTEND_DIR):
-    app.mount('/', StaticFiles(directory=FRONTEND_DIR, html=True), name='frontend')
+@app.get('/api/v1/incidents')
+def list_incidents(
+    request: Request,
+    payload: dict = Depends(verify_token),
+    limit: int = 50,
+    fault: Optional[str] = None,
+):
+    if limit < 1 or limit > 200:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='limit must be 1-200.')
+    query = 'SELECT id, ts, kind, fault, user, source, status, summary FROM incidents'
+    params: List = []
+    if fault:
+        if not re.match(r'^\d{1,4}$', fault):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid fault filter.')
+        query += ' WHERE fault = ?'
+        params.append(fault)
+    query += ' ORDER BY ts DESC LIMIT ?'
+    params.append(limit)
+    try:
+        with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(query, params).fetchall()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='DB read error.') from exc
+    return [dict(r) for r in rows]
+
+
+if FRONTEND_DIR.is_dir():
+    app.mount('/', StaticFiles(directory=str(FRONTEND_DIR), html=True), name='frontend')

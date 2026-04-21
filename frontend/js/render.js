@@ -214,6 +214,7 @@ function drawRackElevation(svg, faultData = null, isThermal = false) {
 // PRESERVED LAB DRAW FUNCTIONS
 // ════════════════════════════════════════════════════════════════════
 function drawWelcome(svg) {
+  clearCanvas();
   const W = svg.clientWidth||700, H = svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   const g = svgEl('g');
