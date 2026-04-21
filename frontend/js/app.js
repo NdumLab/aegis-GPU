@@ -426,6 +426,7 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
   const commandNote = step.cmd?.startsWith('#')
     ? 'This stage represents the operational state change you would need to reason about, even when there is no literal shell command to memorize.'
     : tabNote;
+  const screenshotSection = renderStepScreenshots(step);
 
   return `
     <div class="lab-step-coach-callout${step.fault ? ' err' : ''}">
@@ -441,6 +442,13 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
       <div class="lab-step-coach-section-title">What To Notice</div>
       ${renderBulletList(whatToNotice.length ? whatToNotice : ['Use the visible output to decide what changed in the node state.'], 'lab-step-coach-list')}
     </div>
+    ${screenshotSection}
+    ${step.screenshots && step.screenshots.length ? `
+      <div class="lab-step-coach-section">
+        <div class="lab-step-coach-section-title">How To Use The Snapshot</div>
+        <p>${escHtml(describeScreenshotUse(step))}</p>
+      </div>
+    ` : ''}
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Common Wrong Conclusion</div>
       <p>${escHtml(beginnerMistake)}</p>
@@ -477,6 +485,11 @@ function renderBeginnerStoryGuidedDetails(step) {
     `);
   }
 
+  const screenshotSection = renderStepScreenshots(step, 'guided');
+  if (screenshotSection) {
+    blocks.push(screenshotSection);
+  }
+
   if (step.commonMistake) {
     blocks.push(`
       <div class="guided-step-block guided-step-compare">
@@ -510,6 +523,46 @@ function renderBeginnerStoryGuidedDetails(step) {
 function getStepOutput(step) {
   if (!step || typeof TERMINAL_OUTPUT === 'undefined') return [];
   return TERMINAL_OUTPUT[step.type] || [];
+}
+
+function renderTerminalSnapshot(snapshot) {
+  if (!snapshot || !snapshot.lines || !snapshot.lines.length) return '';
+  const title = snapshot.title ? `<div class="lab-step-shot-title">${escHtml(snapshot.title)}</div>` : '';
+  const caption = snapshot.caption ? `<div class="lab-step-shot-caption">${escHtml(snapshot.caption)}</div>` : '';
+  const lines = snapshot.lines.map(line => `<div class="lab-step-shot-line">${escHtml(line)}</div>`).join('');
+  return `
+    <figure class="lab-step-shot-frame">
+      ${title}
+      <div class="lab-step-shot-terminal">
+        ${lines}
+      </div>
+      ${caption}
+    </figure>
+  `;
+}
+
+function describeScreenshotUse(step) {
+  if (!step || !step.screenshots || !step.screenshots.length) return '';
+  return step.screenshotReference || 'Use the output snapshot as your visual anchor before you scan the live terminal output.';
+}
+
+function renderStepScreenshots(step, variant = 'coach') {
+  if (!step || !step.screenshots || !step.screenshots.length) return '';
+  const shellClass = variant === 'guided'
+    ? 'guided-step-block guided-step-screenshots'
+    : 'lab-step-coach-section lab-step-coach-screenshots';
+  const titleClass = variant === 'guided'
+    ? 'guided-step-title'
+    : 'lab-step-coach-section-title';
+  const snapshots = step.screenshots.map(renderTerminalSnapshot).join('');
+  return `
+    <div class="${shellClass}">
+      <div class="${titleClass}">Output Snapshot</div>
+      <div class="lab-step-shot-grid">
+        ${snapshots}
+      </div>
+    </div>
+  `;
 }
 
 function describeStepCommand(step) {
@@ -690,6 +743,7 @@ function renderLabStepCoach() {
       <div class="lab-step-coach-section-title">What To Look For</div>
       ${renderBulletList(observationList, 'lab-step-coach-list')}
     </div>
+    ${renderStepScreenshots(step)}
     ${outputClues.length ? `
       <div class="lab-step-coach-section">
         <div class="lab-step-coach-section-title">How To Read This Output</div>
@@ -761,10 +815,14 @@ function renderGuidedStepDetails(step, prevStep) {
   const avoid = step.avoid && step.avoid.length
     ? `<div class="guided-step-block"><div class="guided-step-title">Avoid This</div>${renderBulletList(step.avoid, 'guided-step-list')}</div>`
     : '';
+  const screenshots = renderStepScreenshots(step, 'guided');
+  const screenshotUsage = step.screenshots && step.screenshots.length
+    ? `<div class="guided-step-block"><div class="guided-step-title">Use The Snapshot</div><p>${escHtml(describeScreenshotUse(step))}</p></div>`
+    : '';
   const engine = getExplainEngine();
   const coach = engine ? engine.renderStepCoach(step, prevStep, getExplanationOptions()) : '';
 
-  return [deeperContext, comparativeReasoning, lookFor, meaning, action, avoid, coach].filter(Boolean).join('');
+  return [deeperContext, comparativeReasoning, lookFor, screenshots, screenshotUsage, meaning, action, avoid, coach].filter(Boolean).join('');
 }
 
 function renderGuidedFlowSteps(lab) {

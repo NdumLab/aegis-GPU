@@ -15,6 +15,24 @@ const LABS = {
         cmd:"nvidia-smi topo -m",
         type:"topo",
         explainerMode:"beginner_story",
+        screenshotReference:"Start with the topology snapshot and verify that the matrix stays dominated by NV4 entries. If your eyes land on PHB or another weaker path in the screenshot, treat that as a topology problem before you even benchmark.",
+        screenshots:[
+          {
+            title:"Healthy DGX-style topology capture",
+            caption:"Read this like a screenshot, not a wall of text. The key clue is that GPU neighbors keep showing NV4, which means the node is still on the intended fast path.",
+            lines:[
+              "GPU0  GPU1  GPU2  GPU3  GPU4  GPU5  GPU6  GPU7  CPU Affinity",
+              "GPU0   X    NV4   NV4   NV4   NV4   NV4   NV4   NV4   0-95",
+              "GPU1  NV4    X    NV4   NV4   NV4   NV4   NV4   NV4   0-95",
+              "GPU2  NV4   NV4    X    NV4   NV4   NV4   NV4   NV4   0-95",
+              "GPU3  NV4   NV4   NV4    X    NV4   NV4   NV4   NV4   0-95",
+              "GPU4  NV4   NV4   NV4   NV4    X    NV4   NV4   NV4   96-191",
+              "GPU5  NV4   NV4   NV4   NV4   NV4    X    NV4   NV4   96-191",
+              "GPU6  NV4   NV4   NV4   NV4   NV4   NV4    X    NV4   96-191",
+              "GPU7  NV4   NV4   NV4   NV4   NV4   NV4   NV4    X    96-191"
+            ]
+          }
+        ],
         whatsHappening:"You are reading the map of how the 8 GPUs connect to each other. This tells you which communication paths should be fast and direct before you look at performance.",
         deeperContext:"Beginners need a mental map before they can reason about slowdown. A throughput number is only meaningful if you know which links should exist and which path the traffic is supposed to take.",
         lookFor:[
@@ -40,6 +58,23 @@ const LABS = {
         cmd:"nvidia-smi nvlink -e",
         type:"nvlink_err",
         explainerMode:"beginner_story",
+        screenshotReference:"Use the snapshot to scan for the one thing that matters first: clean zeroed counters. If a row in the screenshot breaks that pattern, that is the link you should distrust before moving on.",
+        screenshots:[
+          {
+            title:"Healthy NVLink counter capture",
+            caption:"This screenshot is healthy because the important error counters stay at zero. Treat any future non-zero CRC or replay value as a hardware-path clue, not just noisy output.",
+            lines:[
+              "GPU 0, Link 0: CRC FLIT Error Count: 0",
+              "GPU 0, Link 0: Replay Error Count:   0",
+              "GPU 1, Link 2: CRC FLIT Error Count: 0",
+              "GPU 1, Link 2: Replay Error Count:   0",
+              "GPU 4, Link 1: CRC FLIT Error Count: 0",
+              "GPU 4, Link 1: Replay Error Count:   0",
+              "GPU 7, Link 3: CRC FLIT Error Count: 0",
+              "GPU 7, Link 3: Replay Error Count:   0"
+            ]
+          }
+        ],
         whatsHappening:"You are checking whether the visible NVLink paths are electrically clean. A link can exist in the map and still be degraded in reality.",
         deeperContext:"This is where beginners learn that a topology diagram only tells you the intended route. Error counters tell you whether that route is actually healthy enough to trust under load.",
         lookFor:[
@@ -65,6 +100,21 @@ const LABS = {
         cmd:"./nccl-tests/build/all_reduce_perf -b 1G -e 4G -f 2 -g 8",
         type:"benchmark",
         explainerMode:"beginner_story",
+        screenshotReference:"Read the benchmark snapshot as the operational proof of the earlier healthy screenshots. The bandwidth line should look strong enough that it does not contradict the clean topology and clean counter story.",
+        screenshots:[
+          {
+            title:"Healthy all-reduce benchmark capture",
+            caption:"This is the healthy reference screenshot for later comparison. The exact number can vary by platform, but it should still look like a strong NVLink-backed result instead of a collapsed fallback path.",
+            lines:[
+              "# nThread 1 nGpus 8 minBytes 1073741824 maxBytes 4294967296 step: 2(factor) warmup iters: 5 iters: 20",
+              "     size         count    type   redop    root      time   algbw   busbw  #wrong",
+              "1073741824   268435456   float    sum      -1    11.82 ms  181.7   181.7    0",
+              "2147483648   536870912   float    sum      -1    23.45 ms  183.1   183.1    0",
+              "4294967296  1073741824   float    sum      -1    46.91 ms  182.7   182.7    0",
+              "# Avg bus bandwidth : 182.5 GB/s"
+            ]
+          }
+        ],
         whatsHappening:"You are measuring whether the workload actually gets the high-speed collective bandwidth the healthy NVLink fabric should deliver.",
         deeperContext:"This is where the hardware story becomes operational. Topology and counters told you what should happen. The benchmark tells you whether real collective traffic sees the same healthy path.",
         lookFor:[
@@ -91,6 +141,24 @@ const LABS = {
         type:"nvlink_fault",
         fault:true,
         explainerMode:"beginner_story",
+        screenshotReference:"Compare this degraded snapshot against the first topology screenshot. The important move is noticing that NV4 gave way to PHB, because that visual shift explains why the workload is about to slow down.",
+        screenshots:[
+          {
+            title:"Degraded topology after PHB fallback",
+            caption:"This screenshot is bad because the communication contract changed. Once PHB appears where NV4 used to dominate, the node is no longer on the intended fast path.",
+            lines:[
+              "GPU0  GPU1  GPU2  GPU3  GPU4  GPU5  GPU6  GPU7  CPU Affinity",
+              "GPU0   X    PHB   PHB   PHB   PHB   PHB   PHB   PHB   0-95",
+              "GPU1  PHB    X    PHB   PHB   PHB   PHB   PHB   PHB   0-95",
+              "GPU2  PHB   PHB    X    PHB   PHB   PHB   PHB   PHB   0-95",
+              "GPU3  PHB   PHB   PHB    X    PHB   PHB   PHB   PHB   0-95",
+              "GPU4  PHB   PHB   PHB   PHB    X    PHB   PHB   PHB   96-191",
+              "GPU5  PHB   PHB   PHB   PHB   PHB    X    PHB   PHB   96-191",
+              "GPU6  PHB   PHB   PHB   PHB   PHB   PHB    X    PHB   96-191",
+              "GPU7  PHB   PHB   PHB   PHB   PHB   PHB   PHB    X    96-191"
+            ]
+          }
+        ],
         whatsHappening:"You are simulating a path downgrade where direct NVLink communication is gone and traffic falls back to a slower PCIe host-bridge route.",
         deeperContext:"This is an important beginner lesson: a node can still be up while the interconnect is no longer healthy. The job may continue to run, but it is no longer running on the fast path the cluster was designed for.",
         lookFor:[
@@ -116,6 +184,21 @@ const LABS = {
         cmd:"NCCL_DEBUG=INFO torchrun train.py",
         type:"nccl_diag",
         explainerMode:"beginner_story",
+        screenshotReference:"Use the NCCL snapshot to confirm what the degraded topology screenshot already suggested. When the log starts naming socket or fallback behavior, treat it as software evidence that matches the earlier hardware-path break.",
+        screenshots:[
+          {
+            title:"NCCL fallback log capture",
+            caption:"This is the software-layer echo of the PHB downgrade. The important part is not the volume of logs, but the fact that the transport story now looks slower and less direct than the healthy baseline.",
+            lines:[
+              "NCCL INFO Channel 00/08 : 0[0] -> 1[1] via SHM/direct/direct",
+              "NCCL INFO NET/IB : No device found for requested path, falling back",
+              "NCCL INFO NET/Socket : Using eth0:10.0.0.24<0>",
+              "NCCL INFO Trees [0] -1/-1/-1->7->6",
+              "NCCL INFO Connected all rings using fallback transport",
+              "NCCL WARN Collective bandwidth below expected NVLink baseline"
+            ]
+          }
+        ],
         whatsHappening:"You are checking whether the software layer now shows the same degraded communication story that the hardware path already hinted at.",
         deeperContext:"This is the cross-layer reasoning step. Beginners often treat hardware and software symptoms as separate mysteries. Operators connect them into one story: bad path, then bad bandwidth, then bad NCCL behavior.",
         lookFor:[
@@ -150,6 +233,20 @@ const LABS = {
         cmd:"sudo nvidia-smi -i 0 -mig 1",
         type:"mig_enable",
         explainerMode:"beginner_story",
+        screenshotReference:"Use the snapshot to confirm that MIG mode actually flipped on at the device level. The key clue is the explicit enabled state, because everything else in this lab depends on that hardware transition happening first.",
+        screenshots:[
+          {
+            title:"MIG mode enabled confirmation",
+            caption:"This screenshot matters because it proves the GPU itself accepted the mode change. Without this confirmation, any later slice-creation command is built on the wrong assumption.",
+            lines:[
+              "Enabled MIG Mode for GPU 00000000:17:00.0",
+              "All done.",
+              "",
+              "GPU  GI  CI  MIG",
+              "  0   -   -  Enabled"
+            ]
+          }
+        ],
         whatsHappening:"You are turning on the GPU's ability to be sliced. This is a hardware mode change, not just a scheduler flag.",
         deeperContext:"Beginners need to see that MIG starts at the device itself. The GPU must enter a different operating mode before isolated slices can exist.",
         lookFor:[
@@ -174,6 +271,22 @@ const LABS = {
         cmd:"sudo nvidia-smi mig -cgi 9,9,9,9,9,9,9 -C",
         type:"mig_create",
         explainerMode:"beginner_story",
+        screenshotReference:"Read the creation snapshot as proof of exactly what layout you asked the GPU to build. If the screenshot does not show seven created instances, do not mentally round it up and assume the layout is correct.",
+        screenshots:[
+          {
+            title:"Seven MIG instances created",
+            caption:"The important thing in this screenshot is count and repeatability. You want the command output to show that all requested instances were created, not just that the command returned successfully.",
+            lines:[
+              "Successfully created GPU instance ID 1 on GPU 0 using profile MIG 1g.10gb",
+              "Successfully created GPU instance ID 2 on GPU 0 using profile MIG 1g.10gb",
+              "Successfully created GPU instance ID 3 on GPU 0 using profile MIG 1g.10gb",
+              "Successfully created GPU instance ID 4 on GPU 0 using profile MIG 1g.10gb",
+              "Successfully created GPU instance ID 5 on GPU 0 using profile MIG 1g.10gb",
+              "Successfully created GPU instance ID 6 on GPU 0 using profile MIG 1g.10gb",
+              "Successfully created GPU instance ID 7 on GPU 0 using profile MIG 1g.10gb"
+            ]
+          }
+        ],
         whatsHappening:"You are carving the H100 into seven 1g.10gb-style slices. You are defining the exact hardware layout the node will expose.",
         deeperContext:"This step teaches that MIG does not auto-balance or guess what you want. Operators declare the slice layout deliberately because the layout controls capacity and isolation.",
         lookFor:[
@@ -198,6 +311,22 @@ const LABS = {
         cmd:"nvidia-smi mig -lgi",
         type:"mig_list",
         explainerMode:"beginner_story",
+        screenshotReference:"Use the listing snapshot as your verification source of truth. The important move is matching the visible seven instances in the screenshot against the seven-instance plan you thought you created one step earlier.",
+        screenshots:[
+          {
+            title:"Verified MIG instance listing",
+            caption:"This screenshot is the confirmation step, not a duplicate of the create command. Operators trust the listing because it reflects resulting hardware state rather than command intent.",
+            lines:[
+              "GPU 0  GPU instance ID 1  Profile 1g.10gb  Placement Start:0 Size:1",
+              "GPU 0  GPU instance ID 2  Profile 1g.10gb  Placement Start:1 Size:1",
+              "GPU 0  GPU instance ID 3  Profile 1g.10gb  Placement Start:2 Size:1",
+              "GPU 0  GPU instance ID 4  Profile 1g.10gb  Placement Start:3 Size:1",
+              "GPU 0  GPU instance ID 5  Profile 1g.10gb  Placement Start:4 Size:1",
+              "GPU 0  GPU instance ID 6  Profile 1g.10gb  Placement Start:5 Size:1",
+              "GPU 0  GPU instance ID 7  Profile 1g.10gb  Placement Start:6 Size:1"
+            ]
+          }
+        ],
         whatsHappening:"You are verifying that the hardware actually created the slices you intended.",
         deeperContext:"This is where beginners learn that verification is part of the work. Operators do not stop at creation; they confirm the machine is in the state they believe it is in.",
         lookFor:[
@@ -222,6 +351,21 @@ const LABS = {
         cmd:"# Assigning 3 teams",
         type:"mig_assign",
         explainerMode:"beginner_story",
+        screenshotReference:"Treat the assignment snapshot as an operating model, not a shell transcript. The value is seeing which teams consume which slices so you can reason about isolation and oversubscription at a glance.",
+        screenshots:[
+          {
+            title:"Example tenant-to-slice assignment",
+            caption:"This is a policy screenshot rather than a low-level device output. It helps beginners see that MIG becomes useful only when you connect the slice inventory to real workload placement decisions.",
+            lines:[
+              "team-vision   -> GI 1, GI 2",
+              "team-llm      -> GI 3, GI 4, GI 5",
+              "team-infer    -> GI 6, GI 7",
+              "",
+              "Total allocated slices: 7/7",
+              "Oversubscription: none"
+            ]
+          }
+        ],
         whatsHappening:"You are mapping real workloads or teams to specific MIG slices. This is where the partition plan becomes an operating model.",
         deeperContext:"Beginners often stop thinking once the slices exist. Operators keep going: who gets which slice, how many, and what happens if one tenant misbehaves?",
         lookFor:[
@@ -246,6 +390,20 @@ const LABS = {
         cmd:"sudo nvidia-smi -i 0 -mig 0",
         type:"mig_disable",
         explainerMode:"beginner_story",
+        screenshotReference:"Use the cleanup snapshot to verify that the hardware contract really changed back to full-device mode. If the screenshot still suggests MIG is enabled, do not assume cleanup happened just because you expected it to.",
+        screenshots:[
+          {
+            title:"MIG mode disabled cleanup",
+            caption:"This screenshot closes the loop by proving the partitioned state is gone. It is the final reminder that cleanup changes the hardware the same way setup did.",
+            lines:[
+              "Disabled MIG Mode for GPU 00000000:17:00.0",
+              "All done.",
+              "",
+              "GPU  GI  CI  MIG",
+              "  0   -   -  Disabled"
+            ]
+          }
+        ],
         whatsHappening:"You are returning the GPU to full-device mode. This removes the MIG slices and gives the card back as one large accelerator.",
         deeperContext:"Cleanup is part of the lesson. Disabling MIG is not harmless undo; it changes the hardware state again and destroys the partition layout.",
         lookFor:[
@@ -279,6 +437,21 @@ const LABS = {
         cmd:"dcgmi dmon -e 156,157 -c 5",
         type:"ecc_healthy",
         explainerMode:"beginner_story",
+        screenshotReference:"Use the baseline snapshot to lock in what healthy looks like before any fault appears. The important pattern is simple: SBE and DBE stay at zero across the whole visible polling window.",
+        screenshots:[
+          {
+            title:"Healthy ECC baseline capture",
+            caption:"This is the clean reference screenshot for the rest of the lifecycle. Later screenshots only matter because this one established what normal looked like first.",
+            lines:[
+              "# Entity  GPU  FBECC_SBE_VOL_TOTAL  FBECC_DBE_VOL_TOTAL",
+              "0         0    0                    0",
+              "1         0    0                    0",
+              "2         0    0                    0",
+              "3         0    0                    0",
+              "4         0    0                    0"
+            ]
+          }
+        ],
         whatsHappening:"You are checking the GPU's memory health before any failure signs appear. This gives you the clean reference point for everything that comes later.",
         deeperContext:"ECC work starts with a baseline. Beginners need to see normal first, because later counts only matter if you know what healthy memory looked like at the start.",
         lookFor:[
@@ -305,6 +478,21 @@ const LABS = {
         type:"ecc_sbe",
         fault:true,
         explainerMode:"beginner_story",
+        screenshotReference:"Compare this warning snapshot to the baseline snapshot. The key visual change is that SBE started climbing while DBE stayed at zero, which means the memory story worsened without yet crossing into uncorrectable territory.",
+        screenshots:[
+          {
+            title:"Corrected-error warning phase",
+            caption:"This is the warning screenshot, not the catastrophic one. The learner should notice that only the corrected side is climbing, which is exactly why this step is about trend recognition rather than panic.",
+            lines:[
+              "# Entity  GPU  FBECC_SBE_VOL_TOTAL  FBECC_DBE_VOL_TOTAL",
+              "0         0    4                    0",
+              "1         0    7                    0",
+              "2         0    11                   0",
+              "3         0    15                   0",
+              "4         0    19                   0"
+            ]
+          }
+        ],
         whatsHappening:"You are seeing corrected memory errors begin to accumulate. The GPU is still fixing them, but the memory is no longer perfectly clean.",
         deeperContext:"This is the early-warning phase. Single-bit ECC errors are usually corrected automatically, so the workload may keep running. That is exactly why beginners need to learn that corrected does not mean harmless forever.",
         lookFor:[
@@ -330,6 +518,23 @@ const LABS = {
         cmd:"dcgmi dmon -e 156,157 -c 10",
         type:"ecc_trend",
         explainerMode:"beginner_story",
+        screenshotReference:"Use the longer trend snapshot to answer a time-based question: is the SBE rise persisting? The screenshot should look worse than the prior warning snapshot in a way that proves the memory story is continuing, not resetting.",
+        screenshots:[
+          {
+            title:"Persistent ECC trend capture",
+            caption:"This screenshot matters because it shows persistence over a longer poll window. The issue is no longer a single corrected blip once the counter keeps stepping upward sample after sample.",
+            lines:[
+              "# Entity  GPU  FBECC_SBE_VOL_TOTAL  FBECC_DBE_VOL_TOTAL",
+              "0         0    21                   0",
+              "1         0    25                   0",
+              "2         0    31                   0",
+              "3         0    38                   0",
+              "4         0    46                   0",
+              "5         0    53                   0",
+              "6         0    61                   0"
+            ]
+          }
+        ],
         whatsHappening:"You are checking whether the corrected-error rise was a one-off event or a persistent trend.",
         deeperContext:"This step teaches that operations work is about observing the direction of change. A longer poll window helps beginners see whether the SBE rise is a persistent pattern instead of a one-time event.",
         lookFor:[
@@ -356,6 +561,18 @@ const LABS = {
         type:"ecc_xid",
         fault:true,
         explainerMode:"beginner_story",
+        screenshotReference:"Use the XID snapshot to identify the moment the ECC story crosses into a hard fault. The visual clue is the explicit XID 48 line, because that line changes the operator response from watch closely to contain now.",
+        screenshots:[
+          {
+            title:"Hard fault transition: XID 48",
+            caption:"This screenshot is the inflection point of the lifecycle. It is no longer just a counter trend; the driver is now reporting an uncorrectable fault event directly.",
+            lines:[
+              "[86423.441] NVRM: Xid (PCI:0000:17:00): 48, pid=42117, name=python3, DBE detected on GPU memory",
+              "[86423.442] NVRM: GPU 00000000:17:00.0: Uncorrectable ECC error detected",
+              "[86423.447] NVRM: A GPU crash dump has been created"
+            ]
+          }
+        ],
         whatsHappening:"You are seeing the memory warning story turn into a hard NVIDIA fault event. This is where the situation changes from monitor-and-watch to contain-and-protect.",
         deeperContext:"This is the inflection point where the lifecycle stops being just a warning trend and becomes a hard fault. XID 48 is the moment beginners must connect the jargon, the ECC counters, and the operational consequence.",
         lookFor:[
@@ -381,6 +598,19 @@ const LABS = {
         cmd:"kubectl drain gpu-node-03",
         type:"ecc_drain",
         explainerMode:"beginner_story",
+        screenshotReference:"Use the drain snapshot to distinguish containment from repair. The key thing to notice is scheduler removal language in the screenshot, because that tells you the cluster is being protected even though the GPU itself is not fixed yet.",
+        screenshots:[
+          {
+            title:"Containment via node drain",
+            caption:"This screenshot is about blast-radius control. It shows the cluster moving the bad node out of service so new workloads stop landing on known-unsafe hardware.",
+            lines:[
+              "node/gpu-node-03 cordoned",
+              "evicting pod training-job-7f9d6c7d8f-2pkhq",
+              "evicting pod inference-batch-42-6dd79b8b9d-r2k4v",
+              "node/gpu-node-03 drained"
+            ]
+          }
+        ],
         whatsHappening:"You are taking the node out of normal scheduling so new jobs do not land on hardware that is no longer safe to trust.",
         deeperContext:"This final step teaches containment. The beginner lesson is that the job of an operator is not only to diagnose the bad card, but also to protect the rest of the cluster from landing new work on a known-bad node.",
         lookFor:[
@@ -416,6 +646,18 @@ const LABS = {
         type:"xid48",
         fault:true,
         explainerMode:"beginner_story",
+        screenshotReference:"Use the alert snapshot to identify the fault family before you start reacting. The important cue is the XID 48 line itself, because it tells you this drill is starting in the uncorrectable-memory branch rather than a bus or fabric branch.",
+        screenshots:[
+          {
+            title:"XID 48 alert capture",
+            caption:"This screenshot is the opening clue, not the whole diagnosis. Its job is to orient the operator to the likely fault family quickly and accurately.",
+            lines:[
+              "[92741.102] NVRM: Xid (PCI:0000:17:00): 48, pid=16742, name=python3, DBE detected",
+              "[92741.104] NVRM: GPU 00000000:17:00.0: Uncorrectable ECC error reported",
+              "[92741.105] NVRM: RmInitAdapter failed during fault handling"
+            ]
+          }
+        ],
         whatsHappening:"You are seeing an XID 48 alert, which is the first sign that this incident may be an uncorrectable memory problem rather than a routine slowdown.",
         deeperContext:"This drill starts with a memory-integrity alert. The beginner goal is to stop treating XID numbers as mysterious codes and instead see them as operator signals with specific severity and response expectations.",
         lookFor:[
@@ -441,6 +683,19 @@ const LABS = {
         cmd:"dcgmi dmon -e 157 -c 3",
         type:"xid48_confirm",
         explainerMode:"beginner_story",
+        screenshotReference:"Use the confirmation snapshot to check whether the DBE counter moved off zero. That screenshot matters because it upgrades the incident from a plausible XID story to a grounded uncorrectable-ECC diagnosis.",
+        screenshots:[
+          {
+            title:"DBE confirmation capture",
+            caption:"The entire point of this screenshot is alignment. Once the DBE field is non-zero, the log alert and the hardware counter evidence are telling the same story.",
+            lines:[
+              "# Entity  GPU  FBECC_DBE_VOL_TOTAL",
+              "0         0    1",
+              "1         0    1",
+              "2         0    1"
+            ]
+          }
+        ],
         whatsHappening:"You are checking whether the XID 48 alert is backed by uncorrectable ECC counter evidence.",
         deeperContext:"This is the confirmation step that separates suspicion from grounded incident response. It teaches beginners that a strong operator decision should be backed by a second, independent evidence source when possible.",
         lookFor:[
@@ -467,6 +722,18 @@ const LABS = {
         type:"xid79",
         fault:true,
         explainerMode:"beginner_story",
+        screenshotReference:"Use the XID 79 snapshot to recognize that the failure shape changed. The key clue is the bus-or-hang language in the screenshot, because that points you toward reset-style recovery instead of more ECC reasoning.",
+        screenshots:[
+          {
+            title:"GPU hang / bus-loss alert",
+            caption:"This screenshot is useful because it looks different from the ECC fault screenshots. The operator should learn to notice that difference quickly and change recovery logic accordingly.",
+            lines:[
+              "[93111.772] NVRM: Xid (PCI:0000:65:00): 79, GPU has fallen off the bus",
+              "[93111.774] NVRM: GPU 00000000:65:00.0 is no longer responding to commands",
+              "[93111.776] NVRM: RmInitAdapter failed! (0x26:0xffff:1290)"
+            ]
+          }
+        ],
         whatsHappening:"You are seeing a different fault family now: the GPU appears hung or has fallen off the bus, which is a stability and reachability problem rather than a memory-integrity trend.",
         deeperContext:"Now the drill changes fault family. Beginners should learn that not all XIDs mean the same thing: XID 79 is a stability and bus-reachability problem, not an ECC-memory story.",
         lookFor:[
@@ -492,6 +759,18 @@ const LABS = {
         cmd:"sudo nvidia-smi --gpu-reset -i 3",
         type:"xid79_reset",
         explainerMode:"beginner_story",
+        screenshotReference:"Read the reset snapshot as a branch point, not as a victory screen. The important question is whether the screenshot shows clean reset success or continued unreachable-state language that forces the next escalation step.",
+        screenshots:[
+          {
+            title:"Targeted GPU reset attempt",
+            caption:"This snapshot is about conditional recovery. Its value is telling you whether the incident can stay GPU-scoped or whether it just proved the node needs a more disruptive action.",
+            lines:[
+              "Resetting GPU 00000000:65:00.0",
+              "GPU Reset couldn't complete because the device is not responding",
+              "Suggested next action: reboot the node before returning GPU to service"
+            ]
+          }
+        ],
         whatsHappening:"You are testing whether the hung GPU can be recovered with a targeted reset instead of a whole-node reboot.",
         deeperContext:"This step teaches conditional recovery: not every severe fault goes straight to reboot. Beginners should learn that the operator tests the least disruptive justified recovery action first when the fault family supports it.",
         lookFor:[
@@ -518,6 +797,19 @@ const LABS = {
         type:"xid74",
         fault:true,
         explainerMode:"beginner_story",
+        screenshotReference:"Use the XID 74 snapshot to distinguish fabric trouble from memory or bus trouble. The key move is spotting non-zero link-error counters in the screenshot and treating them as communication-path evidence.",
+        screenshots:[
+          {
+            title:"NVLink fault evidence capture",
+            caption:"This screenshot is about path quality, not device disappearance. The GPUs can still exist while the communication path between them becomes unhealthy enough to hurt production traffic.",
+            lines:[
+              "GPU 2, Link 1: CRC FLIT Error Count: 184",
+              "GPU 2, Link 1: Replay Error Count:   27",
+              "GPU 5, Link 0: CRC FLIT Error Count: 191",
+              "GPU 5, Link 0: Replay Error Count:   29"
+            ]
+          }
+        ],
         whatsHappening:"You are looking at a third fault family: an interconnect problem where the GPUs may still exist, but the fabric between them is degraded.",
         deeperContext:"The final step introduces a third fault family: interconnect faults. This teaches that XID literacy includes understanding whether the problem is memory, device stability, or fabric communication.",
         lookFor:[
