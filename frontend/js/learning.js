@@ -5,8 +5,16 @@
 
 window.AEGIS_LEARNING = {
   ecc: {
-    quickAnswer: "ECC errors mean GPU memory protection detected bad data. Corrected errors were fixed automatically, but repeated corrected errors can signal degrading memory. Uncorrected errors are more serious because the GPU could not safely repair the corruption.",
-    whyItMatters: "ECC is one of the clearest early-warning signals for GPU memory health. Beginners should learn the difference between a warning trend and a stop-now hardware failure.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are watching how GPU memory errors move from healthy baseline, to warning signs, to a hard containment decision. Think of this like noticing hairline cracks in a pressure pipe before it finally bursts under load.",
+    plainPicture: "ECC is the GPU's memory protection system. A few corrected errors mean the hardware caught bad data and repaired it, but a repeated trend can mean the memory is getting weaker. An uncorrected error means the GPU could not safely fix the corruption anymore.",
+    whyOperatorsCare: [
+      "Operators care about ECC because it is one of the clearest early-warning systems for GPU memory health. It tells you whether the card is still correcting problems quietly or has crossed into unsafe hardware behavior.",
+      "This matters because the node may still look available while the memory story is getting worse. Beginners need to learn that 'still running' does not mean 'still safe.'",
+      "The operator skill here is to separate three states clearly: healthy baseline, warning trend, and stop-now containment event."
+    ],
     coreTerms: [
       {
         term: "ECC",
@@ -34,52 +42,15 @@ window.AEGIS_LEARNING = {
         why: "It explains why some cards limp along for a while after memory trouble begins."
       }
     ],
-    lifecycle: [
-      {
-        title: "Healthy baseline",
-        detail: "ECC counters are flat, temperatures are stable, and workloads run normally. This is the reference state you compare against later."
-      },
-      {
-        title: "Corrected errors begin to rise",
-        detail: "The GPU still fixes the memory mistakes, so jobs may keep running. The important beginner lesson is that corrected does not mean harmless forever."
-      },
-      {
-        title: "Trend becomes persistent",
-        detail: "Repeated SBEs suggest the card or memory region is weakening. Operators start watching rate-of-change, not just raw count."
-      },
-      {
-        title: "Uncorrectable event appears",
-        detail: "A DBE means the hardware could not repair the corruption. This is where the situation becomes an availability and data-integrity issue, not just a health warning."
-      },
-      {
-        title: "Node is drained and hardware is evaluated",
-        detail: "The immediate goal is protecting running jobs. After that, the operator decides whether the GPU is safe to return to service or should be replaced."
-      }
-    ],
-    watchFor: [
-      "Rising SBE count across repeated polls, not just one isolated number",
-      "Any non-zero DBE count",
-      "XID 48 or related memory-failure messages in logs",
-      "Page-retirement events that suggest bad memory is being fenced off"
+    commonMisreads: [
+      "Corrected means harmless. That is false. Corrected means the card saved you this time, not that the memory is healthy forever.",
+      "One poll is enough to understand the situation. That is false. ECC work is often about trend, not one isolated number.",
+      "If jobs are still running, the GPU must still be safe. That is false once uncorrectable events appear."
     ],
     safeActions: [
       "Record the GPU ID, timestamp, and ECC counter values before changing anything.",
       "If you only see corrected errors, keep monitoring the trend and notify the operator team.",
-      "If you see an uncorrected error or XID 48, drain the node before putting more work on it."
-    ],
-    whatNotToDo: [
-      "Do not treat repeated corrected errors as harmless just because jobs are still running.",
-      "Do not keep scheduling new workloads onto a GPU with a known DBE."
-    ],
-    escalateWhen: [
-      "Any DBE is present",
-      "SBE counts keep climbing over multiple checks",
-      "The same GPU repeatedly returns to service and relapses",
-      "Users report crashes, corrupted jobs, or repeated driver faults"
-    ],
-    readMore: [
-      "Corrected ECC errors are early warning signs. They matter because memory failure often shows up as a trend before it becomes a hard stop.",
-      "Uncorrected ECC errors are operationally different. They are not just noisy counters; they are evidence that the GPU could not guarantee clean data."
+      "If you see an uncorrected error or XID 48, treat the node as unsafe for fresh workloads and contain it."
     ]
   },
   nvlink_fault: {
