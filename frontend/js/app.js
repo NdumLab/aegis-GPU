@@ -269,7 +269,7 @@ function renderDetachedPanel(kind) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aegis ${escHtml(snapshot.title)}</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260417j">
+  <link rel="stylesheet" href="css/styles.css?v=20260421a">
 </head>
 <body class="detached-panel-window">
   <div class="detached-panel-frame" id="detached-panel-root"></div>
@@ -1874,6 +1874,7 @@ window.addEventListener('load', async ()=>{
 window.addEventListener('resize', ()=>{
   if(currentLab) {
     const svg=document.getElementById('diagram-canvas');
+    clearCanvas();
     const w=svg.clientWidth, h=svg.clientHeight;
     svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
     if(typeof LABS[currentLab].draw === 'function') LABS[currentLab].draw(svg, currentStep);
