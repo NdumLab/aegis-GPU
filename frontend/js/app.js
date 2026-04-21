@@ -12,12 +12,11 @@ let termLines = { term:[], dmesg:[], dcgm:[] };
 
 let isProvisioned = false;
 let currentBlueprint = null;
-const API_BASE = (window.location.protocol === 'https:')
-    ? `https://${window.location.hostname}/api/v1`
-    : `http://${window.location.hostname}:8000/api/v1`;
+const API_BASE = window.__AEGIS_API_BASE__ || `${window.location.origin}/api/v1`;
 // Sprint 16: JWT-based authentication — token fetched at login, never hard-coded.
 let JWT_TOKEN = sessionStorage.getItem('aegis_jwt') || '';
 let _appInitialized = false;
+let _uiBound = false;
 let USER_ROLE  = sessionStorage.getItem('aegis_role') || '';
 let currentFaultNode = 0;
 
@@ -38,7 +37,13 @@ async function aegisLogin() {
   const u = (document.getElementById('login-user') || {}).value?.trim() || '';
   const p = (document.getElementById('login-pass') || {}).value || '';
   const errEl = document.getElementById('login-err');
+  const loginBtn = document.getElementById('btn-login');
   if (errEl) errEl.style.display = 'none';
+  if (loginBtn) {
+    loginBtn.disabled = true;
+    loginBtn.style.opacity = '0.65';
+    loginBtn.style.cursor = 'wait';
+  }
   try {
     const r = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
@@ -58,6 +63,12 @@ async function aegisLogin() {
     initApp();
   } catch(e) {
     if (errEl) { errEl.textContent = 'Connection error. Is the backend reachable?'; errEl.style.display = 'block'; }
+  } finally {
+    if (loginBtn) {
+      loginBtn.disabled = false;
+      loginBtn.style.opacity = '';
+      loginBtn.style.cursor = '';
+    }
   }
 }
 
@@ -80,13 +91,6 @@ function handle401() {
   logTerm([{t:'err', v:'[AUTH] Session expired or unauthorised. Please log in again.'}]);
   setTimeout(aegisLogout, 1500);
 }
-
-// Allow Enter key in login form
-document.addEventListener('DOMContentLoaded', () => {
-  const passEl = document.getElementById('login-pass');
-  if (passEl) passEl.addEventListener('keydown', e => { if (e.key === 'Enter') aegisLogin(); });
-});
-
 
 let metrics = {
   util:82, vram_used:54, vram_total:80, temp:71, power:420,
@@ -582,7 +586,10 @@ function resetAll() {
   completedLabs.clear();
   document.getElementById('h-done').textContent='0';
   document.getElementById('h-score').textContent='—';
-  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active','done'));
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.classList.remove('active','done');
+    el.style.opacity = '1';
+  });
   clearCanvas();
   clearTerminal();
   currentLab=null; currentStep=-1;
@@ -601,6 +608,8 @@ function resetAll() {
 
 // ── Sprint 21: bindUIHandlers — replaces all inline HTML event handlers ──
 function bindUIHandlers() {
+  if (_uiBound) return;
+  _uiBound = true;
   const on = (id, ev, fn) => { const el = document.getElementById(id); if(el) el.addEventListener(ev, fn); };
 
   // Login overlay

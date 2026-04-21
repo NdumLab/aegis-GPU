@@ -4,16 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aegis-GPU | NCA-AIIO</title>
-<link rel="stylesheet" href="css/styles.css">
-<script src="js/hardware.js"></script>
-<script src="js/render.js"></script>
-<script src="js/labs.js"></script>
-<script src="js/app.js" defer></script>
+<link rel="stylesheet" href="css/styles.css?v=2.0.1">
+<script src="js/hardware.js?v=2.0.1"></script>
+<script src="js/render.js?v=2.0.1"></script>
+<script src="js/labs.js?v=2.0.1"></script>
+<script src="js/app.js?v=2.0.1" defer></script>
 </head>
 <body>
 
 <!-- Sprint 16: Login Overlay — shown until JWT validated -->
-<div id="login-overlay" style="position:fixed;inset:0;background:#060d16;display:flex;align-items:center;justify-content:center;z-index:9999;">
+<div id="login-overlay" style="position:fixed;inset:0;background:#060d16;display:flex;align-items:center;justify-content:center;z-index:10001;">
   <div style="width:360px;background:#0d1117;border:1px solid #1e2d40;border-radius:8px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.8);">
     <div style="text-align:center;margin-bottom:32px;">
       <h1 style="font-family:'DM Serif Display',serif;font-size:28px;color:#e8f0fe;margin:0">Aegis<span style="color:#f4a261">-GPU</span></h1>
@@ -28,7 +28,7 @@
         style="width:100%;box-sizing:border-box;background:#0a1220;border:1px solid #2a3347;color:#c8d4e8;padding:11px 14px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
     </div>
     <div id="login-err" style="display:none;color:#ff5252;font-size:11px;font-family:'JetBrains Mono',monospace;margin-bottom:14px;text-align:center;padding:8px;background:rgba(255,82,82,0.08);border-radius:4px;"></div>
-    <button id="btn-login" onclick="aegisLogin()"
+    <button id="btn-login"
       style="width:100%;padding:12px;background:#f4a261;border:none;border-radius:4px;color:#060d16;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.08em;transition:opacity .2s">AUTHENTICATE</button>
   </div>
 </div>
@@ -106,12 +106,10 @@
       <div class="nav-item" id="nav-slurm"><span class="icon">📋</span> Slurm Scheduler <span class="badge" id="b-slurm">OPS</span></div>
       <div class="nav-item" id="nav-k8s"><span class="icon">☸️</span> Kubernetes GPU Ops <span class="badge" id="b-k8s">OPS</span></div>
 
-      <div class="sidebar-section" style="margin-top:8px">
-<div style="display:inline-flex; gap:15px; align-items:center; margin-right:20px; padding-right:20px; border-right:1px solid #2a3347;">
-  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="sidebar-toggle-live"> Live Telemetry</label>
-  <label style="color:#c8d4e8; font-size:12px; cursor:pointer;"><input type="checkbox" id="sidebar-toggle-thermal"> Thermal Map</label>
-</div>
-        <button class="btn-sm primary" id="sidebar-btn-quiz" style="width:100%;margin:4px 0;border-radius:3px;font-size:11px;padding:6px">📋 Take Quiz</button>
+      <div class="sidebar-section sidebar-controls" style="margin-top:8px">
+        <label class="sidebar-check"><input type="checkbox" id="sidebar-toggle-live"> Live Telemetry</label>
+        <label class="sidebar-check"><input type="checkbox" id="sidebar-toggle-thermal"> Thermal Map</label>
+        <button class="btn-sm primary sidebar-quiz-btn" id="sidebar-btn-quiz">📋 Take Quiz</button>
       </div>
     </div>
   </nav>
