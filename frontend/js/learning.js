@@ -357,42 +357,36 @@ window.AEGIS_LEARNING = {
     ]
   },
   nccl_fallback: {
-    quickAnswer: "NCCL fallback means the communication library is using a slower path than expected, often TCP instead of InfiniBand or another high-speed transport. The job runs, but performance drops sharply.",
-    whyItMatters: "This is one of the best beginner examples of a problem that is not a crash, but still a serious operational issue.",
+    beginnerTemplate: "operator_story",
+    hideModeNote: true,
+    objectiveTitle: "What We're Doing",
+    objectiveText: "We are learning how to recognize when NCCL silently drops onto a slower communication path. Think of this like a highway trip that still reaches the destination, but only after being forced onto small local roads.",
+    plainPicture: "NCCL fallback means distributed training is still alive, but it is no longer using the fast transport the platform was designed to provide. The job keeps moving, yet the rack delivers much less value than it should.",
+    whyOperatorsCare: [
+      "This is one of the clearest beginner examples of slow success. Nothing crashes, but throughput drops enough to waste expensive GPU time.",
+      "Operators care because fallback often points to configuration mistakes, transport selection problems, or hidden fabric issues that users only notice as 'training feels slow.'",
+      "The beginner lesson is that availability is not the same as health. A running job can still be operationally wrong."
+    ],
+    wholePlatform: [
+      "In the bigger platform, NCCL fallback means the scheduler, nodes, and network may all look normal while the workload still misses the fast path the cluster was built for.",
+      "That makes fallback a platform-efficiency problem, not just a library detail. One bad path choice can reduce the effective value of a whole multi-node job or rack.",
+      "So this lab matters because it teaches how users experience hidden infrastructure mistakes: not always as crashes, but often as very expensive slowness."
+    ],
     coreTerms: [
       { term: "Fallback", plain: "A backup path used when the preferred fast path is unavailable or misconfigured.", why: "Fallback keeps jobs alive but can hide the real problem if nobody checks throughput." },
       { term: "TCP", plain: "A general-purpose network transport that is usually much slower for distributed GPU training than RDMA-based paths.", why: "Seeing TCP where you expected InfiniBand is a major clue." },
       { term: "NCCL_IB_DISABLE", plain: "An environment variable that can force NCCL not to use InfiniBand.", why: "It is a common misconfiguration with a large performance impact." },
       { term: "NCCL_IB_HCA", plain: "An environment variable that tells NCCL which host-channel adapter to use for InfiniBand traffic.", why: "A wrong HCA name can quietly force the job onto a slower path." }
     ],
-    lifecycle: [
-      { title: "Expected fast path exists", detail: "The cluster appears to have the right hardware and topology for fast collective communication." },
-      { title: "NCCL chooses a slower path", detail: "A configuration issue, missing device, or path failure causes a fallback to TCP or another less capable transport." },
-      { title: "Job still runs but throughput collapses", detail: "This is why beginners must learn to diagnose slow success, not just obvious failure." },
-      { title: "Environment and hardware are compared", detail: "The operator checks whether the fallback came from a bad environment variable, missing interface, or real fabric problem." }
-    ],
-    watchFor: [
-      "NCCL logs that mention Socket or TCP instead of the expected RDMA path",
-      "Large bandwidth drop without a full job crash",
-      "Environment variables that override transport selection"
+    commonMisreads: [
+      "If the job is still running, the communication path must be good enough. That is false. Fallback often means the workload is wasting time on a much slower route.",
+      "A fallback must mean broken hardware. That is often false because one bad environment variable or path-selection mistake can cause it.",
+      "NCCL logs are too low-level to matter. That is false. They are often the first place the hidden path problem becomes visible."
     ],
     safeActions: [
       "Check environment variables before changing hardware or drivers.",
       "Confirm the network path NCCL actually selected.",
       "Compare observed bandwidth with the cluster's expected healthy range."
-    ],
-    whatNotToDo: [
-      "Do not celebrate that the job is still running if throughput is catastrophically below baseline.",
-      "Do not start with a full cluster reboot when a single environment variable may explain the fallback."
-    ],
-    escalateWhen: [
-      "The job keeps falling back even after environment cleanup",
-      "InfiniBand ports look healthy but NCCL still refuses the expected path",
-      "Fallback affects many jobs or many nodes at once"
-    ],
-    readMore: [
-      "NCCL fallback is a perfect beginner lesson in why operators care about performance regressions, not only outages. Slow success can still be a major production failure.",
-      "The best debugging order is usually environment, path selection, fabric health, then deeper software changes."
     ]
   },
   storage: {
