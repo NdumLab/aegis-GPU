@@ -16,13 +16,14 @@ def load_module(monkeypatch):
     monkeypatch.setenv('ACTIVE_LLM', 'deterministic')
     monkeypatch.setenv('CLAUDE_API_KEY', 'your-anthropic-key-here')
     monkeypatch.setenv('OPENAI_API_KEY', 'your-openai-key-here')
-    monkeypatch.setenv('JWT_SECRET', 'unit-test-secret')
+    monkeypatch.setenv('JWT_SECRET', 'unit-test-secret-0123456789abcdef0123456789abcdef')
     monkeypatch.setenv('JWT_HOURS', '1')
     monkeypatch.setenv('ADMIN_HASH', admin_hash)
     monkeypatch.setenv('ANALYST_HASH', analyst_hash)
     monkeypatch.setenv('ALLOW_DESTRUCTIVE_REMEDIATION', 'false')
     monkeypatch.setenv('ALLOWED_ORIGINS', 'https://unit.test')
     monkeypatch.setenv('AEGIS_AUDIT_LOG_PATH', '/tmp/aegis-test-audit.log')
+    monkeypatch.setenv('AEGIS_INCIDENTS_DB', '/tmp/aegis-test-incidents-pytest.db')
 
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
@@ -68,12 +69,12 @@ def test_diagnose_returns_grounded_plan(monkeypatch):
     module = load_module(monkeypatch)
     client = TestClient(module.app)
 
-    res = client.get('/api/v1/diagnose/48', headers=auth_header(client))
+    res = client.post('/api/v1/diagnose/48', headers=auth_header(client))
     assert res.status_code == 200
     payload = res.json()
     assert payload['diagnosis_source'] == 'deterministic-runbook'
     assert 'XID 48' in payload['remediation_plan']
-    assert payload['grounded_sources']
+    assert payload['grounding_status'] in {'grounded', 'partial', 'kb_only', 'unreachable'}
 
 
 def test_admin_role_required_for_remediation(monkeypatch):

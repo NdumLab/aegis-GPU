@@ -1,4 +1,4 @@
-import json
+import concurrent.futures
 import os
 import socket
 import subprocess
@@ -126,27 +126,6 @@ class OSIntrospectionEngine:
         output = stdout.read().decode('utf-8').strip()
         error = stderr.read().decode('utf-8').strip()
         return output if output else (f'ERROR: {error}' if error else '')
-
-    def get_share_doc(self, package_name: str) -> str:
-        cmd = (
-            f'for d in /usr/share/doc/*{package_name}*; do '
-            f'if [ -d "$d" ]; then head -n 50 "$d"/*README* "$d"/*changelog* "$d"/*Release* 2>/dev/null; fi; '
-            f'done'
-        )
-        return self._execute(cmd)
-
-    def get_binary_docs(self, binary_name: str) -> Dict[str, str]:
-        return {
-            'help_flag': self._execute(f'{binary_name} --help 2>/dev/null | head -n 50'),
-            'info_page': self._execute(f'info --subnodes -o - {binary_name} 2>/dev/null | head -n 100'),
-            'man_page': self._execute(f'man -P cat {binary_name} 2>/dev/null | head -n 100'),
-        }
-
-    def get_package_metadata(self, package_name: str) -> str:
-        return self._execute(f'rpm -qi {package_name} 2>/dev/null')
-
-    def get_config_state(self, file_path: str) -> str:
-        return self._execute(f"cat {file_path} 2>/dev/null | grep -v '^$' | head -n 80")
 
     def _read_thermal_zone(self) -> int:
         if not os.path.isdir('/sys/class/thermal'):
@@ -361,17 +340,17 @@ class OSIntrospectionEngine:
             return {'error': 'Target node unreachable', 'commands': {}, 'command_status': {}}
 
         commands = {
-            'gpu_inventory': 'nvidia-smi -L 2>/dev/null',
-            'gpu_health': 'nvidia-smi -q -d ECC,TEMPERATURE,POWER,PERFORMANCE 2>/dev/null | head -n 240',
-            'topology': 'nvidia-smi topo -m 2>/dev/null | head -n 80',
-            'nvlink': 'nvidia-smi nvlink -s 2>/dev/null | head -n 120',
-            'dcgm_discovery': 'dcgmi discovery -l 2>/dev/null | head -n 80',
-            'dcgm_health': 'dcgmi health -g 0 --check 2>/dev/null | head -n 120',
-            'recent_xids': "dmesg | grep -i 'xid' | tail -n 20",
-            'fabric': '(ibstat || ibstatus || true) 2>/dev/null | head -n 120',
-            'fabric_manager': 'systemctl status --no-pager nvidia-fabricmanager 2>/dev/null | head -n 80',
-            'nccl_env': "env | grep -E '^(NCCL|CUDA|UCX)_' | sort",
-            'storage': '(iostat -x 1 2 | tail -n 40) 2>/dev/null',
+            'gpu_inventory': ('nvidia-smi -L 2>/dev/null', 4),
+            'gpu_health': ('nvidia-smi -q -d ECC,TEMPERATURE,POWER,PERFORMANCE 2>/dev/null | head -n 240', 6),
+            'topology': ('nvidia-smi topo -m 2>/dev/null | head -n 80', 4),
+            'nvlink': ('nvidia-smi nvlink -s 2>/dev/null | head -n 120', 4),
+            'dcgm_discovery': ('dcgmi discovery -l 2>/dev/null | head -n 80', 4),
+            'dcgm_health': ('dcgmi health -g 0 --check 2>/dev/null | head -n 120', 6),
+            'recent_xids': ("dmesg | grep -i 'xid' | tail -n 20", 4),
+            'fabric': ('(ibstat || ibstatus || true) 2>/dev/null | head -n 120', 5),
+            'fabric_manager': ('systemctl status --no-pager nvidia-fabricmanager 2>/dev/null | head -n 80', 5),
+            'nccl_env': ("env | grep -E '^(NCCL|CUDA|UCX)_' | sort", 3),
+            'storage': ('(iostat -x 1 2 | tail -n 40) 2>/dev/null', 5),
         }
 
         context = {
@@ -381,36 +360,26 @@ class OSIntrospectionEngine:
             'commands': {},
             'command_status': {},
         }
-        for label, command in commands.items():
-            output = self._execute(command, timeout=15)[:4000]
-            context['commands'][label] = output
-            context['command_status'][label] = self._classify_output(output)
+        def _collect(label: str, command: str, timeout: int):
+            output = self._execute(command, timeout=timeout)[:4000]
+            return label, output, self._classify_output(output)
+
+        items = [(label, command, timeout) for label, (command, timeout) in commands.items()]
+        if self.local_mode:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [executor.submit(_collect, label, command, timeout) for label, command, timeout in items]
+                for future in concurrent.futures.as_completed(futures):
+                    label, output, status = future.result()
+                    context['commands'][label] = output
+                    context['command_status'][label] = status
+        else:
+            for label, command, timeout in items:
+                _, output, status = _collect(label, command, timeout)
+                context['commands'][label] = output
+                context['command_status'][label] = status
 
         self.close()
         return context
-
-
-    def scrape_fault_context(self, primary_binary=None, package_name=None, related_configs=None, fault_code=None):
-        if fault_code or primary_binary is None:
-            return self.collect_fault_context(fault_code or 'unknown')
-
-        if not self.connect():
-            return {'error': 'Target node unreachable'}
-
-        context = {
-            'node': self.hostname,
-            'binary_docs': self.get_binary_docs(primary_binary),
-            'rpm_metadata': self.get_package_metadata(package_name),
-            'vendor_docs': self.get_share_doc(package_name),
-            'configs': {},
-        }
-
-        for conf in related_configs or []:
-            context['configs'][conf] = self.get_config_state(conf)
-
-        self.close()
-        return context
-
     def execute_runbook(self, fault_code: str, node_id: int = 0, allow_destructive: bool = False) -> Dict[str, Any]:
         _entry = RUNBOOKS.get(str(fault_code), _DEFAULT_RUNBOOK)
         runbook = {
@@ -460,11 +429,3 @@ class OSIntrospectionEngine:
             'executed': True,
             'commands': [item['cmd'] for item in commands],
         }
-
-
-if __name__ == '__main__':
-    import getpass
-
-    current_user = getpass.getuser()
-    scraper = OSIntrospectionEngine(hostname='127.0.0.1', username=current_user)
-    print(json.dumps(scraper.collect_fault_context('48'), indent=2))

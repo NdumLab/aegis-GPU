@@ -91,41 +91,61 @@ AEGIS_NODE_HOST = os.getenv('AEGIS_NODE_HOST', '127.0.0.1').strip() or '127.0.0.
 AEGIS_NODE_USERNAME = os.getenv('AEGIS_NODE_USERNAME', 'aegis').strip() or 'aegis'
 KB_PATH = Path(os.getenv('AEGIS_KB_PATH', str(APP_ROOT / 'nvidia_kb' / 'xid_reference.json')))
 AUDIT_LOG_PATH = os.getenv('AEGIS_AUDIT_LOG_PATH', '/var/log/aegis-gpu/audit.log')
-INCIDENTS_DB_PATH = os.getenv('AEGIS_INCIDENTS_DB', '/var/lib/aegis-gpu/incidents.db')
+INCIDENTS_DB_PATH = Path(os.getenv('AEGIS_INCIDENTS_DB', '/var/lib/aegis-gpu/incidents.db'))
 FRONTEND_DIR = Path(os.getenv('AEGIS_FRONTEND_DIR', '/var/www/html'))
+DB_INIT_ERROR = Gauge('aegis_incidents_db_init_error', 'Whether the incidents DB failed to initialize (1=yes, 0=no).')
+DB_WRITE_FAILURES = Counter('aegis_incidents_db_write_failures_total', 'Incident DB write failures.')
+_DB_READY = False
+_DB_ERROR = ''
 
 
-def _init_db() -> None:
-    with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS incidents (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                ts        INTEGER NOT NULL,
-                kind      TEXT    NOT NULL,
-                fault     TEXT    NOT NULL,
-                user      TEXT    NOT NULL,
-                source    TEXT,
-                status    TEXT,
-                summary   TEXT
-            )
-        ''')
-        conn.commit()
-
-
-_init_db()
+def ensure_incidents_db() -> bool:
+    global _DB_READY, _DB_ERROR
+    if _DB_READY:
+        return True
+    try:
+        INCIDENTS_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS incidents (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts        INTEGER NOT NULL,
+                    kind      TEXT    NOT NULL,
+                    fault     TEXT    NOT NULL,
+                    user      TEXT    NOT NULL,
+                    source    TEXT,
+                    status    TEXT,
+                    summary   TEXT
+                )
+            ''')
+            conn.commit()
+        _DB_READY = True
+        _DB_ERROR = ''
+        DB_INIT_ERROR.set(0)
+        return True
+    except Exception as exc:
+        _DB_READY = False
+        _DB_ERROR = str(exc)
+        DB_INIT_ERROR.set(1)
+        logging.getLogger('aegis.audit').warning('incidents db unavailable: %s', exc)
+        return False
 
 
 def save_incident(kind: str, fault_code: str, user: str, source: str = None,
                   status: str = None, summary: str = None) -> None:
     try:
+        if not ensure_incidents_db():
+            DB_WRITE_FAILURES.inc()
+            return
         with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
             conn.execute(
                 'INSERT INTO incidents (ts, kind, fault, user, source, status, summary) VALUES (?,?,?,?,?,?,?)',
                 (int(time.time()), kind, fault_code, user, source, status, summary),
             )
             conn.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        DB_WRITE_FAILURES.inc()
+        logging.getLogger('aegis.audit').warning('failed to persist incident: %s', exc)
 
 
 def resolve_user_hash(hash_env: str, password_env: str) -> str:
@@ -177,10 +197,13 @@ def normalized_path(path: str) -> str:
 logging.getLogger('aegis.audit').handlers.clear()
 audit_logger = logging.getLogger('aegis.audit')
 audit_logger.setLevel(logging.INFO)
-os.makedirs(os.path.dirname(AUDIT_LOG_PATH), exist_ok=True)
-_fh = logging.FileHandler(AUDIT_LOG_PATH)
-_fh.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt='%Y-%m-%dT%H:%M:%SZ'))
-audit_logger.addHandler(_fh)
+try:
+    os.makedirs(os.path.dirname(AUDIT_LOG_PATH), exist_ok=True)
+    _fh = logging.FileHandler(AUDIT_LOG_PATH)
+    _fh.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt='%Y-%m-%dT%H:%M:%SZ'))
+    audit_logger.addHandler(_fh)
+except Exception:
+    logging.basicConfig(level=logging.INFO)
 try:
     _sh = logging.handlers.SysLogHandler(address='/dev/log')
     _sh.setFormatter(logging.Formatter('aegis-gpu[audit]: %(message)s'))
@@ -600,6 +623,11 @@ def list_incidents(
 ):
     if limit < 1 or limit > 200:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='limit must be 1-200.')
+    if not ensure_incidents_db():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='Incident database unavailable.'
+        )
     query = 'SELECT id, ts, kind, fault, user, source, status, summary FROM incidents'
     params: List = []
     if fault:

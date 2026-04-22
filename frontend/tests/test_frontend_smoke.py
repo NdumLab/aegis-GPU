@@ -11,7 +11,10 @@ APP_JS = (ROOT / 'js' / 'app.js').read_text(encoding='utf-8')
 class FrontendSmokeTest(unittest.TestCase):
     def test_expected_assets_are_referenced(self):
         self.assertIn('css/styles.css', INDEX)
+        self.assertIn('js/labs-part-1.js', INDEX)
+        self.assertIn('js/labs-part-4.js', INDEX)
         self.assertIn('js/app.js', INDEX)
+        self.assertIn('js/learning-part-1.js', INDEX)
         self.assertIn('js/render.js', INDEX)
 
     def test_frontend_uses_same_origin_api_prefix(self):
