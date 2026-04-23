@@ -38,6 +38,12 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('Reasoning Scorecard', APP_JS)
         self.assertIn('Assessment Scorecard', APP_JS)
 
+    def test_differential_diagnosis_is_available(self):
+        self.assertIn('DIFFERENTIAL_DIAGNOSIS', APP_JS)
+        self.assertIn('renderDifferentialDiagnosis', APP_JS)
+        self.assertIn('Differential Diagnosis', APP_JS)
+        self.assertIn('What This Is Not', APP_JS)
+
     def test_frontend_uses_same_origin_api_prefix(self):
         self.assertIn('/api/v1', APP_JS)
         self.assertRegex(APP_JS, r'API_BASE\s*=')

@@ -38,6 +38,200 @@ let reasoningScoreState = {
   byLab: {},
   lastQuiz: null,
 };
+const DIFFERENTIAL_DIAGNOSIS = {
+  ecc: [
+    {
+      label: 'Not a generic slowdown',
+      not: 'Low throughput on its own is not enough to call this an ECC incident.',
+      why: 'ECC reasoning starts with error counters, XID evidence, and containment signals, not just poor job performance.',
+    },
+    {
+      label: 'Not safe because jobs are still running',
+      not: 'A still-running job does not clear the hardware.',
+      why: 'Corrected and uncorrected memory errors can coexist with partial service, so the decision still hinges on integrity evidence.',
+    },
+  ],
+  nvlink_fault: [
+    {
+      label: 'Not all XIDs are the same fault',
+      not: 'Do not treat XID 48, 74, and 79 as one generic GPU failure.',
+      why: 'The code family decides whether to confirm memory integrity, fabric health, or bus reachability next.',
+    },
+    {
+      label: 'Not a user-space-only problem',
+      not: 'An application stack trace does not outrank the driver fault code.',
+      why: 'Once the driver is reporting a hardware fault family, the operator path starts with containment and confirmation.',
+    },
+  ],
+  nvlink: [
+    {
+      label: 'Not just GPU visibility',
+      not: 'Seeing all GPUs does not prove the fast path is healthy.',
+      why: 'Topology and CRC evidence decide whether the node still has the intended NVLink fabric.',
+    },
+    {
+      label: 'Not an NCCL-only issue yet',
+      not: 'Do not start with library tuning before you verify the physical path.',
+      why: 'If the fabric baseline is degraded, NCCL behavior is downstream of that hardware story.',
+    },
+  ],
+  mig: [
+    {
+      label: 'Not a scheduler-only partition',
+      not: 'MIG is not just a software quota label.',
+      why: 'The GPU changes hardware mode and instance layout before schedulers can place tenants correctly.',
+    },
+    {
+      label: 'Not equivalent to a full GPU',
+      not: 'One MIG slice is not a one-for-one replacement for a whole accelerator.',
+      why: 'The slice has narrower compute and memory boundaries, so capacity claims must match the final layout.',
+    },
+  ],
+  cuda_stack: [
+    {
+      label: 'Not automatically a hardware incident',
+      not: 'GPU visibility problems and CUDA runtime failures are different layers.',
+      why: 'Version contracts between driver, CUDA, and framework are often the real break point.',
+    },
+    {
+      label: 'Not fixed by changing everything',
+      not: 'A full-stack upgrade destroys the evidence trail.',
+      why: 'Operators narrow the fault to one software boundary before changing packages or images.',
+    },
+  ],
+  container: [
+    {
+      label: 'Not just an image problem',
+      not: 'A valid image can still fail the GPU runtime path.',
+      why: 'Container reasoning separates image quality from host runtime exposure and in-container GPU visibility.',
+    },
+    {
+      label: 'Not proof from process start alone',
+      not: 'A container starting cleanly does not prove CUDA is usable inside it.',
+      why: 'The operator check is whether the workload can actually reach the GPU stack, not whether the shell opened.',
+    },
+  ],
+  training: [
+    {
+      label: 'Not only a model-code question',
+      not: 'Busy GPUs do not guarantee a healthy distributed loop.',
+      why: 'Training incidents often live in synchronization, data feed, or one unhealthy rank rather than the model itself.',
+    },
+    {
+      label: 'Not solved by one-rank inspection',
+      not: 'A single healthy rank does not clear the job.',
+      why: 'The distributed path is only as healthy as its slowest critical stage or participant.',
+    },
+  ],
+  allreduce: [
+    {
+      label: 'Not raw compute weakness',
+      not: 'A slow collective is not the same thing as a weak GPU.',
+      why: 'AllReduce diagnosis starts with synchronization path, collective bandwidth, and rank coordination evidence.',
+    },
+    {
+      label: 'Not storage starvation first',
+      not: 'Do not call this a data pipeline issue before you check the collective path.',
+      why: 'If the slowdown appears during gradient exchange, the inter-rank communication layer owns the first read.',
+    },
+  ],
+  ib_fabric: [
+    {
+      label: 'Not just an NCCL log quirk',
+      not: 'A bad InfiniBand path is not only a library symptom.',
+      why: 'Link state, subnet evidence, and HCA selection decide whether the network itself is healthy.',
+    },
+    {
+      label: 'Not a storage bottleneck',
+      not: 'Transport-level errors should be cleared before blaming data feed or filesystems.',
+      why: 'This family is about the east-west fabric that distributed jobs depend on for collectives.',
+    },
+  ],
+  roce: [
+    {
+      label: 'Not generic Ethernet health',
+      not: 'Simple link-up status does not prove RoCE is safe for GPU traffic.',
+      why: 'PFC, ECN, and congestion behavior decide whether the supposedly lossless path is real under load.',
+    },
+    {
+      label: 'Not a GPU silicon fault',
+      not: 'Drops and pauses on RoCE should not be framed as GPU defects first.',
+      why: 'This path lives in the network control plane and switch behavior before it becomes a training symptom.',
+    },
+  ],
+  nccl_fallback: [
+    {
+      label: 'Not healthy just because it runs',
+      not: 'A running job on TCP sockets can still be the wrong path.',
+      why: 'Fallback reasoning asks whether NCCL selected the intended fast transport, not whether the process survived startup.',
+    },
+    {
+      label: 'Not always hardware damage',
+      not: 'One bad environment variable can look like fabric failure.',
+      why: 'The operator path checks selected transport and configuration before escalating to hardware.',
+    },
+  ],
+  storage: [
+    {
+      label: 'Not a weak GPU first',
+      not: 'Low utilization is not enough to call the accelerator unhealthy.',
+      why: 'The sawtooth pattern often means the GPU is waiting on data rather than failing to compute.',
+    },
+    {
+      label: 'Not only a storage dashboard issue',
+      not: 'The symptom can surface on the GPU side before the storage team sees a complaint.',
+      why: 'The operator read is about starvation across the pipeline, not one isolated chart.',
+    },
+  ],
+  gds: [
+    {
+      label: 'Not active by default',
+      not: 'Owning NVIDIA GPUs does not prove GPUDirect Storage is in use.',
+      why: 'The direct path has to be verified with feature and benchmark evidence.',
+    },
+    {
+      label: 'Not proven by one faster run',
+      not: 'A benchmark bump alone does not establish the data path change.',
+      why: 'You need path verification and controlled before/after comparisons to justify the conclusion.',
+    },
+  ],
+  monitoring: [
+    {
+      label: 'Not every chart is a signal',
+      not: 'A bigger dashboard does not mean a better operational read.',
+      why: 'Useful monitoring ties specific metrics to trend detection and action thresholds.',
+    },
+    {
+      label: 'Not healthy because no alert fired',
+      not: 'Missing telemetry can hide behind a quiet page.',
+      why: 'Operators still verify the source, scrape path, and rule coverage before trusting silence.',
+    },
+  ],
+  slurm: [
+    {
+      label: 'Not always a GPU incident',
+      not: 'Queued or drained work does not automatically point at hardware failure.',
+      why: 'Slurm reasoning starts with allocation state, policy, reservations, and node health together.',
+    },
+    {
+      label: 'Not only a scheduler policy problem',
+      not: 'A scheduling symptom can still reflect an unhealthy node underneath.',
+      why: 'The operator job is to separate placement logic from node-integrity evidence before taking action.',
+    },
+  ],
+  k8s: [
+    {
+      label: 'Not just a container image issue',
+      not: 'A pod starting poorly is not enough to blame the image or app.',
+      why: 'GPU scheduling in Kubernetes depends on device plugins, resource requests, and node state as well.',
+    },
+    {
+      label: 'Not a cluster-wide outage by default',
+      not: 'One Pending or CrashLooping GPU workload does not prove the whole cluster is broken.',
+      why: 'The first read is whether the problem belongs to the pod spec, device plumbing, or the selected node.',
+    },
+  ],
+};
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -219,6 +413,37 @@ function renderReasoningScorecard(scorecard, options = {}) {
               <strong>${item.status === 'strong' ? 'Strong' : item.status === 'good' ? 'Good' : 'Watch'}</strong>
             </div>
             <p>${escHtml(tightenDisplayCopy(item.text))}</p>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function getDifferentialDiagnosisEntries(labId, step) {
+  const entries = DIFFERENTIAL_DIAGNOSIS[labId] || [];
+  if (!entries.length) return [];
+  if (!step?.fault) return entries;
+  return entries.slice(0, 2);
+}
+
+function renderDifferentialDiagnosis(labId, step, options = {}) {
+  const entries = getDifferentialDiagnosisEntries(labId, step);
+  if (!entries.length) return '';
+  const title = options.title || 'Differential Diagnosis';
+  const subtitle = options.subtitle || 'Use these comparisons to keep the fault in the right layer and avoid the nearby wrong path.';
+  return `
+    <section class="differential-diagnosis">
+      <div class="differential-diagnosis-top">
+        <div class="differential-diagnosis-title">${escHtml(title)}</div>
+        <div class="differential-diagnosis-subtitle">${escHtml(subtitle)}</div>
+      </div>
+      <div class="differential-diagnosis-grid">
+        ${entries.map(entry => `
+          <article class="diagnosis-card">
+            <div class="diagnosis-card-title">${escHtml(entry.label)}</div>
+            <p><strong>Not this:</strong> ${escHtml(tightenDisplayCopy(entry.not))}</p>
+            <p><strong>Read instead:</strong> ${escHtml(tightenDisplayCopy(entry.why))}</p>
           </article>
         `).join('')}
       </div>
@@ -694,6 +919,9 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
   const scorecard = renderReasoningScorecard(getReasoningScorecardContext(currentLab, step), {
     subtitle: 'This rubric shows whether the user is identifying the right layer, grounding the diagnosis, and choosing a safe action.',
   });
+  const diagnosis = renderDifferentialDiagnosis(currentLab, step, {
+    subtitle: 'Use the nearby wrong paths to keep the screenshot evidence in the right fault family.',
+  });
 
   return `
     <div class="lab-step-coach-callout${step.fault ? ' err' : ''}">
@@ -711,6 +939,7 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
     </div>
     ${screenshotSection}
     ${scorecard}
+    ${diagnosis}
     ${step.screenshots && step.screenshots.length ? `
       <div class="lab-step-coach-section">
         <div class="lab-step-coach-section-title">How To Use The Snapshot</div>
@@ -1105,6 +1334,7 @@ function renderLabStepCoach() {
   const calloutClass = step.fault ? 'lab-step-coach-callout err' : 'lab-step-coach-callout';
   const scorecard = getReasoningScorecardContext(currentLab, step);
   reasoningScoreState.byLab[currentLab] = scorecard;
+  const diagnosis = renderDifferentialDiagnosis(currentLab, step);
 
   if (beginnerMode && step.explainerMode === 'beginner_story') {
     content.innerHTML = renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote);
@@ -1124,6 +1354,7 @@ function renderLabStepCoach() {
       <p>${escHtml(tightenDisplayCopy(useTip))}</p>
     </div>
     ${renderReasoningScorecard(scorecard)}
+    ${diagnosis}
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Command In Focus</div>
       <code class="lab-step-coach-code">${escHtml(step.cmd || '# simulated stage')}</code>
@@ -1217,8 +1448,12 @@ function renderGuidedStepDetails(step, prevStep) {
     : '';
   const engine = getExplainEngine();
   const coach = engine ? engine.renderStepCoach(step, prevStep, getExplanationOptions()) : '';
+  const diagnosis = renderDifferentialDiagnosis(currentLab, step, {
+    title: 'What This Is Not',
+    subtitle: 'Keep the current step separated from the nearby failure classes that can look similar at first glance.',
+  });
 
-  return [deeperContext, comparativeReasoning, lookFor, screenshots, screenshotUsage, meaning, action, avoid, coach].filter(Boolean).join('');
+  return [deeperContext, comparativeReasoning, diagnosis, lookFor, screenshots, screenshotUsage, meaning, action, avoid, coach].filter(Boolean).join('');
 }
 
 function renderGuidedFlowSteps(lab) {
@@ -1356,6 +1591,11 @@ function renderLearningGuide(id) {
     const glossaryNetwork = engine.renderGlossaryNetwork(guide.coreTerms || [], explainOptions);
     if (glossaryNetwork) sections.push(glossaryNetwork);
   }
+
+  const diagnosis = renderDifferentialDiagnosis(id, null, {
+    subtitle: 'This is the operator comparison layer: the closest wrong reads that beginners and rushed responders make in this lab family.',
+  });
+  if (diagnosis) sections.push(diagnosis);
 
   return sections.join('');
 }

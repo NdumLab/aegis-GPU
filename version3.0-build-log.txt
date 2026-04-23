@@ -24,3 +24,16 @@ Entry 1
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
     - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
     - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+
+Entry 2
+- Status: completed
+- Scope: implement Component 2 Differential Diagnosis Blocks, validate it, and prepare local-live deploy
+- Notes:
+  - Added shared lab-specific differential diagnosis comparisons across all 16 lab ids
+  - Rendered the comparison block in the lab coach, guided intro flow, and study guide surfaces
+  - Added frontend smoke coverage for the new diagnosis layer
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+    - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+    - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'

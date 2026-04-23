@@ -475,6 +475,17 @@ header h1 span { color: var(--green); }
 .reasoning-card-watch { border-color: rgba(240,180,41,.22); }
 .reasoning-card-watch .reasoning-card-head strong { color: var(--yellow); }
 
+/* ── V3: DIFFERENTIAL DIAGNOSIS ── */
+.differential-diagnosis { margin-bottom: 14px; padding: 12px; border: 1px solid rgba(74,158,255,.16); border-radius: 6px; background: linear-gradient(180deg, rgba(74,158,255,.05), rgba(11,18,28,.12)); }
+.differential-diagnosis-top { margin-bottom: 12px; }
+.differential-diagnosis-title { font-family: var(--font-mono); font-size: 10px; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+.differential-diagnosis-subtitle { color: var(--text); font-size: 11px; line-height: 1.6; }
+.differential-diagnosis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.diagnosis-card { padding: 10px; border-radius: 5px; border: 1px solid rgba(255,255,255,.08); background: rgba(11,18,28,.45); }
+.diagnosis-card-title { margin-bottom: 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--white); }
+.diagnosis-card p { margin: 0 0 8px; font-size: 11px; line-height: 1.65; color: var(--text); }
+.diagnosis-card p:last-child { margin-bottom: 0; }
+
 /* ── SVG DIAGRAM STYLES ── */
 .node-box { transition: all .2s; cursor: pointer; }
 .node-box:hover rect { filter: brightness(1.2); }
