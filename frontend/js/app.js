@@ -710,7 +710,7 @@ function renderTerminalSnapshot(snapshot) {
   const title = snapshot.title ? `<div class="lab-step-shot-title">${escHtml(snapshot.title)}</div>` : '';
   const points = beginnerMode ? getSnapshotPointsOfInterest(snapshot) : [];
   const captionText = shouldSuppressSnapshotCaption(snapshot, points) ? '' : (snapshot.caption || '');
-  const caption = captionText ? `<div class="lab-step-shot-caption">${escHtml(captionText)}</div>` : '';
+  const caption = captionText ? `<div class="lab-step-shot-caption">${escHtml(tightenDisplayCopy(captionText))}</div>` : '';
   const lines = snapshot.lines.map(line => `<div class="lab-step-shot-line">${escHtml(line)}</div>`).join('');
   return `
     <figure class="lab-step-shot-frame">
@@ -2086,7 +2086,7 @@ function openQuiz() {
     const explain = document.createElement('div');
     explain.className = 'quiz-explain';
     explain.id = `qe-${i}`;
-    explain.textContent = q.exp;
+    explain.textContent = tightenDisplayCopy(q.exp);
     question.appendChild(explain);
 
     el.appendChild(question);
