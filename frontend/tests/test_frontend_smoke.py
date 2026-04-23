@@ -17,6 +17,7 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('js/learning-part-1.js', INDEX)
         self.assertIn('js/render.js', INDEX)
         self.assertIn('toggle-incident-mode', INDEX)
+        self.assertIn('h-judgment', INDEX)
 
     def test_exam_prep_section_is_available(self):
         self.assertIn('id="btn-study"', INDEX)
@@ -50,6 +51,13 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('setIncidentMode', APP_JS)
         self.assertIn('renderIncidentModeBrief', APP_JS)
         self.assertIn('Incident Brief', APP_JS)
+
+    def test_reasoning_progress_is_available(self):
+        self.assertIn('loadReasoningProgress', APP_JS)
+        self.assertIn('recordLabReasoningProgress', APP_JS)
+        self.assertIn('recordQuizReasoningProgress', APP_JS)
+        self.assertIn('renderReasoningProgressSummary', APP_JS)
+        self.assertIn('Reasoning Progress', APP_JS)
 
     def test_frontend_uses_same_origin_api_prefix(self):
         self.assertIn('/api/v1', APP_JS)

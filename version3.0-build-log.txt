@@ -50,3 +50,16 @@ Entry 3
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
     - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
     - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+
+Entry 4
+- Status: completed
+- Scope: implement Component 4 Reasoning Analytics and Progress Model, validate it, and prepare local-live deploy
+- Notes:
+  - Added persistent step-level reasoning progress storage in localStorage
+  - Separated troubleshooting judgment tracking from quiz accuracy tracking
+  - Surfaced judgment in the header and detailed progress in the study guide
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+    - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+    - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'

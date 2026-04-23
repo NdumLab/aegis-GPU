@@ -39,6 +39,7 @@ let reasoningScoreState = {
   byLab: {},
   lastQuiz: null,
 };
+let reasoningProgress = loadReasoningProgress();
 const DIFFERENTIAL_DIAGNOSIS = {
   ecc: [
     {
@@ -238,6 +239,19 @@ function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
 }
 
+function loadReasoningProgress() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('gpusim_reasoning_progress') || '{}');
+    return {
+      steps: parsed.steps || {},
+      quizzes: Array.isArray(parsed.quizzes) ? parsed.quizzes : [],
+    };
+  } catch (e) {
+    localStorage.removeItem('gpusim_reasoning_progress');
+    return { steps: {}, quizzes: [] };
+  }
+}
+
 function showLoginOverlay() {
   const el = document.getElementById('login-overlay');
   if (el) el.style.display = 'flex';
@@ -417,6 +431,120 @@ function renderReasoningScorecard(scorecard, options = {}) {
           </article>
         `).join('')}
       </div>
+    </section>
+  `;
+}
+
+function getReasoningStatusValue(status) {
+  return status === 'strong' ? 2 : status === 'good' ? 1 : 0;
+}
+
+function persistReasoningProgress() {
+  localStorage.setItem('gpusim_reasoning_progress', JSON.stringify(reasoningProgress));
+}
+
+function getReasoningProgressSummary() {
+  const stepEntries = Object.values(reasoningProgress.steps || {});
+  const categoryTotals = {};
+  let totalScore = 0;
+  let totalMax = 0;
+
+  stepEntries.forEach(entry => {
+    totalScore += entry.score || 0;
+    totalMax += entry.maxScore || 0;
+    (entry.categories || []).forEach(category => {
+      if (!categoryTotals[category.key]) categoryTotals[category.key] = { total: 0, max: 0, count: 0, label: category.label };
+      categoryTotals[category.key].total += category.value;
+      categoryTotals[category.key].max += 2;
+      categoryTotals[category.key].count += 1;
+    });
+  });
+
+  const categoryAverages = Object.entries(categoryTotals).map(([key, value]) => ({
+    key,
+    label: value.label,
+    pct: value.max ? Math.round((value.total / value.max) * 100) : 0,
+  }));
+  const quizAttempts = reasoningProgress.quizzes || [];
+  const lastQuiz = quizAttempts.length ? quizAttempts[quizAttempts.length - 1] : null;
+  const avgQuiz = quizAttempts.length
+    ? Math.round(quizAttempts.reduce((sum, item) => sum + item.pct, 0) / quizAttempts.length)
+    : null;
+
+  return {
+    judgmentPct: totalMax ? Math.round((totalScore / totalMax) * 100) : null,
+    completedSteps: stepEntries.length,
+    categoryAverages,
+    lastQuizPct: lastQuiz ? lastQuiz.pct : null,
+    avgQuizPct: avgQuiz,
+    quizAttempts: quizAttempts.length,
+  };
+}
+
+function updateReasoningProgressUI() {
+  const summary = getReasoningProgressSummary();
+  const el = document.getElementById('h-judgment');
+  if (el) el.textContent = summary.judgmentPct === null ? '—' : `${summary.judgmentPct}%`;
+}
+
+function recordLabReasoningProgress(labId, stepIdx, scorecard) {
+  if (!labId || typeof stepIdx !== 'number' || !scorecard) return;
+  reasoningProgress.steps[`${labId}:${stepIdx}`] = {
+    score: scorecard.score,
+    maxScore: scorecard.maxScore,
+    categories: scorecard.categories.map(category => ({
+      key: category.key,
+      label: category.label,
+      value: getReasoningStatusValue(category.status),
+    })),
+  };
+  persistReasoningProgress();
+  updateReasoningProgressUI();
+}
+
+function recordQuizReasoningProgress(pct, scorecard) {
+  reasoningProgress.quizzes.push({
+    pct,
+    score: scorecard?.score || 0,
+    maxScore: scorecard?.maxScore || 0,
+    ts: Date.now(),
+  });
+  reasoningProgress.quizzes = reasoningProgress.quizzes.slice(-20);
+  persistReasoningProgress();
+  updateReasoningProgressUI();
+}
+
+function renderReasoningProgressSummary() {
+  const summary = getReasoningProgressSummary();
+  if (summary.judgmentPct === null && summary.lastQuizPct === null) return '';
+  return `
+    <section class="learn-section study-progress">
+      <div class="learn-heading-row">
+        <h4>Reasoning Progress</h4>
+        <span class="learn-mode-tag">v3 analytics</span>
+      </div>
+      <div class="study-progress-grid">
+        <article class="study-progress-card">
+          <div class="study-mini-title">Troubleshooting judgment</div>
+          <div class="study-progress-value">${summary.judgmentPct === null ? '—' : `${summary.judgmentPct}%`}</div>
+          <p>${summary.completedSteps} guided steps have stored reasoning snapshots.</p>
+        </article>
+        <article class="study-progress-card">
+          <div class="study-mini-title">Quiz accuracy</div>
+          <div class="study-progress-value">${summary.lastQuizPct === null ? '—' : `${summary.lastQuizPct}%`}</div>
+          <p>${summary.quizAttempts ? `Average across ${summary.quizAttempts} attempts: ${summary.avgQuizPct}%.` : 'No quiz attempt recorded yet.'}</p>
+        </article>
+      </div>
+      ${summary.categoryAverages.length ? `
+        <div class="study-progress-breakdown">
+          ${summary.categoryAverages.map(item => `
+            <div class="study-progress-chip">
+              <strong>${escHtml(item.label)}</strong>
+              <span>${item.pct}%</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </section>
   `;
 }
@@ -1944,6 +2072,7 @@ function runStep(labId, stepIdx) {
   updateMetrics(labId, stepIdx, step);
   addXIDLog(labId, stepIdx, step);
   renderLabStepCoach();
+  recordLabReasoningProgress(labId, stepIdx, getReasoningScorecardContext(labId, step));
 
   // Sprint 18: Surface AIOps Engine for fault steps
   const aiFaultTargets = {
@@ -2314,6 +2443,8 @@ function renderStudyGuide(examId = 'nca_aiio') {
       <p>${escHtml(tightenDisplayCopy(guide.examShape))}</p>
     </section>
 
+    ${renderReasoningProgressSummary()}
+
     <section class="learn-section study-model">
       <div class="learn-heading-row">
         <h4>The Chain To Remember</h4>
@@ -2603,6 +2734,7 @@ function submitQuiz() {
     ],
   };
   reasoningScoreState.lastQuiz = quizScorecard;
+  recordQuizReasoningProgress(pct, quizScorecard);
   document.getElementById('quiz-result').innerHTML = `
     <div class="quiz-score">
       <span class="score-num">${pct}%</span>
@@ -2886,6 +3018,7 @@ function initApp() {
   }
   const _savedScore = localStorage.getItem('gpusim_score');
   if (_savedScore) document.getElementById('h-score').textContent = _savedScore + '%';
+  updateReasoningProgressUI();
 
   // Attach Terminal listener once per session bootstrap
   if (!_appInitialized) {

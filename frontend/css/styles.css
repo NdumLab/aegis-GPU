@@ -497,6 +497,15 @@ header h1 span { color: var(--green); }
 .incident-brief-card p:last-child { margin-bottom: 0; }
 .incident-brief-list { margin: 0; }
 
+/* ── V3: REASONING PROGRESS ── */
+.study-progress-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+.study-progress-card { padding: 12px; border-radius: 6px; border: 1px solid rgba(118,185,0,.16); background: rgba(11,18,28,.42); }
+.study-progress-value { margin: 8px 0; font-family: var(--font-disp); font-size: 28px; line-height: 1; color: var(--white); }
+.study-progress-card p { margin: 0; font-size: 11px; line-height: 1.6; color: var(--text); }
+.study-progress-breakdown { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.study-progress-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(74,158,255,.18); background: rgba(74,158,255,.06); font-size: 11px; color: var(--text); }
+.study-progress-chip strong { font-family: var(--font-mono); font-size: 10px; color: var(--white); }
+
 /* ── SVG DIAGRAM STYLES ── */
 .node-box { transition: all .2s; cursor: pointer; }
 .node-box:hover rect { filter: brightness(1.2); }
