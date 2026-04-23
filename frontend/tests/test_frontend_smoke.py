@@ -24,6 +24,14 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('EXAM_STUDY_GUIDES', APP_JS)
         self.assertIn('NVIDIA-Certified Associate: AI Infrastructure and Operations', APP_JS)
 
+    def test_overlay_popouts_are_available(self):
+        self.assertIn('id="btn-popout-intro"', INDEX)
+        self.assertIn('id="btn-popout-study"', INDEX)
+        self.assertIn('id="btn-popout-quiz"', INDEX)
+        self.assertIn("openDetachedPanel('introOverlay')", APP_JS)
+        self.assertIn("openDetachedPanel('studyOverlay')", APP_JS)
+        self.assertIn("openDetachedPanel('quizOverlay')", APP_JS)
+
     def test_frontend_uses_same_origin_api_prefix(self):
         self.assertIn('/api/v1', APP_JS)
         self.assertRegex(APP_JS, r'API_BASE\s*=')

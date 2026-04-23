@@ -230,6 +230,17 @@ function syncDetachedPanelButtons() {
     coachBtn.classList.toggle('active', isDetachedPanelOpen('stepCoach'));
     coachBtn.textContent = isDetachedPanelOpen('stepCoach') ? 'Detached' : 'Pop out';
   }
+  ['introOverlay', 'studyOverlay', 'quizOverlay'].forEach(kind => {
+    const id = kind === 'introOverlay'
+      ? 'btn-popout-intro'
+      : kind === 'studyOverlay'
+        ? 'btn-popout-study'
+        : 'btn-popout-quiz';
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.classList.toggle('active', isDetachedPanelOpen(kind));
+    btn.textContent = isDetachedPanelOpen(kind) ? 'Detached' : 'Pop out';
+  });
 }
 
 function getDetachedPanelSnapshot(kind) {
@@ -239,6 +250,60 @@ function getDetachedPanelSnapshot(kind) {
       kicker: 'Telemetry Guide',
       shellClass: 'metric-group live-explainer',
       bodyHtml: document.getElementById('live-explainer-body')?.innerHTML || '<p>Live explanation is unavailable.</p>',
+    };
+  }
+
+  if (kind === 'introOverlay') {
+    return {
+      title: document.querySelector('#intro-content h2')?.textContent || 'Lab Guide',
+      shellClass: 'panel lab-intro detached-overlay-panel',
+      bodyHtml: `
+        <div class="panel-tools">
+          <button class="panel-popout-btn" id="btn-detached-focus-main" type="button">Focus App</button>
+          <button class="close-btn" id="btn-detached-close" type="button">✕</button>
+        </div>
+        ${document.getElementById('intro-content')?.innerHTML || '<p>Lab guide is unavailable.</p>'}
+        <div style="display:flex;gap:8px;margin-top:20px">
+          <button class="btn-sm" id="btn-detached-intro-skip" type="button">Skip Intro</button>
+          <button class="btn-sm primary" id="btn-detached-intro-start" type="button">▶ Start Lab</button>
+        </div>
+      `,
+    };
+  }
+
+  if (kind === 'studyOverlay') {
+    return {
+      title: document.querySelector('#study-panel h2')?.textContent || 'Exam Prep',
+      shellClass: 'panel study-panel detached-overlay-panel',
+      bodyHtml: `
+        <div class="panel-tools">
+          <button class="panel-popout-btn" id="btn-detached-focus-main" type="button">Focus App</button>
+          <button class="close-btn" id="btn-detached-close" type="button">✕</button>
+        </div>
+        <div class="study-panel-header">
+          <h2>${escHtml(document.querySelector('#study-panel h2')?.textContent || 'NVIDIA Exam Prep')}</h2>
+          <p>${escHtml(document.getElementById('study-panel-subtitle')?.textContent || '')}</p>
+        </div>
+        ${document.getElementById('study-content')?.innerHTML || '<p>Study guide unavailable.</p>'}
+      `,
+    };
+  }
+
+  if (kind === 'quizOverlay') {
+    return {
+      title: document.querySelector('#quiz-panel h2')?.textContent || 'Practice Quiz',
+      shellClass: 'panel quiz-panel detached-overlay-panel',
+      bodyHtml: `
+        <div class="panel-tools">
+          <button class="panel-popout-btn" id="btn-detached-focus-main" type="button">Focus App</button>
+          <button class="close-btn" id="btn-detached-close" type="button">✕</button>
+        </div>
+        <div class="quiz-panel-header">
+          <h2>${escHtml(document.querySelector('#quiz-panel h2')?.textContent || 'NCA-AIIO Practice Quiz')}</h2>
+          <p>${escHtml(document.querySelector('#quiz-panel .quiz-panel-header p')?.textContent || '')}</p>
+        </div>
+        ${document.getElementById('quiz-content')?.innerHTML || '<p>Quiz unavailable.</p>'}
+      `,
     };
   }
 
@@ -295,7 +360,7 @@ function renderDetachedPanel(kind) {
         <div class="live-explainer-body">${snapshot.bodyHtml}</div>
       </section>
     `;
-  } else {
+  } else if (kind === 'stepCoach') {
     root.innerHTML = `
       <section class="${snapshot.shellClass}">
         <div class="lab-step-coach-topbar">
@@ -308,15 +373,60 @@ function renderDetachedPanel(kind) {
         <div class="lab-step-coach-content">${snapshot.bodyHtml}</div>
       </section>
     `;
+  } else {
+    root.innerHTML = `<section class="${snapshot.shellClass}">${snapshot.bodyHtml}</section>`;
   }
 
   const focusBtn = doc.getElementById('btn-detached-focus-main');
   if (focusBtn) focusBtn.onclick = () => window.focus();
+  const closeBtn = doc.getElementById('btn-detached-close');
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      if (kind === 'introOverlay') closeIntro();
+      if (kind === 'studyOverlay') closeStudyGuide();
+      if (kind === 'quizOverlay') closeQuiz();
+      win.close();
+    };
+  }
+  if (kind === 'introOverlay') {
+    const skipBtn = doc.getElementById('btn-detached-intro-skip');
+    if (skipBtn) skipBtn.onclick = () => { closeIntro(); win.close(); };
+    const startBtn = doc.getElementById('btn-detached-intro-start');
+    if (startBtn) startBtn.onclick = () => { startLab(); win.close(); };
+  }
+  if (kind === 'studyOverlay') {
+    const detachedStudyRoot = doc.querySelector('.detached-overlay-panel');
+    if (detachedStudyRoot) detachedStudyRoot.onclick = event => {
+      const labLink = event.target.closest('[data-study-lab]');
+      if (!labLink) return;
+      openStudyLab(labLink.dataset.studyLab);
+      win.close();
+    };
+  }
+  if (kind === 'quizOverlay') {
+    const detachedQuizRoot = doc.querySelector('.detached-overlay-panel');
+    if (detachedQuizRoot) detachedQuizRoot.onclick = event => {
+      const option = event.target.closest('.quiz-option[data-quiz-question]');
+      if (option) {
+        selectAnswer(Number(option.dataset.quizQuestion), Number(option.dataset.quizOption));
+        renderDetachedPanel('quizOverlay');
+        return;
+      }
+      const action = event.target.closest('[data-quiz-action]');
+      if (!action) return;
+      if (action.dataset.quizAction === 'submit') submitQuiz();
+      if (action.dataset.quizAction === 'reset') resetQuiz();
+      renderDetachedPanel('quizOverlay');
+    };
+  }
 }
 
 function syncDetachedPanels() {
   renderDetachedPanel('liveExplainer');
   renderDetachedPanel('stepCoach');
+  renderDetachedPanel('introOverlay');
+  renderDetachedPanel('studyOverlay');
+  renderDetachedPanel('quizOverlay');
 }
 
 function openDetachedPanel(kind) {
@@ -328,7 +438,11 @@ function openDetachedPanel(kind) {
     return;
   }
 
-  const width = kind === 'liveExplainer' ? 560 : 720;
+  const width = kind === 'liveExplainer'
+    ? 560
+    : kind === 'stepCoach'
+      ? 720
+      : 980;
   const height = kind === 'liveExplainer' ? 860 : 980;
   const left = window.screenX + 80;
   const top = window.screenY + 60;
@@ -1595,6 +1709,7 @@ function showIntro(id) {
     </section>
   `;
   document.getElementById('intro-overlay').classList.add('show');
+  renderDetachedPanel('introOverlay');
 }
 
 function closeIntro() {
@@ -1796,6 +1911,7 @@ function openStudyGuide(examId = 'nca_aiio') {
   if (!content) return;
   content.innerHTML = renderStudyGuide(examId);
   document.getElementById('study-overlay')?.classList.add('show');
+  renderDetachedPanel('studyOverlay');
 }
 
 function closeStudyGuide() {
@@ -1970,6 +2086,7 @@ function openQuiz() {
   el.appendChild(actions);
   el.appendChild(result);
   document.getElementById('quiz-overlay').classList.add('show');
+  renderDetachedPanel('quizOverlay');
 }
 
 function selectAnswer(qi, optIdx) {
@@ -1978,6 +2095,7 @@ function selectAnswer(qi, optIdx) {
   document.querySelectorAll(`[id^="qo-${qi}-"]`).forEach(el=>el.classList.remove('selected'));
   document.getElementById(`qo-${qi}-${optIdx}`).classList.add('selected');
   document.getElementById('quiz-progress').textContent = `${Object.keys(quizState.answers).length}/${QUIZ.length} answered`;
+  renderDetachedPanel('quizOverlay');
 }
 
 function submitQuiz() {
@@ -1995,6 +2113,7 @@ function submitQuiz() {
   document.getElementById('quiz-result').innerHTML = `<div class="quiz-score"><span class="score-num">${pct}%</span></div>`;
   document.getElementById('h-score').textContent = pct+'%';
   localStorage.setItem('gpusim_score', pct);
+  renderDetachedPanel('quizOverlay');
 }
 
 function resetQuiz() { quizState = {}; openQuiz(); }
@@ -2132,6 +2251,9 @@ function bindUIHandlers() {
   on('btn-close-coach', 'click', () => setLabCoachOpen(false));
   on('btn-popout-coach', 'click', () => openDetachedPanel('stepCoach'));
   on('btn-popout-live-explainer', 'click', () => openDetachedPanel('liveExplainer'));
+  on('btn-popout-intro', 'click', () => openDetachedPanel('introOverlay'));
+  on('btn-popout-study', 'click', () => openDetachedPanel('studyOverlay'));
+  on('btn-popout-quiz', 'click', () => openDetachedPanel('quizOverlay'));
   const coachEl = document.getElementById('lab-step-coach');
   if (coachEl) coachEl.addEventListener('click', handleLabCoachClick);
 
