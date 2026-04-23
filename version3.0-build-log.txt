@@ -37,3 +37,16 @@ Entry 2
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
     - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
     - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+
+Entry 3
+- Status: completed
+- Scope: implement Component 3 Incident Mode, validate it, and prepare local-live deploy
+- Notes:
+  - Added a persisted Incident Mode toggle in the main toolbar
+  - Added reduced-scaffolding incident brief rendering for study and lab-coach surfaces
+  - Added frontend smoke coverage for incident mode wiring
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+    - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+    - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'

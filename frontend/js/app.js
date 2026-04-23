@@ -22,6 +22,7 @@ let _uiHandlersBound = false;
 let lastLiveTelemetry = null;
 let beginnerMode = localStorage.getItem('gpusim_beginner_mode');
 beginnerMode = beginnerMode === null ? true : beginnerMode === 'true';
+let incidentMode = localStorage.getItem('gpusim_incident_mode') === 'true';
 let explanationLevel = localStorage.getItem('gpusim_explain_level') || 'beginner';
 let explanationRole = localStorage.getItem('gpusim_explain_role') || 'cluster_operator';
 let llmDiagnosisEnabled = localStorage.getItem('gpusim_allow_llm_diagnosis');
@@ -451,6 +452,46 @@ function renderDifferentialDiagnosis(labId, step, options = {}) {
   `;
 }
 
+function getIncidentModeContext(labId, step) {
+  const guide = labId ? getLearningGuide(labId) : null;
+  const clues = step ? getKeyOutputClues(step).slice(0, 2).map(item => item.text) : [];
+  const observations = step?.lookFor?.slice(0, 2) || [];
+  const evidence = clues.length ? clues : observations.length ? observations : (guide?.watchFor || []).slice(0, 2);
+  const safeMove = step?.takeAction?.[0] || guide?.safeActions?.[0] || 'Keep the node in observation mode until the owning layer is clear.';
+  const unproven = step?.stillPremature || guide?.commonMisreads?.[0] || 'Do not collapse this incident into the first explanation that sounds plausible.';
+  const brief = step?.fault
+    ? 'Treat this stage as an active incident signal: preserve the evidence, isolate the owning layer, and avoid broad fixes.'
+    : 'Treat this stage as an incident baseline: decide what looks healthy now so later degradation is easier to justify.';
+  return { evidence, safeMove, unproven, brief };
+}
+
+function renderIncidentModeBrief(labId, step, options = {}) {
+  const context = getIncidentModeContext(labId, step);
+  const title = options.title || 'Incident Brief';
+  const subtitle = options.subtitle || 'Reduced guidance mode: what is known, what is still open, and the next safe move.';
+  return `
+    <section class="incident-brief">
+      <div class="incident-brief-title">${escHtml(title)}</div>
+      <div class="incident-brief-subtitle">${escHtml(subtitle)}</div>
+      <div class="incident-brief-grid">
+        <article class="incident-brief-card">
+          <div class="incident-brief-card-title">Known Now</div>
+          ${renderBulletList(context.evidence.length ? context.evidence : ['Collect one confirming clue before deciding the fault family.'], 'incident-brief-list')}
+        </article>
+        <article class="incident-brief-card">
+          <div class="incident-brief-card-title">Still Unproven</div>
+          <p>${escHtml(tightenDisplayCopy(context.unproven))}</p>
+        </article>
+        <article class="incident-brief-card">
+          <div class="incident-brief-card-title">Next Safe Move</div>
+          <p>${escHtml(tightenDisplayCopy(context.safeMove))}</p>
+          <p>${escHtml(tightenDisplayCopy(context.brief))}</p>
+        </article>
+      </div>
+    </section>
+  `;
+}
+
 function getLearningGuide(id) {
   const guides = window.AEGIS_LEARNING || {};
   return guides[id] || null;
@@ -463,6 +504,7 @@ function getExplainEngine() {
 function getExplanationOptions() {
   return {
     beginnerMode,
+    incidentMode,
     level: explanationLevel,
     role: explanationRole,
   };
@@ -471,6 +513,8 @@ function getExplanationOptions() {
 function syncBeginnerModeUI() {
   const toggle = document.getElementById('toggle-beginner');
   if (toggle) toggle.checked = beginnerMode;
+  const incidentToggle = document.getElementById('toggle-incident-mode');
+  if (incidentToggle) incidentToggle.checked = incidentMode;
   const levelSel = document.getElementById('sel-explain-level');
   if (levelSel) levelSel.value = explanationLevel;
   const roleSel = document.getElementById('sel-explain-role');
@@ -503,6 +547,13 @@ function refreshExplanationSurfaces() {
 function setBeginnerMode(enabled) {
   beginnerMode = !!enabled;
   localStorage.setItem('gpusim_beginner_mode', beginnerMode ? 'true' : 'false');
+  syncBeginnerModeUI();
+  refreshExplanationSurfaces();
+}
+
+function setIncidentMode(enabled) {
+  incidentMode = !!enabled;
+  localStorage.setItem('gpusim_incident_mode', incidentMode ? 'true' : 'false');
   syncBeginnerModeUI();
   refreshExplanationSurfaces();
 }
@@ -1335,9 +1386,43 @@ function renderLabStepCoach() {
   const scorecard = getReasoningScorecardContext(currentLab, step);
   reasoningScoreState.byLab[currentLab] = scorecard;
   const diagnosis = renderDifferentialDiagnosis(currentLab, step);
+  const incidentBrief = renderIncidentModeBrief(currentLab, step);
 
   if (beginnerMode && step.explainerMode === 'beginner_story') {
     content.innerHTML = renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote);
+    content.scrollTop = 0;
+    syncDetachedPanels();
+    return;
+  }
+
+  if (incidentMode) {
+    content.innerHTML = `
+      <div class="${calloutClass}">
+        <p><strong>Incident goal:</strong> ${escHtml(describeStepCommand(step))}</p>
+        <p>${escHtml(tightenDisplayCopy('Use only the evidence on screen, keep the layer call narrow, and avoid any fix you cannot justify yet.'))}</p>
+      </div>
+      ${renderReasoningScorecard(scorecard, {
+        subtitle: 'Incident mode scores the diagnosis on evidence control, layer ownership, and safe movement under uncertainty.',
+      })}
+      ${incidentBrief}
+      ${diagnosis}
+      <div class="lab-step-coach-section">
+        <div class="lab-step-coach-section-title">Command In Focus</div>
+        <code class="lab-step-coach-code">${escHtml(step.cmd || '# simulated stage')}</code>
+      </div>
+      ${renderStepScreenshots(step)}
+      ${outputClues.length ? `
+        <div class="lab-step-coach-section">
+          <div class="lab-step-coach-section-title">Visible Evidence</div>
+          ${outputClues.map(clue => `
+            <div class="lab-step-coach-clue">
+              <div class="lab-step-coach-clue-line">${escHtml(clue.text)}</div>
+              <div class="lab-step-coach-clue-meaning">${escHtml(clue.meaning)}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    `;
     content.scrollTop = 0;
     syncDetachedPanels();
     return;
@@ -1490,6 +1575,11 @@ function renderLearningGuide(id) {
   const explainOptions = getExplanationOptions();
   const sections = [];
   if (engine) sections.push(engine.renderProfileBanner(explainOptions));
+  if (incidentMode) {
+    sections.push(renderIncidentModeBrief(id, null, {
+      subtitle: 'Incident mode keeps the lab brief shorter and pushes the user toward evidence, uncertainty, and safe action.',
+    }));
+  }
   sections.push(`
     <section class="learn-section learn-callout">
       <h4>Quick Answer</h4>
@@ -1497,7 +1587,7 @@ function renderLearningGuide(id) {
     </section>
   `);
 
-  if (beginnerMode && guide.whyItMatters) {
+  if (!incidentMode && beginnerMode && guide.whyItMatters) {
     sections.push(`
       <section class="learn-section">
         <h4>Why This Matters</h4>
@@ -1506,7 +1596,7 @@ function renderLearningGuide(id) {
     `);
   }
 
-  if (guide.coreTerms && guide.coreTerms.length) {
+  if (!incidentMode && guide.coreTerms && guide.coreTerms.length) {
     sections.push(`
       <section class="learn-section">
         <div class="learn-heading-row">
@@ -1526,7 +1616,7 @@ function renderLearningGuide(id) {
     `);
   }
 
-  if (beginnerMode && guide.lifecycle && guide.lifecycle.length) {
+  if (!incidentMode && beginnerMode && guide.lifecycle && guide.lifecycle.length) {
     sections.push(`
       <section class="learn-section">
         <h4>Lifecycle</h4>
@@ -1542,7 +1632,7 @@ function renderLearningGuide(id) {
     `);
   }
 
-  if (beginnerMode && guide.watchFor && guide.watchFor.length) {
+  if (!incidentMode && beginnerMode && guide.watchFor && guide.watchFor.length) {
     sections.push(`
       <section class="learn-section">
         <h4>What To Watch</h4>
@@ -1560,7 +1650,7 @@ function renderLearningGuide(id) {
     `);
   }
 
-  if (beginnerMode && guide.whatNotToDo && guide.whatNotToDo.length) {
+  if (!incidentMode && beginnerMode && guide.whatNotToDo && guide.whatNotToDo.length) {
     sections.push(`
       <section class="learn-section">
         <h4>What Not To Do</h4>
@@ -1569,7 +1659,7 @@ function renderLearningGuide(id) {
     `);
   }
 
-  if (beginnerMode && guide.escalateWhen && guide.escalateWhen.length) {
+  if (!incidentMode && beginnerMode && guide.escalateWhen && guide.escalateWhen.length) {
     sections.push(`
       <section class="learn-section">
         <h4>Escalate When</h4>
@@ -1578,7 +1668,7 @@ function renderLearningGuide(id) {
     `);
   }
 
-  if (beginnerMode && guide.readMore && guide.readMore.length) {
+  if (!incidentMode && beginnerMode && guide.readMore && guide.readMore.length) {
     sections.push(`
       <section class="learn-section">
         <h4>Read This Slowly</h4>
@@ -1587,7 +1677,7 @@ function renderLearningGuide(id) {
     `);
   }
 
-  if (engine) {
+  if (!incidentMode && engine) {
     const glossaryNetwork = engine.renderGlossaryNetwork(guide.coreTerms || [], explainOptions);
     if (glossaryNetwork) sections.push(glossaryNetwork);
   }
@@ -2056,7 +2146,9 @@ function showIntro(id) {
   if (!lab || !el) return;
 
   const guideMarkup = renderLearningGuide(id);
-  const modeNote = guide?.hideModeNote ? '' : (beginnerMode
+  const modeNote = incidentMode
+    ? '<div class="learn-banner learn-banner-compact"><div class="learn-banner-title">Incident Mode is on</div><p>This lab is now using reduced scaffolding. Focus on what is known, what is still unproven, and the next safe move.</p></div>'
+    : guide?.hideModeNote ? '' : (beginnerMode
     ? '<div class="learn-banner"><div class="learn-banner-title">Beginner Mode is on</div><p>Real operator jargon stays visible, but each term is explained in plain language so you build vocabulary while you learn.</p></div>'
     : '<div class="learn-banner learn-banner-compact"><div class="learn-banner-title">Compact lab brief</div><p>Turn on Beginner Mode for deeper explanations, lifecycle context, and slower reading material.</p></div>');
   const objectiveTitle = guide?.objectiveTitle || 'Objective';
@@ -2654,6 +2746,7 @@ function bindUIHandlers() {
   on('btn-logout',  'click', aegisLogout);
   on('btn-reset',   'click', resetAll);
   on('toggle-beginner', 'change', e => setBeginnerMode(e.target.checked));
+  on('toggle-incident-mode', 'change', e => setIncidentMode(e.target.checked));
   on('toggle-llm-diagnosis', 'change', e => setLLMDiagnosisEnabled(e.target.checked));
   on('sel-explain-level', 'change', e => setExplanationLevel(e.target.value));
   on('sel-explain-role', 'change', e => setExplanationRole(e.target.value));

@@ -486,6 +486,17 @@ header h1 span { color: var(--green); }
 .diagnosis-card p { margin: 0 0 8px; font-size: 11px; line-height: 1.65; color: var(--text); }
 .diagnosis-card p:last-child { margin-bottom: 0; }
 
+/* ── V3: INCIDENT MODE ── */
+.incident-brief { margin-bottom: 14px; padding: 12px; border: 1px solid rgba(240,180,41,.2); border-radius: 6px; background: linear-gradient(180deg, rgba(240,180,41,.05), rgba(11,18,28,.12)); }
+.incident-brief-title { font-family: var(--font-mono); font-size: 10px; color: var(--yellow); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+.incident-brief-subtitle { margin-bottom: 12px; color: var(--text); font-size: 11px; line-height: 1.6; }
+.incident-brief-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.incident-brief-card { padding: 10px; border-radius: 5px; border: 1px solid rgba(255,255,255,.08); background: rgba(11,18,28,.45); }
+.incident-brief-card-title { margin-bottom: 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--white); }
+.incident-brief-card p { margin: 0 0 8px; font-size: 11px; line-height: 1.65; color: var(--text); }
+.incident-brief-card p:last-child { margin-bottom: 0; }
+.incident-brief-list { margin: 0; }
+
 /* ── SVG DIAGRAM STYLES ── */
 .node-box { transition: all .2s; cursor: pointer; }
 .node-box:hover rect { filter: brightness(1.2); }
