@@ -68,6 +68,9 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('chooseIncidentBranch', APP_JS)
         self.assertIn('renderConsequenceBranch', APP_JS)
         self.assertIn('getBranchConsequenceContext', APP_JS)
+        self.assertIn('isBranchDetourPending', APP_JS)
+        self.assertIn('runBranchDetour', APP_JS)
+        self.assertIn('Route Change Pending', APP_JS)
         self.assertIn('Branch consequence', APP_JS)
         self.assertIn('Decision Drill', APP_JS)
 

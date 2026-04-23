@@ -525,6 +525,10 @@ header h1 span { color: var(--green); }
 .consequence-outcome-bad { border-color: rgba(224,82,82,.24); }
 .consequence-outcome-bad .consequence-outcome-title { color: var(--red); }
 .consequence-outcome-idle .consequence-outcome-title { color: var(--dim); }
+.branch-route-status { margin-bottom: 14px; padding: 10px 12px; border: 1px solid rgba(244,162,97,.14); border-radius: 6px; background: rgba(244,162,97,.04); }
+.branch-route-status-title { margin-bottom: 6px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--copper); }
+.branch-route-status p { margin: 0 0 6px; font-size: 11px; line-height: 1.6; color: var(--text); }
+.branch-route-status p:last-child { margin-bottom: 0; }
 
 /* ── SVG DIAGRAM STYLES ── */
 .node-box { transition: all .2s; cursor: pointer; }

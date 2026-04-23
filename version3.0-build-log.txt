@@ -91,9 +91,10 @@ Entry 6
   - Added persistent local branching state and reset handling
   - Extended branching so prior weak or bad choices alter later terminal output, metrics, and event log state in the same lab
   - Extended branching so prior weak or bad choices also reduce judgment progress and mark end-of-lab outcomes as compromised instead of clean
+  - Added branch-aware next-step routing so weak or bad choices force a recovery detour before the lab can advance
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260423v3d
-    - js/app.js?v=20260423v3d
+    - css/styles.css?v=20260423v3e
+    - js/app.js?v=20260423v3e
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'

@@ -752,8 +752,20 @@ function getBranchingKey(labId, stepIdx) {
   return `${labId}:${stepIdx}`;
 }
 
+function getBranchMetaKey(labId, stepIdx, suffix) {
+  return `${labId}:${stepIdx}:${suffix}`;
+}
+
 function getConsequenceBranch(labId, step) {
   return CONSEQUENCE_BRANCHES[getBranchingFamily(labId, step)] || CONSEQUENCE_BRANCHES.general_diagnosis;
+}
+
+function getSelectedBranchChoice(labId, stepIdx) {
+  if (!labId || typeof stepIdx !== 'number' || stepIdx < 0) return null;
+  const step = LABS[labId]?.steps?.[stepIdx];
+  const branch = getConsequenceBranch(labId, step);
+  const choiceId = branchingState[getBranchingKey(labId, stepIdx)];
+  return branch.choices.find(item => item.id === choiceId) || null;
 }
 
 function getSelectedBranchChoicesForLab(labId, maxStepIdx = Infinity) {
@@ -808,6 +820,59 @@ function getBranchPenaltyMessages(labId, stepIdx) {
   return messages;
 }
 
+function isBranchDetourPending(labId, stepIdx) {
+  const choice = getSelectedBranchChoice(labId, stepIdx);
+  if (!choice || choice.effect === 'best') return false;
+  return branchingState[getBranchMetaKey(labId, stepIdx, 'detour_done')] !== true;
+}
+
+function markBranchDetourDone(labId, stepIdx) {
+  branchingState[getBranchMetaKey(labId, stepIdx, 'detour_done')] = true;
+  persistBranchingState();
+}
+
+function getBranchDetourMessage(labId, stepIdx) {
+  const choice = getSelectedBranchChoice(labId, stepIdx);
+  const domain = getBranchConsequenceContext(labId, stepIdx).dominantDomain;
+  if (!choice) return null;
+  if (domain === 'fault_isolation') {
+    return choice.effect === 'bad'
+      ? 'Recovery detour: re-establish containment, stop new workload placement, and rebuild the evidence trail before advancing.'
+      : 'Recovery detour: confirm containment now so the next step starts from a controlled incident state.';
+  }
+  if (domain === 'fabric_path') {
+    return choice.effect === 'bad'
+      ? 'Recovery detour: verify the transport path and clear the wrong-layer tuning loop before the lab proceeds.'
+      : 'Recovery detour: confirm the communication route so the next stage is grounded in path evidence instead of guesswork.';
+  }
+  if (domain === 'runtime_delivery') {
+    return choice.effect === 'bad'
+      ? 'Recovery detour: re-narrow the broken boundary before any more stack changes accumulate.'
+      : 'Recovery detour: validate the software contract edge so the next step is not built on a vague layer call.';
+  }
+  if (domain === 'platform_efficiency') {
+    return choice.effect === 'bad'
+      ? 'Recovery detour: trace the feed path first and stop treating compute settings as the primary fix.'
+      : 'Recovery detour: re-check the upstream bottleneck so the next stage is not measured on a distorted baseline.';
+  }
+  return choice.effect === 'bad'
+    ? 'Recovery detour: collect a stronger clue and unwind the earlier over-broad move before continuing.'
+    : 'Recovery detour: resolve the ambiguity before the lab advances.';
+}
+
+function renderBranchRouteStatus(labId, stepIdx) {
+  const choice = getSelectedBranchChoice(labId, stepIdx);
+  if (!choice) return '';
+  const pending = isBranchDetourPending(labId, stepIdx);
+  return `
+    <section class="branch-route-status">
+      <div class="branch-route-status-title">${pending ? 'Route Change Pending' : 'Route Change Recorded'}</div>
+      <p>${escHtml(getBranchDetourMessage(labId, stepIdx) || '')}</p>
+      <p>${escHtml(pending ? 'The next Run will go through a recovery detour before the lab advances.' : 'A recovery detour was required before this lab could continue normally.')}</p>
+    </section>
+  `;
+}
+
 function chooseIncidentBranch(labId, stepIdx, choiceId) {
   if (!labId || typeof stepIdx !== 'number' || !choiceId) return;
   branchingState[getBranchingKey(labId, stepIdx)] = choiceId;
@@ -853,6 +918,38 @@ function renderConsequenceBranch(labId, step, stepIdx, options = {}) {
       `}
     </section>
   `;
+}
+
+function runBranchDetour(labId, stepIdx) {
+  const lab = LABS[labId];
+  const choice = getSelectedBranchChoice(labId, stepIdx);
+  if (!lab || !choice) return false;
+
+  switchTab('term');
+  clearTerminal();
+  document.getElementById('scen-step').style.display = '';
+  document.getElementById('scen-step').textContent = `Recovery detour after Step ${stepIdx + 1}/${lab.steps.length}`;
+  document.getElementById('scen-desc').textContent = 'Route correction required';
+  logTerm([
+    { t: 'warn', v: '# recovery detour' },
+    { t: 'warn', v: getBranchDetourMessage(labId, stepIdx) || 'Recovery detour in progress.' },
+    { t: 'dim', v: '# Aegis is forcing a corrective checkpoint before the next stage can proceed.' },
+  ]);
+  scrollTerminal();
+
+  const log = document.getElementById('xid-log-entries');
+  if (log) {
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const entry = document.createElement('div');
+    entry.className = `xid-entry ${choice.effect === 'bad' ? 'crit' : 'warn'}`;
+    entry.textContent = `[${time}] Recovery detour inserted before the next stage`;
+    log.prepend(entry);
+    while (log.children.length > 8) log.removeChild(log.lastChild);
+  }
+
+  markBranchDetourDone(labId, stepIdx);
+  renderLabStepCoach();
+  return true;
 }
 
 function getDifferentialDiagnosisEntries(labId, step) {
@@ -1830,6 +1927,7 @@ function renderLabStepCoach() {
   const diagnosis = renderDifferentialDiagnosis(currentLab, step);
   const incidentBrief = renderIncidentModeBrief(currentLab, step);
   const consequenceBranch = renderConsequenceBranch(currentLab, step, currentStep);
+  const routeStatus = renderBranchRouteStatus(currentLab, currentStep);
 
   if (beginnerMode && step.explainerMode === 'beginner_story') {
     content.innerHTML = renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote);
@@ -1849,6 +1947,7 @@ function renderLabStepCoach() {
       })}
       ${incidentBrief}
       ${consequenceBranch}
+      ${routeStatus}
       ${diagnosis}
       <div class="lab-step-coach-section">
         <div class="lab-step-coach-section-title">Command In Focus</div>
@@ -1884,6 +1983,7 @@ function renderLabStepCoach() {
     </div>
     ${renderReasoningScorecard(scorecard)}
     ${(step.fault || incidentMode) ? consequenceBranch : ''}
+    ${routeStatus}
     ${diagnosis}
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Command In Focus</div>
@@ -2431,6 +2531,9 @@ function runStep(labId, stepIdx) {
 
 function runCurrentStep() {
   if(!currentLab) return;
+  if (currentStep >= 0 && isBranchDetourPending(currentLab, currentStep)) {
+    if (runBranchDetour(currentLab, currentStep)) return;
+  }
   const lab = LABS[currentLab];
   const next = currentStep+1;
   if(next < lab.steps.length) runStep(currentLab, next);
