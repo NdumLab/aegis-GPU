@@ -561,9 +561,10 @@ function getStepOutput(step) {
 function renderTerminalSnapshot(snapshot) {
   if (!snapshot || !snapshot.lines || !snapshot.lines.length) return '';
   const title = snapshot.title ? `<div class="lab-step-shot-title">${escHtml(snapshot.title)}</div>` : '';
-  const caption = snapshot.caption ? `<div class="lab-step-shot-caption">${escHtml(snapshot.caption)}</div>` : '';
-  const lines = snapshot.lines.map(line => `<div class="lab-step-shot-line">${escHtml(line)}</div>`).join('');
   const points = beginnerMode ? getSnapshotPointsOfInterest(snapshot) : [];
+  const captionText = shouldSuppressSnapshotCaption(snapshot, points) ? '' : (snapshot.caption || '');
+  const caption = captionText ? `<div class="lab-step-shot-caption">${escHtml(captionText)}</div>` : '';
+  const lines = snapshot.lines.map(line => `<div class="lab-step-shot-line">${escHtml(line)}</div>`).join('');
   return `
     <figure class="lab-step-shot-frame">
       ${title}
@@ -616,6 +617,13 @@ function getSnapshotPointsOfInterest(snapshot) {
   );
 }
 
+function shouldSuppressSnapshotCaption(snapshot, points) {
+  if (!snapshot?.caption || !points?.length) return false;
+  const rawLines = Array.isArray(snapshot?.lines) ? snapshot.lines : [];
+  const lines = rawLines.map(line => String(line || '').trim()).filter(Boolean);
+  return isTopologyMatrixSnapshot(lines) || isRepeatedSignalSnapshot(lines);
+}
+
 function isSnapshotHeaderLine(line) {
   const lower = String(line || '').toLowerCase();
   if (!lower) return false;
@@ -650,6 +658,21 @@ function getRepeatedSnapshotSignals(lines) {
   }
 
   return signals;
+}
+
+function isTopologyMatrixSnapshot(lines) {
+  const joined = lines.join(' ').toLowerCase();
+  const gpuRowCount = lines.filter(line => /^gpu\d+\s+/i.test(line)).length;
+  return joined.includes('cpu affinity') && gpuRowCount >= 4;
+}
+
+function isRepeatedSignalSnapshot(lines) {
+  const joined = lines.join(' ').toLowerCase();
+  const nv4Rows = lines.filter(line => /\bnv4\b/i.test(line)).length;
+  const phbRows = lines.filter(line => /\bphb\b/i.test(line)).length;
+  if (nv4Rows >= 2 || phbRows >= 2) return true;
+  if ((joined.includes('using network socket') || joined.includes('tcp fallback')) && lines.length >= 2) return true;
+  return false;
 }
 
 function describeScreenshotUse(step) {
