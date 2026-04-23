@@ -32,6 +32,12 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn("openDetachedPanel('studyOverlay')", APP_JS)
         self.assertIn("openDetachedPanel('quizOverlay')", APP_JS)
 
+    def test_reasoning_scorecard_is_available(self):
+        self.assertIn('getReasoningScorecardContext', APP_JS)
+        self.assertIn('renderReasoningScorecard', APP_JS)
+        self.assertIn('Reasoning Scorecard', APP_JS)
+        self.assertIn('Assessment Scorecard', APP_JS)
+
     def test_frontend_uses_same_origin_api_prefix(self):
         self.assertIn('/api/v1', APP_JS)
         self.assertRegex(APP_JS, r'API_BASE\s*=')

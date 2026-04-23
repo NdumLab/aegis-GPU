@@ -1,0 +1,26 @@
+AEGIS-GPU VERSION 3.0 BUILD LOG
+===============================
+
+Started
+-------
+- Date: 2026-04-23
+- Branch: v2.2
+- Local goal: build v3 locally and deploy to local live only
+
+Build Loop Entries
+------------------
+
+Entry 1
+- Status: completed
+- Scope: create v3.0 roadmap, validate it against current architecture, implement Component 1, validate it, and prepare local-live deploy
+- Notes:
+  - Roadmap created in version3.0-plan.txt
+  - Build log created in version3.0-build-log.txt
+  - First implementation target: Reasoning Scorecard
+  - Added reusable reasoning scorecard rendering to guided lab and quiz surfaces
+  - Added frontend smoke coverage for scorecard presence
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+    - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+    - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'

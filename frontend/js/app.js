@@ -34,6 +34,10 @@ let detachedPanels = {
   liveExplainer: null,
   stepCoach: null,
 };
+let reasoningScoreState = {
+  byLab: {},
+  lastQuiz: null,
+};
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -134,6 +138,92 @@ function tightenDisplayCopy(value) {
   text = text.replace(/\.\s*\./g, '.').replace(/\s+,/g, ',').trim();
   text = text.replace(/^,\s*/, '');
   return text;
+}
+
+function getReasoningDomain(labId, step) {
+  if (['ecc', 'nvlink_fault'].includes(labId) || ['xid48', 'xid48_confirm', 'xid79', 'xid74', 'ecc_xid'].includes(step?.type)) return 'fault_isolation';
+  if (['nvlink', 'allreduce', 'nccl_fallback', 'ib_fabric', 'roce'].includes(labId)) return 'fabric_path';
+  if (['cuda_stack', 'container', 'training', 'k8s', 'slurm'].includes(labId)) return 'runtime_delivery';
+  if (['storage', 'gds', 'monitoring'].includes(labId)) return 'platform_efficiency';
+  return 'general_diagnosis';
+}
+
+function getReasoningScorecardContext(labId, step) {
+  const guide = labId ? getLearningGuide(labId) : null;
+  const output = step ? getStepOutput(step) : [];
+  const hasCounters = output.some(line => /dcgm|ecc|dbe|sbe|crc/i.test(line?.v || ''));
+  const hasLogs = output.some(line => /xid|nvrm|dmesg|socket|fallback/i.test(line?.v || ''));
+  const hasScheduler = output.some(line => /pending|fairshare|drain|nvidia\.com\/gpu|pod/i.test(line?.v || ''));
+  const hasScreenshots = !!(step?.screenshots && step.screenshots.length);
+  const safeActionPresent = !!(step?.takeAction?.length || guide?.safeActions?.length);
+
+  const categories = [
+    {
+      key: 'layer',
+      label: 'Layer call',
+      status: step?.fault ? 'strong' : 'good',
+      text: step?.fault
+        ? 'This step clearly belongs to a fault family, so the user should identify the owning layer before touching remediation.'
+        : 'This step should let the user name the owning layer before jumping to commands or tuning.',
+    },
+    {
+      key: 'evidence',
+      label: 'Evidence quality',
+      status: hasCounters || hasLogs || hasScheduler ? 'strong' : hasScreenshots ? 'good' : 'watch',
+      text: hasCounters || hasLogs || hasScheduler
+        ? 'The current view provides explicit evidence, so the diagnosis should be grounded in what changed on screen.'
+        : hasScreenshots
+          ? 'The screenshot is useful, but the user should still tie it back to the step goal before concluding.'
+          : 'This step is lighter on explicit evidence, so conclusions should stay narrow.',
+    },
+    {
+      key: 'safety',
+      label: 'Action safety',
+      status: safeActionPresent ? 'good' : 'watch',
+      text: safeActionPresent
+        ? 'A safe next action is available here. Good reasoning means choosing the narrowest justified move.'
+        : 'No strong action cue is present here, so the user should stay in observation mode.',
+    },
+  ];
+
+  const score = categories.reduce((total, item) => total + (item.status === 'strong' ? 2 : item.status === 'good' ? 1 : 0), 0);
+  return {
+    domain: getReasoningDomain(labId, step),
+    score,
+    maxScore: categories.length * 2,
+    categories,
+  };
+}
+
+function renderReasoningScorecard(scorecard, options = {}) {
+  if (!scorecard) return '';
+  const title = options.title || 'Reasoning Scorecard';
+  const subtitle = options.subtitle || 'How Aegis is grading the quality of the diagnosis, not just task completion.';
+  return `
+    <section class="reasoning-scorecard">
+      <div class="reasoning-scorecard-top">
+        <div>
+          <div class="reasoning-scorecard-title">${escHtml(title)}</div>
+          <div class="reasoning-scorecard-subtitle">${escHtml(subtitle)}</div>
+        </div>
+        <div class="reasoning-scorecard-total">
+          <span>${scorecard.score}/${scorecard.maxScore}</span>
+          <small>${escHtml(scorecard.domain.replace(/_/g, ' '))}</small>
+        </div>
+      </div>
+      <div class="reasoning-scorecard-grid">
+        ${scorecard.categories.map(item => `
+          <article class="reasoning-card reasoning-card-${escHtml(item.status)}">
+            <div class="reasoning-card-head">
+              <span>${escHtml(item.label)}</span>
+              <strong>${item.status === 'strong' ? 'Strong' : item.status === 'good' ? 'Good' : 'Watch'}</strong>
+            </div>
+            <p>${escHtml(tightenDisplayCopy(item.text))}</p>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `;
 }
 
 function getLearningGuide(id) {
@@ -601,6 +691,9 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
     ? 'This stage represents the operational state change you would need to reason about, even when there is no literal shell command to memorize.'
     : tabNote;
   const screenshotSection = renderStepScreenshots(step);
+  const scorecard = renderReasoningScorecard(getReasoningScorecardContext(currentLab, step), {
+    subtitle: 'This rubric shows whether the user is identifying the right layer, grounding the diagnosis, and choosing a safe action.',
+  });
 
   return `
     <div class="lab-step-coach-callout${step.fault ? ' err' : ''}">
@@ -617,6 +710,7 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
       ${renderBulletList(whatToNotice.length ? whatToNotice : ['Use the visible output to decide what changed in the node state.'], 'lab-step-coach-list')}
     </div>
     ${screenshotSection}
+    ${scorecard}
     ${step.screenshots && step.screenshots.length ? `
       <div class="lab-step-coach-section">
         <div class="lab-step-coach-section-title">How To Use The Snapshot</div>
@@ -1009,6 +1103,8 @@ function renderLabStepCoach() {
       ? 'You are on dmesg, which is useful for kernel and NVIDIA fault confirmation.'
       : 'You are on dcgm, which is useful for counter and health correlation.';
   const calloutClass = step.fault ? 'lab-step-coach-callout err' : 'lab-step-coach-callout';
+  const scorecard = getReasoningScorecardContext(currentLab, step);
+  reasoningScoreState.byLab[currentLab] = scorecard;
 
   if (beginnerMode && step.explainerMode === 'beginner_story') {
     content.innerHTML = renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote);
@@ -1027,6 +1123,7 @@ function renderLabStepCoach() {
       <p><strong>What this step is for:</strong> ${escHtml(describeStepCommand(step))}</p>
       <p>${escHtml(tightenDisplayCopy(useTip))}</p>
     </div>
+    ${renderReasoningScorecard(scorecard)}
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Command In Focus</div>
       <code class="lab-step-coach-code">${escHtml(step.cmd || '# simulated stage')}</code>
@@ -2143,7 +2240,47 @@ function submitQuiz() {
     document.getElementById(`qe-${i}`).classList.add('show');
   });
   const pct = Math.round((correct/QUIZ.length)*100);
-  document.getElementById('quiz-result').innerHTML = `<div class="quiz-score"><span class="score-num">${pct}%</span></div>`;
+  const quizScorecard = {
+    domain: 'knowledge_check',
+    score: Math.round((correct / QUIZ.length) * 6),
+    maxScore: 6,
+    categories: [
+      {
+        label: 'Coverage',
+        status: Object.keys(quizState.answers).length === QUIZ.length ? 'strong' : 'watch',
+        text: Object.keys(quizState.answers).length === QUIZ.length
+          ? 'All questions were answered, so the score reflects full coverage.'
+          : 'Some questions were skipped, so the result is incomplete.',
+      },
+      {
+        label: 'Accuracy',
+        status: pct >= 85 ? 'strong' : pct >= 65 ? 'good' : 'watch',
+        text: pct >= 85
+          ? 'The user is recognizing the intended operator answers consistently.'
+          : pct >= 65
+            ? 'The user is catching many of the intended answers, but there are still reasoning gaps.'
+            : 'The quiz result suggests the user is still missing core distinctions between failure classes.',
+      },
+      {
+        label: 'Troubleshooting readiness',
+        status: pct >= 80 ? 'good' : 'watch',
+        text: pct >= 80
+          ? 'This score suggests the user is approaching deployable troubleshooting judgment for these scenarios.'
+          : 'This score suggests more guided lab work is needed before relying on unaided troubleshooting judgment.',
+      },
+    ],
+  };
+  reasoningScoreState.lastQuiz = quizScorecard;
+  document.getElementById('quiz-result').innerHTML = `
+    <div class="quiz-score">
+      <span class="score-num">${pct}%</span>
+      <div class="score-label">Quiz accuracy</div>
+    </div>
+    ${renderReasoningScorecard(quizScorecard, {
+      title: 'Assessment Scorecard',
+      subtitle: 'This scorecard treats the quiz as a readiness check, not just a percent grade.',
+    })}
+  `;
   document.getElementById('h-score').textContent = pct+'%';
   localStorage.setItem('gpusim_score', pct);
   renderDetachedPanel('quizOverlay');
