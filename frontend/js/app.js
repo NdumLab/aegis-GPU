@@ -392,10 +392,11 @@ function loadReasoningProgress() {
     return {
       steps: parsed.steps || {},
       quizzes: Array.isArray(parsed.quizzes) ? parsed.quizzes : [],
+      completion: parsed.completion || {},
     };
   } catch (e) {
     localStorage.removeItem('gpusim_reasoning_progress');
-    return { steps: {}, quizzes: [] };
+    return { steps: {}, quizzes: [], completion: {} };
   }
 }
 
@@ -609,6 +610,8 @@ function getReasoningProgressSummary() {
   const categoryTotals = {};
   let totalScore = 0;
   let totalMax = 0;
+  let cleanLabs = 0;
+  let compromisedLabs = 0;
 
   stepEntries.forEach(entry => {
     totalScore += entry.score || 0;
@@ -626,6 +629,11 @@ function getReasoningProgressSummary() {
     label: value.label,
     pct: value.max ? Math.round((value.total / value.max) * 100) : 0,
   }));
+  const completionEntries = Object.values(reasoningProgress.completion || {});
+  completionEntries.forEach(entry => {
+    if (entry.clean) cleanLabs += 1;
+    else compromisedLabs += 1;
+  });
   const quizAttempts = reasoningProgress.quizzes || [];
   const lastQuiz = quizAttempts.length ? quizAttempts[quizAttempts.length - 1] : null;
   const avgQuiz = quizAttempts.length
@@ -639,6 +647,8 @@ function getReasoningProgressSummary() {
     lastQuizPct: lastQuiz ? lastQuiz.pct : null,
     avgQuizPct: avgQuiz,
     quizAttempts: quizAttempts.length,
+    cleanLabs,
+    compromisedLabs,
   };
 }
 
@@ -650,17 +660,36 @@ function updateReasoningProgressUI() {
 
 function recordLabReasoningProgress(labId, stepIdx, scorecard) {
   if (!labId || typeof stepIdx !== 'number' || !scorecard) return;
+  const branchContext = getBranchConsequenceContext(labId, stepIdx);
+  const penalty = Math.min(branchContext.badCount * 2 + branchContext.warnCount, scorecard.maxScore - 1);
+  const adjustedScore = Math.max(scorecard.score - penalty, 0);
   reasoningProgress.steps[`${labId}:${stepIdx}`] = {
-    score: scorecard.score,
+    score: adjustedScore,
     maxScore: scorecard.maxScore,
+    penalty,
     categories: scorecard.categories.map(category => ({
       key: category.key,
       label: category.label,
-      value: getReasoningStatusValue(category.status),
+      value: Math.max(getReasoningStatusValue(category.status) - (category.key === 'safety' ? Math.min(branchContext.badCount + branchContext.warnCount, 2) : 0), 0),
     })),
   };
   persistReasoningProgress();
   updateReasoningProgressUI();
+}
+
+function recordLabCompletionOutcome(labId, clean) {
+  if (!reasoningProgress.completion) reasoningProgress.completion = {};
+  reasoningProgress.completion[labId] = {
+    clean: !!clean,
+    ts: Date.now(),
+  };
+  persistReasoningProgress();
+  updateReasoningProgressUI();
+}
+
+function isLabCompletionClean(labId) {
+  const context = getBranchConsequenceContext(labId, Number.POSITIVE_INFINITY);
+  return !context.badCount && !context.warnCount;
 }
 
 function recordQuizReasoningProgress(pct, scorecard) {
@@ -694,6 +723,11 @@ function renderReasoningProgressSummary() {
           <div class="study-mini-title">Quiz accuracy</div>
           <div class="study-progress-value">${summary.lastQuizPct === null ? '—' : `${summary.lastQuizPct}%`}</div>
           <p>${summary.quizAttempts ? `Average across ${summary.quizAttempts} attempts: ${summary.avgQuizPct}%.` : 'No quiz attempt recorded yet.'}</p>
+        </article>
+        <article class="study-progress-card">
+          <div class="study-mini-title">Clean incident finishes</div>
+          <div class="study-progress-value">${summary.cleanLabs}</div>
+          <p>${summary.compromisedLabs ? `${summary.compromisedLabs} labs reached the end with branch penalties still active.` : 'No compromised completions recorded.'}</p>
         </article>
       </div>
       ${summary.categoryAverages.length ? `
@@ -2378,12 +2412,20 @@ function runStep(labId, stepIdx) {
   }
 
   if(stepIdx === lab.steps.length-1) {
+    const cleanFinish = isLabCompletionClean(labId);
     completedLabs.add(labId);
     localStorage.setItem('gpusim_completed', JSON.stringify([...completedLabs]));
-    document.getElementById('b-'+labId).textContent = '✓';
+    recordLabCompletionOutcome(labId, cleanFinish);
+    document.getElementById('b-'+labId).textContent = cleanFinish ? '✓' : '!';
     document.getElementById('nav-'+labId).classList.add('done');
+    if (!cleanFinish) document.getElementById('nav-'+labId).classList.add('fault');
     document.getElementById('h-done').textContent = completedLabs.size;
-    setTimeout(()=>logTerm([{t:'good',v:`\n✓ Lab complete: ${lab.name}`}]), out.length*60+500);
+    setTimeout(() => logTerm([{
+      t: cleanFinish ? 'good' : 'warn',
+      v: cleanFinish
+        ? `\n✓ Lab complete: ${lab.name}`
+        : `\n! Lab reached the end, but the incident path stayed compromised: ${lab.name}`
+    }]), out.length*60+500);
   }
 }
 
@@ -3158,7 +3200,7 @@ function resetAll() {
   localStorage.removeItem('gpusim_score');
   localStorage.removeItem('gpusim_reasoning_progress');
   localStorage.removeItem('gpusim_branching_state');
-  reasoningProgress = { steps: {}, quizzes: [] };
+  reasoningProgress = { steps: {}, quizzes: [], completion: {} };
   branchingState = {};
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active','done'));
   clearCanvas();

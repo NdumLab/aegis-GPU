@@ -56,8 +56,11 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('loadReasoningProgress', APP_JS)
         self.assertIn('recordLabReasoningProgress', APP_JS)
         self.assertIn('recordQuizReasoningProgress', APP_JS)
+        self.assertIn('recordLabCompletionOutcome', APP_JS)
+        self.assertIn('isLabCompletionClean', APP_JS)
         self.assertIn('renderReasoningProgressSummary', APP_JS)
         self.assertIn('Reasoning Progress', APP_JS)
+        self.assertIn('Clean incident finishes', APP_JS)
 
     def test_consequence_branching_is_available(self):
         self.assertIn('CONSEQUENCE_BRANCHES', APP_JS)
