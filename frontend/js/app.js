@@ -722,6 +722,58 @@ function getConsequenceBranch(labId, step) {
   return CONSEQUENCE_BRANCHES[getBranchingFamily(labId, step)] || CONSEQUENCE_BRANCHES.general_diagnosis;
 }
 
+function getSelectedBranchChoicesForLab(labId, maxStepIdx = Infinity) {
+  const results = [];
+  Object.entries(branchingState).forEach(([key, choiceId]) => {
+    const [entryLab, rawStep] = key.split(':');
+    const stepIdx = Number(rawStep);
+    if (entryLab !== labId || Number.isNaN(stepIdx) || stepIdx >= maxStepIdx) return;
+    const step = LABS[labId]?.steps?.[stepIdx];
+    const branch = getConsequenceBranch(labId, step);
+    const choice = branch.choices.find(item => item.id === choiceId);
+    if (choice) results.push({ stepIdx, choice, domain: getBranchingFamily(labId, step) });
+  });
+  return results.sort((a, b) => a.stepIdx - b.stepIdx);
+}
+
+function getBranchConsequenceContext(labId, stepIdx) {
+  const priorChoices = getSelectedBranchChoicesForLab(labId, stepIdx);
+  const badCount = priorChoices.filter(item => item.choice.effect === 'bad').length;
+  const warnCount = priorChoices.filter(item => item.choice.effect === 'warn').length;
+  const bestCount = priorChoices.filter(item => item.choice.effect === 'best').length;
+  const dominantDomain = priorChoices.length ? priorChoices[priorChoices.length - 1].domain : null;
+  return {
+    priorChoices,
+    badCount,
+    warnCount,
+    bestCount,
+    hasPenalty: badCount > 0 || warnCount > 0,
+    dominantDomain,
+  };
+}
+
+function getBranchPenaltyMessages(labId, stepIdx) {
+  const context = getBranchConsequenceContext(labId, stepIdx);
+  if (!context.hasPenalty) return [];
+  const messages = [];
+  if (context.dominantDomain === 'fault_isolation') {
+    if (context.badCount) messages.push('[branch] Earlier broad changes delayed containment. Fresh jobs kept landing on unstable hardware.');
+    else messages.push('[branch] Earlier hesitation left the fault visible longer than necessary. The node stayed exposed to additional workload risk.');
+  } else if (context.dominantDomain === 'fabric_path') {
+    if (context.badCount) messages.push('[branch] The fast path stayed unresolved. Collective traffic kept using the degraded route and cluster time was lost.');
+    else messages.push('[branch] The path issue was not narrowed quickly. Throughput stayed soft while the wrong layer absorbed attention.');
+  } else if (context.dominantDomain === 'runtime_delivery') {
+    if (context.badCount) messages.push('[branch] Broad stack changes blurred the fault boundary. Recovery is now slower because the original mismatch evidence was disturbed.');
+    else messages.push('[branch] The runtime boundary stayed ambiguous, so later steps still carry unresolved contract risk.');
+  } else if (context.dominantDomain === 'platform_efficiency') {
+    if (context.badCount) messages.push('[branch] Compute settings were changed before the feed path was fixed. GPU efficiency remains degraded and the bottleneck still leaks upstream.');
+    else messages.push('[branch] Upstream starvation was not cleared early, so the node continues to waste accelerator time.');
+  } else {
+    messages.push('[branch] Earlier choices left the incident less controlled, so the current step carries more ambiguity and operational drag.');
+  }
+  return messages;
+}
+
 function chooseIncidentBranch(labId, stepIdx, choiceId) {
   if (!labId || typeof stepIdx !== 'number' || !choiceId) return;
   branchingState[getBranchingKey(labId, stepIdx)] = choiceId;
@@ -2285,7 +2337,10 @@ function runStep(labId, stepIdx) {
   clearTerminal();
   logTerm([{t:'prompt',v:`[gpu-node-01] `},{t:'cmd',v:step.cmd}]);
 
-  const out = (typeof TERMINAL_OUTPUT !== 'undefined' && TERMINAL_OUTPUT[step.type]) ? TERMINAL_OUTPUT[step.type] : [{t:'dim',v:'# (output executed)'}];
+  const out = (typeof TERMINAL_OUTPUT !== 'undefined' && TERMINAL_OUTPUT[step.type]) ? [...TERMINAL_OUTPUT[step.type]] : [{t:'dim',v:'# (output executed)'}];
+  getBranchPenaltyMessages(labId, stepIdx).forEach(message => {
+    out.push({ t: 'warn', v: message });
+  });
   let delay = 300;
   out.forEach((line,i) => {
     setTimeout(()=>{
@@ -2340,6 +2395,7 @@ function runCurrentStep() {
 }
 
 function updateMetrics(labId, step, stepDef) {
+  const branchContext = getBranchConsequenceContext(labId, step);
   const fault = stepDef.fault;
   let util=82, vram=54, temp=71, power=420;
   let sbe=0, dbe=0, xid='none';
@@ -2362,6 +2418,25 @@ function updateMetrics(labId, step, stepDef) {
   if(labId==='nvlink_fault' && step===4) { xid='74'; }
   if(fault) temp = Math.min(temp+12, 86);
   if(labId==='training' && step>=1 && step<=4) { util=94; }
+
+  if (branchContext.hasPenalty) {
+    if (branchContext.dominantDomain === 'fault_isolation') {
+      temp = Math.min(temp + (branchContext.badCount ? 4 : 2), 91);
+      util = Math.max(util - (branchContext.badCount ? 26 : 12), 0);
+      if (step >= 1 && xid === 'none') xid = 'risk';
+    } else if (branchContext.dominantDomain === 'fabric_path') {
+      nccl = 'TCP';
+      ar = branchContext.badCount ? '5 GB/s' : '8 GB/s';
+      ib = branchContext.badCount && labId === 'ib_fabric' ? 'Flapping' : ib;
+    } else if (branchContext.dominantDomain === 'runtime_delivery') {
+      util = Math.max(util - (branchContext.badCount ? 18 : 10), 0);
+      power = Math.max(power - (branchContext.badCount ? 80 : 40), 240);
+    } else if (branchContext.dominantDomain === 'platform_efficiency') {
+      util = Math.max(util - (branchContext.badCount ? 24 : 12), 0);
+      sutil = Math.min(sutil + (branchContext.badCount ? 25 : 12), 100);
+      srw = Math.max(srw - (branchContext.badCount ? 350 : 180), 120);
+    }
+  }
 
   setMetric('m-util', util+'%', util<20?'err':util>85?'ok':'warn');
   setMetric('m-vram', `${vram}/80GB`, 'ok');
@@ -2393,6 +2468,7 @@ function setBar(id, pct, color) {
 }
 
 function addXIDLog(labId, step, stepDef) {
+  const branchContext = getBranchConsequenceContext(labId, step);
   const log = document.getElementById('xid-log-entries');
   const time = new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
   const entry = document.createElement('div');
@@ -2403,6 +2479,12 @@ function addXIDLog(labId, step, stepDef) {
   if(labId==='nvlink_fault' && step===2) { entry.className = 'xid-entry crit'; msg = `[${time}] ✗ XID 79 — GPU hung`; }
   entry.textContent = msg;
   log.prepend(entry);
+  if (branchContext.hasPenalty) {
+    const branchEntry = document.createElement('div');
+    branchEntry.className = `xid-entry ${branchContext.badCount ? 'crit' : 'warn'}`;
+    branchEntry.textContent = `[${time}] Branch consequence — ${getBranchPenaltyMessages(labId, step)[0]}`;
+    log.prepend(branchEntry);
+  }
   while(log.children.length > 8) log.removeChild(log.lastChild);
 }
 

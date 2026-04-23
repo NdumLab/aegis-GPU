@@ -89,9 +89,10 @@ Entry 6
   - Added shared consequence decision branches keyed by reasoning family
   - Rendered an interactive Decision Drill in the lab coach for incident-mode and fault steps
   - Added persistent local branching state and reset handling
+  - Extended branching so prior weak or bad choices alter later terminal output, metrics, and event log state in the same lab
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260423v3b
-    - js/app.js?v=20260423v3b
+    - css/styles.css?v=20260423v3c
+    - js/app.js?v=20260423v3c
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'

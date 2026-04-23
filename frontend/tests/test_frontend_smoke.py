@@ -64,6 +64,8 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('loadBranchingState', APP_JS)
         self.assertIn('chooseIncidentBranch', APP_JS)
         self.assertIn('renderConsequenceBranch', APP_JS)
+        self.assertIn('getBranchConsequenceContext', APP_JS)
+        self.assertIn('Branch consequence', APP_JS)
         self.assertIn('Decision Drill', APP_JS)
 
     def test_frontend_uses_same_origin_api_prefix(self):
