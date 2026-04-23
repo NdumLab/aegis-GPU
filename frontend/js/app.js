@@ -103,6 +103,39 @@ function escHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function tightenDisplayCopy(value) {
+  let text = String(value ?? '').trim();
+  if (!text) return '';
+
+  const replacements = [
+    [/^Use the [^.]+ snapshot to /i, 'Use the snapshot to '],
+    [/^Use the [^.]+ snapshot as /i, 'Use the snapshot as '],
+    [/^Treat the [^.]+ snapshot as /i, 'Treat the snapshot as '],
+    [/^Read the [^.]+ snapshot as /i, 'Read the snapshot as '],
+    [/^Compare this [^.]+ snapshot against the [^.]+ screenshot\.\s*/i, 'Compare this snapshot with the earlier baseline. '],
+    [/\bThe key clue is that\b/gi, ''],
+    [/\bThe key clue is\b/gi, ''],
+    [/\bThe key thing is that\b/gi, ''],
+    [/\bThe key thing is\b/gi, ''],
+    [/\bThe important thing is that\b/gi, ''],
+    [/\bThe important thing is\b/gi, ''],
+    [/\bThe important move is\b/gi, ''],
+    [/\bThe important cue is\b/gi, ''],
+    [/\bThe value is\b/gi, ''],
+    [/\bIt is not\.\s+/g, ''],
+    [/\bThat is why\b/gi, 'So'],
+    [/\s{2,}/g, ' '],
+  ];
+
+  replacements.forEach(([pattern, replacement]) => {
+    text = text.replace(pattern, replacement);
+  });
+
+  text = text.replace(/\.\s*\./g, '.').replace(/\s+,/g, ',').trim();
+  text = text.replace(/^,\s*/, '');
+  return text;
+}
+
 function getLearningGuide(id) {
   const guides = window.AEGIS_LEARNING || {};
   return guides[id] || null;
@@ -206,12 +239,12 @@ function handleLabCoachClick(event) {
 
 function renderBulletList(items, cssClass) {
   if (!items || !items.length) return '';
-  return `<ul class="${cssClass}">${items.map(item => `<li>${escHtml(item)}</li>`).join('')}</ul>`;
+  return `<ul class="${cssClass}">${items.map(item => `<li>${escHtml(tightenDisplayCopy(item))}</li>`).join('')}</ul>`;
 }
 
 function renderParagraphs(items) {
   if (!items || !items.length) return '';
-  return items.map(item => `<p>${escHtml(item)}</p>`).join('');
+  return items.map(item => `<p>${escHtml(tightenDisplayCopy(item))}</p>`).join('');
 }
 
 function isDetachedPanelOpen(kind) {
@@ -462,7 +495,7 @@ function renderOperatorStoryGuide(guide) {
     sections.push(`
       <section class="learn-section learn-callout">
         <h4>Plain-Language Picture</h4>
-        <p>${escHtml(plainPicture)}</p>
+        <p>${escHtml(tightenDisplayCopy(plainPicture))}</p>
       </section>
     `);
   }
@@ -493,8 +526,8 @@ function renderOperatorStoryGuide(guide) {
           ${guide.coreTerms.map(term => `
             <article class="term-card">
               <div class="term-name">${escHtml(term.term)}</div>
-              <p>${escHtml(term.plain)}</p>
-              ${term.why ? `<div class="term-why">Why operators care: ${escHtml(term.why)}</div>` : ''}
+              <p>${escHtml(tightenDisplayCopy(term.plain))}</p>
+              ${term.why ? `<div class="term-why">Why operators care: ${escHtml(tightenDisplayCopy(term.why))}</div>` : ''}
             </article>
           `).join('')}
         </div>
@@ -571,13 +604,13 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
 
   return `
     <div class="lab-step-coach-callout${step.fault ? ' err' : ''}">
-      <p><strong>What you’re doing:</strong> ${escHtml(step.whatsHappening || describeStepCommand(step))}</p>
-      <p><strong>Why it matters:</strong> ${escHtml(whyItMatters)}</p>
+      <p><strong>What you’re doing:</strong> ${escHtml(tightenDisplayCopy(step.whatsHappening || describeStepCommand(step)))}</p>
+      <p><strong>Why it matters:</strong> ${escHtml(tightenDisplayCopy(whyItMatters))}</p>
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Command</div>
       <code class="lab-step-coach-code">${escHtml(step.cmd || '# simulated stage')}</code>
-      <p>${escHtml(commandNote)}</p>
+      <p>${escHtml(tightenDisplayCopy(commandNote))}</p>
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">What To Notice</div>
@@ -592,15 +625,15 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
     ` : ''}
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Common Wrong Conclusion</div>
-      <p>${escHtml(beginnerMistake)}</p>
+      <p>${escHtml(tightenDisplayCopy(beginnerMistake))}</p>
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Operator Takeaway</div>
-      <p>${escHtml(operatorTakeaway)}</p>
+      <p>${escHtml(tightenDisplayCopy(operatorTakeaway))}</p>
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Next Action</div>
-      <p>${escHtml(nextAction)}</p>
+      <p>${escHtml(tightenDisplayCopy(nextAction))}</p>
     </div>
   `;
 }
@@ -612,7 +645,7 @@ function renderBeginnerStoryGuidedDetails(step) {
     blocks.push(`
       <div class="guided-step-block guided-step-context">
         <div class="guided-step-title">Why It Matters</div>
-        <p>${escHtml(step.deeperContext || step.meaning)}</p>
+        <p>${escHtml(tightenDisplayCopy(step.deeperContext || step.meaning))}</p>
       </div>
     `);
   }
@@ -641,7 +674,7 @@ function renderBeginnerStoryGuidedDetails(step) {
     blocks.push(`
       <div class="guided-step-block guided-step-compare">
         <div class="guided-step-title">Common Beginner Mistake</div>
-        <p>${escHtml(step.commonMistake)}</p>
+        <p>${escHtml(tightenDisplayCopy(step.commonMistake))}</p>
       </div>
     `);
   }
@@ -650,7 +683,7 @@ function renderBeginnerStoryGuidedDetails(step) {
     blocks.push(`
       <div class="guided-step-block">
         <div class="guided-step-title">Operator Takeaway</div>
-        <p>${escHtml(step.operatorTakeaway || step.meaning)}</p>
+        <p>${escHtml(tightenDisplayCopy(step.operatorTakeaway || step.meaning))}</p>
       </div>
     `);
   }
@@ -791,7 +824,7 @@ function isRepeatedSignalSnapshot(lines) {
 
 function describeScreenshotUse(step) {
   if (!step || !step.screenshots || !step.screenshots.length) return '';
-  return step.screenshotReference || 'Use the output snapshot as your visual anchor before you scan the live terminal output.';
+  return tightenDisplayCopy(step.screenshotReference || 'Use the output snapshot as your visual anchor before you scan the live terminal output.');
 }
 
 function renderStepScreenshots(step, variant = 'coach') {
@@ -992,12 +1025,12 @@ function renderLabStepCoach() {
   content.innerHTML = `
     <div class="${calloutClass}">
       <p><strong>What this step is for:</strong> ${escHtml(describeStepCommand(step))}</p>
-      <p>${escHtml(useTip)}</p>
+      <p>${escHtml(tightenDisplayCopy(useTip))}</p>
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Command In Focus</div>
       <code class="lab-step-coach-code">${escHtml(step.cmd || '# simulated stage')}</code>
-      <p>${escHtml(tabNote)}</p>
+      <p>${escHtml(tightenDisplayCopy(tabNote))}</p>
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">What To Look For</div>
@@ -1023,11 +1056,11 @@ function renderLabStepCoach() {
     ` : ''}
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">What It Means</div>
-      <p>${escHtml(step.meaning || completion)}</p>
+      <p>${escHtml(tightenDisplayCopy(step.meaning || completion))}</p>
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">How To Tell You Are Done</div>
-      <p>${escHtml(completion)}</p>
+      <p>${escHtml(tightenDisplayCopy(completion))}</p>
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Watch These Side Panels</div>
@@ -1035,7 +1068,7 @@ function renderLabStepCoach() {
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Next Action</div>
-      <p>${escHtml(nextAction)}</p>
+      <p>${escHtml(tightenDisplayCopy(nextAction))}</p>
     </div>
   `;
   content.scrollTop = 0;
@@ -1050,21 +1083,21 @@ function renderGuidedStepDetails(step, prevStep) {
   }
 
   const deeperContext = beginnerMode && step.deeperContext
-    ? `<div class="guided-step-block guided-step-context"><div class="guided-step-title">Why This Stage Matters</div><p>${escHtml(step.deeperContext)}</p></div>`
+    ? `<div class="guided-step-block guided-step-context"><div class="guided-step-title">Why This Stage Matters</div><p>${escHtml(tightenDisplayCopy(step.deeperContext))}</p></div>`
     : '';
   const comparisonItems = [];
   if (beginnerMode && step.changedFromPrevious) {
     const prevLabel = prevStep ? ` compared with ${prevStep.label}` : '';
-    comparisonItems.push(`<li><strong>What changed${escHtml(prevLabel)}</strong>: ${escHtml(step.changedFromPrevious)}</li>`);
+    comparisonItems.push(`<li><strong>What changed${escHtml(prevLabel)}</strong>: ${escHtml(tightenDisplayCopy(step.changedFromPrevious))}</li>`);
   }
   if (beginnerMode && step.justifiedConclusion) {
-    comparisonItems.push(`<li><strong>Conclusion you can justify now</strong>: ${escHtml(step.justifiedConclusion)}</li>`);
+    comparisonItems.push(`<li><strong>Conclusion you can justify now</strong>: ${escHtml(tightenDisplayCopy(step.justifiedConclusion))}</li>`);
   }
   if (beginnerMode && step.stillPremature) {
-    comparisonItems.push(`<li><strong>What is still too early to conclude</strong>: ${escHtml(step.stillPremature)}</li>`);
+    comparisonItems.push(`<li><strong>What is still too early to conclude</strong>: ${escHtml(tightenDisplayCopy(step.stillPremature))}</li>`);
   }
   if (beginnerMode && step.thresholdCrossed) {
-    comparisonItems.push(`<li><strong>Threshold crossed</strong>: ${escHtml(step.thresholdCrossed)}</li>`);
+    comparisonItems.push(`<li><strong>Threshold crossed</strong>: ${escHtml(tightenDisplayCopy(step.thresholdCrossed))}</li>`);
   }
   const comparativeReasoning = comparisonItems.length
     ? `<div class="guided-step-block guided-step-compare"><div class="guided-step-title">Reasoning Check</div><ul class="guided-step-list">${comparisonItems.join('')}</ul></div>`
@@ -1073,7 +1106,7 @@ function renderGuidedStepDetails(step, prevStep) {
     ? `<div class="guided-step-block"><div class="guided-step-title">Look For</div>${renderBulletList(step.lookFor, 'guided-step-list')}</div>`
     : '';
   const meaning = step.meaning
-    ? `<div class="guided-step-block"><div class="guided-step-title">What It Means</div><p>${escHtml(step.meaning)}</p></div>`
+    ? `<div class="guided-step-block"><div class="guided-step-title">What It Means</div><p>${escHtml(tightenDisplayCopy(step.meaning))}</p></div>`
     : '';
   const action = step.takeAction && step.takeAction.length
     ? `<div class="guided-step-block"><div class="guided-step-title">Do This</div>${renderBulletList(step.takeAction, 'guided-step-list')}</div>`
@@ -1128,7 +1161,7 @@ function renderLearningGuide(id) {
   sections.push(`
     <section class="learn-section learn-callout">
       <h4>Quick Answer</h4>
-      <p>${escHtml(guide.quickAnswer || '')}</p>
+      <p>${escHtml(tightenDisplayCopy(guide.quickAnswer || ''))}</p>
     </section>
   `);
 
@@ -1136,7 +1169,7 @@ function renderLearningGuide(id) {
     sections.push(`
       <section class="learn-section">
         <h4>Why This Matters</h4>
-        <p>${escHtml(guide.whyItMatters)}</p>
+        <p>${escHtml(tightenDisplayCopy(guide.whyItMatters))}</p>
       </section>
     `);
   }
@@ -1152,8 +1185,8 @@ function renderLearningGuide(id) {
           ${guide.coreTerms.map(term => `
             <article class="term-card">
               <div class="term-name">${escHtml(term.term)}</div>
-              <p>${escHtml(term.plain)}</p>
-              ${beginnerMode && term.why ? `<div class="term-why">Why it matters: ${escHtml(term.why)}</div>` : ''}
+              <p>${escHtml(tightenDisplayCopy(term.plain))}</p>
+              ${beginnerMode && term.why ? `<div class="term-why">Why it matters: ${escHtml(tightenDisplayCopy(term.why))}</div>` : ''}
             </article>
           `).join('')}
         </div>
@@ -1169,7 +1202,7 @@ function renderLearningGuide(id) {
           ${guide.lifecycle.map(step => `
             <li>
               <div class="timeline-title">${escHtml(step.title)}</div>
-              <div class="timeline-body">${escHtml(step.detail)}</div>
+              <div class="timeline-body">${escHtml(tightenDisplayCopy(step.detail))}</div>
             </li>
           `).join('')}
         </ol>
@@ -1217,7 +1250,7 @@ function renderLearningGuide(id) {
     sections.push(`
       <section class="learn-section">
         <h4>Read This Slowly</h4>
-        ${guide.readMore.map(item => `<p>${escHtml(item)}</p>`).join('')}
+        ${guide.readMore.map(item => `<p>${escHtml(tightenDisplayCopy(item))}</p>`).join('')}
       </section>
     `);
   }
@@ -1697,7 +1730,7 @@ function showIntro(id) {
     ${modeNote}
     <div class="objective">
       <h4>${escHtml(objectiveTitle)}</h4>
-      <p>${escHtml(objectiveText)}</p>
+      <p>${escHtml(tightenDisplayCopy(objectiveText))}</p>
     </div>
     ${guide ? guideMarkup : ''}
     <section class="learn-section">
@@ -1849,7 +1882,7 @@ function renderStudyGuide(examId = 'nca_aiio') {
     <section class="study-hero">
       <div class="study-hero-kicker">${escHtml(guide.code)}</div>
       <h3>${escHtml(guide.title)}</h3>
-      <p>${escHtml(guide.examShape)}</p>
+      <p>${escHtml(tightenDisplayCopy(guide.examShape))}</p>
     </section>
 
     <section class="learn-section study-model">
@@ -1875,10 +1908,10 @@ function renderStudyGuide(examId = 'nca_aiio') {
                 <div class="study-focus">${escHtml(item.examFocus)}</div>
               </div>
             </div>
-            <p>${escHtml(item.plain)}</p>
+            <p>${escHtml(tightenDisplayCopy(item.plain))}</p>
             <div class="study-mini-title">How it connects</div>
             ${renderBulletList(item.connectDots, 'study-list')}
-            <div class="study-trap"><strong>Exam trap:</strong> ${escHtml(item.trap)}</div>
+            <div class="study-trap"><strong>Exam trap:</strong> ${escHtml(tightenDisplayCopy(item.trap))}</div>
             ${renderStudyLabLinks(item.labs)}
           </article>
         `).join('')}
