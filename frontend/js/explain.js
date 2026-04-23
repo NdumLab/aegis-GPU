@@ -7,7 +7,7 @@ window.AEGIS_EXPLAINER = (() => {
   const LEVELS = {
     beginner: {
       label: 'Beginner',
-      note: 'Uses plain language, slows down the reasoning, and explicitly calls out common bad conclusions.',
+      note: 'Uses plain language and makes the evidence chain explicit.',
       showGlossary: true,
       showCounterfactuals: true,
       showMisreads: true,
@@ -15,7 +15,7 @@ window.AEGIS_EXPLAINER = (() => {
     },
     intermediate: {
       label: 'Intermediate',
-      note: 'Assumes you know the basic jargon and focuses more on evidence comparison and operator tradeoffs.',
+      note: 'Assumes basic jargon and focuses on evidence comparison and tradeoffs.',
       showGlossary: true,
       showCounterfactuals: true,
       showMisreads: true,
@@ -23,7 +23,7 @@ window.AEGIS_EXPLAINER = (() => {
     },
     operator: {
       label: 'Operator',
-      note: 'Keeps the explanation tighter and emphasizes decision quality, containment thresholds, and validation discipline.',
+      note: 'Keeps the explanation tight and emphasizes decision quality, containment thresholds, and validation.',
       showGlossary: false,
       showCounterfactuals: true,
       showMisreads: true,
@@ -34,15 +34,15 @@ window.AEGIS_EXPLAINER = (() => {
   const ROLES = {
     cluster_operator: {
       label: 'Cluster Operator',
-      lens: 'Prioritize containment, blast-radius control, and whether the node is safe to keep in service.',
+      lens: 'Prioritize containment, blast-radius control, and whether the node should stay in service.',
     },
     sre: {
       label: 'SRE',
-      lens: 'Focus on reliability signals, safe remediation sequencing, and whether the evidence justifies escalation.',
+      lens: 'Focus on reliability signals, remediation order, and whether the evidence justifies escalation.',
     },
     ml_engineer: {
       label: 'ML Engineer',
-      lens: 'Focus on workload impact, why throughput changed, and which signals point to infrastructure versus application causes.',
+      lens: 'Focus on workload impact, throughput change, and whether the signals point to infrastructure or application causes.',
     },
   };
 
@@ -380,7 +380,7 @@ window.AEGIS_EXPLAINER = (() => {
     const chips = related.slice(0, 8).map(term => `<span class="explain-chip">${esc(term)}</span>`).join('');
     return renderBlock(
       'Glossary Network',
-      `<p>These related terms are likely to appear next as you move through the explanation and runtime evidence.</p><div class="explain-chip-row">${chips}</div>`,
+      `<p>These related terms are the next concepts likely to show up in the evidence.</p><div class="explain-chip-row">${chips}</div>`,
       'explain-card-network'
     );
   }

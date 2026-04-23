@@ -1116,7 +1116,7 @@ function renderBeginnerTelemetryExplanation(liveData) {
   if (!body) return;
 
   if (!liveData) {
-    body.innerHTML = '<p>Turn on Live Telemetry to see a beginner-friendly explanation of the current hardware state and evidence quality.</p>';
+    body.innerHTML = '<p>Turn on Live Telemetry to see the current hardware state and evidence quality.</p>';
     syncDetachedPanels();
     return;
   }
@@ -1127,22 +1127,22 @@ function renderBeginnerTelemetryExplanation(liveData) {
   if (!beginnerMode) {
     const source = escHtml(liveData.source || 'unknown-source');
     const quality = liveData.degraded ? 'best-effort' : 'direct';
-    body.innerHTML = `<p><strong>Compact view:</strong> this telemetry is coming from <strong>${source}</strong> using a <strong>${quality}</strong> evidence path. Turn on Beginner Mode for deeper explanations of telemetry scope, missing evidence, diagnosis trust, and action confidence.</p>`;
+    body.innerHTML = `<p><strong>Compact view:</strong> telemetry is coming from <strong>${source}</strong> using a <strong>${quality}</strong> evidence path. Turn on Beginner Mode for more context on scope, missing evidence, grounding, and action confidence.</p>`;
     syncDetachedPanels();
     return;
   }
 
   const scopeText = liveData.telemetry_scope === 'host'
     ? 'Telemetry scope is <strong>host</strong>, which means the backend is reading machine-level fallback data instead of direct GPU counters.'
-    : `Telemetry scope is <strong>${escHtml(liveData.telemetry_scope || 'unknown')}</strong>, which means the backend has more direct hardware visibility.`;
+    : `Telemetry scope is <strong>${escHtml(liveData.telemetry_scope || 'unknown')}</strong>, which means the backend has direct hardware visibility.`;
 
   const sourceText = (liveData.telemetry_sources && liveData.telemetry_sources.length)
     ? `Sources in use: ${liveData.telemetry_sources.map(escHtml).join(', ')}.`
     : 'No telemetry source list was provided.';
 
   const degradedText = liveData.degraded
-    ? `<p><strong>Degraded mode</strong> means the system is still showing you useful signals, but the best hardware evidence was not available. ${escHtml(liveData.degraded_reason || '')}</p>`
-    : '<p><strong>Healthy evidence path</strong> means the backend is collecting its preferred hardware telemetry sources.</p>';
+    ? `<p><strong>Degraded mode</strong> means the system is still returning useful signals, but the preferred hardware evidence path was unavailable. ${escHtml(liveData.degraded_reason || '')}</p>`
+    : '<p><strong>Healthy evidence path</strong> means the backend is collecting from its preferred hardware telemetry sources.</p>';
 
   const collectionErrors = (liveData.collection_errors || []).map(code => `<li><strong>${escHtml(code)}</strong>: ${escHtml(describeCollectionError(code))}</li>`).join('');
   const fabricSummary = liveData.fabric_summary
@@ -1156,7 +1156,7 @@ function renderBeginnerTelemetryExplanation(liveData) {
     ${runtimeCoach}
     <p>${scopeText}</p>
     ${degradedText}
-    <p><strong>telemetry_sources</strong> is the system's way of telling you where the numbers came from. ${sourceText}</p>
+    <p><strong>telemetry_sources</strong> shows where the numbers came from. ${sourceText}</p>
     <ul class="live-explainer-list">
       ${fabricSummary}
       ${perGpu}
@@ -1181,15 +1181,15 @@ function renderDiagnosisExplanation(data) {
 
   return `
     <div class="diag-block">
-      <div class="diag-title">Beginner Explanation</div>
+      <div class="diag-title">Diagnosis Read</div>
       ${runtimeCoach}
-      <p><strong>diagnosis_source</strong> tells you where the explanation came from. Here it is <strong>${escHtml(data.diagnosis_source || 'unknown')}</strong>.</p>
+      <p><strong>diagnosis_source</strong> shows where the explanation came from. Here it is <strong>${escHtml(data.diagnosis_source || 'unknown')}</strong>.</p>
       <p><strong>grounding_status</strong> is <strong>${escHtml(data.grounding_status || 'unknown')}</strong>. ${escHtml(grounding)}</p>
       <ul class="diag-list">
         ${grounded}
         ${unavailable}
       </ul>
-      <p><strong>hallucination_check</strong> is the system's honesty note about whether the diagnosis had live evidence or relied on runbooks.</p>
+      <p><strong>hallucination_check</strong> is the system's note about whether the diagnosis used live evidence or relied on runbooks.</p>
     </div>
   `;
 }
