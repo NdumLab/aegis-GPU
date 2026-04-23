@@ -506,6 +506,26 @@ header h1 span { color: var(--green); }
 .study-progress-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(74,158,255,.18); background: rgba(74,158,255,.06); font-size: 11px; color: var(--text); }
 .study-progress-chip strong { font-family: var(--font-mono); font-size: 10px; color: var(--white); }
 
+/* ── V3: CONSEQUENCE BRANCHING ── */
+.consequence-branch { margin-bottom: 14px; padding: 12px; border: 1px solid rgba(244,162,97,.18); border-radius: 6px; background: linear-gradient(180deg, rgba(244,162,97,.05), rgba(11,18,28,.1)); }
+.consequence-branch-title { font-family: var(--font-mono); font-size: 10px; color: var(--copper); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+.consequence-branch-subtitle { color: var(--text); font-size: 11px; line-height: 1.6; margin-bottom: 10px; }
+.consequence-branch-prompt { margin-bottom: 10px; font-size: 11px; line-height: 1.6; color: var(--white); }
+.consequence-branch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.consequence-choice { width: 100%; text-align: left; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.08); background: rgba(11,18,28,.48); color: var(--text); font-size: 11px; line-height: 1.5; cursor: pointer; transition: border-color .15s ease, transform .15s ease, background .15s ease; }
+.consequence-choice:hover { border-color: rgba(244,162,97,.28); transform: translateY(-1px); }
+.consequence-choice.is-selected { border-color: rgba(244,162,97,.36); background: rgba(244,162,97,.08); color: var(--white); }
+.consequence-outcome { padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.08); background: rgba(11,18,28,.48); }
+.consequence-outcome-title { margin-bottom: 6px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--white); }
+.consequence-outcome p { margin: 0; font-size: 11px; line-height: 1.65; color: var(--text); }
+.consequence-outcome-best { border-color: rgba(118,185,0,.24); }
+.consequence-outcome-best .consequence-outcome-title { color: var(--green); }
+.consequence-outcome-warn { border-color: rgba(240,180,41,.24); }
+.consequence-outcome-warn .consequence-outcome-title { color: var(--yellow); }
+.consequence-outcome-bad { border-color: rgba(224,82,82,.24); }
+.consequence-outcome-bad .consequence-outcome-title { color: var(--red); }
+.consequence-outcome-idle .consequence-outcome-title { color: var(--dim); }
+
 /* ── SVG DIAGRAM STYLES ── */
 .node-box { transition: all .2s; cursor: pointer; }
 .node-box:hover rect { filter: brightness(1.2); }

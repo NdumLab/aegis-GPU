@@ -59,6 +59,13 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('renderReasoningProgressSummary', APP_JS)
         self.assertIn('Reasoning Progress', APP_JS)
 
+    def test_consequence_branching_is_available(self):
+        self.assertIn('CONSEQUENCE_BRANCHES', APP_JS)
+        self.assertIn('loadBranchingState', APP_JS)
+        self.assertIn('chooseIncidentBranch', APP_JS)
+        self.assertIn('renderConsequenceBranch', APP_JS)
+        self.assertIn('Decision Drill', APP_JS)
+
     def test_frontend_uses_same_origin_api_prefix(self):
         self.assertIn('/api/v1', APP_JS)
         self.assertRegex(APP_JS, r'API_BASE\s*=')

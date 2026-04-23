@@ -40,6 +40,7 @@ let reasoningScoreState = {
   lastQuiz: null,
 };
 let reasoningProgress = loadReasoningProgress();
+let branchingState = loadBranchingState();
 const DIFFERENTIAL_DIAGNOSIS = {
   ecc: [
     {
@@ -234,6 +235,152 @@ const DIFFERENTIAL_DIAGNOSIS = {
     },
   ],
 };
+const CONSEQUENCE_BRANCHES = {
+  fault_isolation: {
+    title: 'Containment Decision',
+    prompt: 'A hard fault signal is visible. What do you do first?',
+    choices: [
+      {
+        id: 'contain',
+        label: 'Contain and preserve evidence',
+        outcome: 'Strong call. The node is isolated before more jobs land, and the evidence trail stays intact for support and root-cause work.',
+        effect: 'best',
+      },
+      {
+        id: 'retry',
+        label: 'Retry the workload first',
+        outcome: 'Weak call. The job may restart briefly, but the hardware story is still unresolved and the blast radius is still open.',
+        effect: 'warn',
+      },
+      {
+        id: 'broad_fix',
+        label: 'Change drivers and runtime packages',
+        outcome: 'Bad call. You changed multiple layers before owning the fault family, which destroys evidence and delays containment.',
+        effect: 'bad',
+      },
+    ],
+  },
+  fabric_path: {
+    title: 'Path Decision',
+    prompt: 'Performance is wrong, but the workload is still alive. What is the best next move?',
+    choices: [
+      {
+        id: 'verify_path',
+        label: 'Verify the actual transport path',
+        outcome: 'Strong call. You confirm whether the fast path is present before tuning software or escalating hardware.',
+        effect: 'best',
+      },
+      {
+        id: 'tune_model',
+        label: 'Tune the model or batch size first',
+        outcome: 'Weak call. You may mask the symptom, but the communication path remains unproven and could keep wasting the cluster.',
+        effect: 'warn',
+      },
+      {
+        id: 'reboot_cluster',
+        label: 'Reboot nodes across the cluster',
+        outcome: 'Bad call. That creates unnecessary disruption without first proving whether the issue is configuration, path selection, or a localized link problem.',
+        effect: 'bad',
+      },
+    ],
+  },
+  runtime_delivery: {
+    title: 'Layer Decision',
+    prompt: 'The GPU stack is failing at runtime. Where do you narrow first?',
+    choices: [
+      {
+        id: 'own_boundary',
+        label: 'Identify the exact layer boundary',
+        outcome: 'Strong call. You preserve the evidence chain and keep the fix narrow: driver, CUDA, framework, runtime, or scheduler.',
+        effect: 'best',
+      },
+      {
+        id: 'rebuild_everything',
+        label: 'Upgrade the whole stack',
+        outcome: 'Bad call. A broad rebuild may appear productive, but it destroys the contract mismatch evidence and makes rollback harder.',
+        effect: 'bad',
+      },
+      {
+        id: 'blame_gpu',
+        label: 'Treat it as a GPU hardware failure immediately',
+        outcome: 'Weak call. Hardware might be healthy. You need to prove the software handoff is broken before you escalate to hardware response.',
+        effect: 'warn',
+      },
+    ],
+  },
+  platform_efficiency: {
+    title: 'Bottleneck Decision',
+    prompt: 'The accelerators are underperforming. What do you test first?',
+    choices: [
+      {
+        id: 'trace_upstream',
+        label: 'Trace the upstream feed path',
+        outcome: 'Strong call. You test whether storage, data delivery, or the direct path is starving the GPUs before changing compute settings.',
+        effect: 'best',
+      },
+      {
+        id: 'lower_expectations',
+        label: 'Accept lower GPU utilization as normal',
+        outcome: 'Weak call. That leaves cluster capacity stranded and misses the upstream bottleneck that users are actually feeling.',
+        effect: 'warn',
+      },
+      {
+        id: 'swap_gpu_settings',
+        label: 'Change power or clock settings first',
+        outcome: 'Bad call. You changed compute behavior before proving the GPUs were the limiting stage at all.',
+        effect: 'bad',
+      },
+    ],
+  },
+  general_diagnosis: {
+    title: 'Diagnosis Decision',
+    prompt: 'The symptom is visible but still ambiguous. What is the safest move?',
+    choices: [
+      {
+        id: 'collect_evidence',
+        label: 'Collect one more decisive clue',
+        outcome: 'Strong call. You narrow the problem with evidence instead of letting the first plausible explanation take over.',
+        effect: 'best',
+      },
+      {
+        id: 'guess',
+        label: 'Go with the most familiar explanation',
+        outcome: 'Weak call. Familiarity is not proof, and it often leads operators into the wrong layer.',
+        effect: 'warn',
+      },
+      {
+        id: 'change_many',
+        label: 'Change several things at once',
+        outcome: 'Bad call. Multi-change fixes break the evidence trail and make it harder to know what actually mattered.',
+        effect: 'bad',
+      },
+    ],
+  },
+  knowledge_check: {
+    title: 'Assessment Consequence',
+    prompt: 'What should the quiz result change operationally?',
+    choices: [
+      {
+        id: 'guided_more',
+        label: 'Target the weak categories next',
+        outcome: 'Strong call. Use the score as routing information for more lab work, not just as a grade.',
+        effect: 'best',
+      },
+      {
+        id: 'ignore',
+        label: 'Treat the score as final proof',
+        outcome: 'Weak call. Quiz percentage alone does not prove field-ready troubleshooting judgment.',
+        effect: 'warn',
+      },
+      {
+        id: 'skip_labs',
+        label: 'Skip the scenarios and ship anyway',
+        outcome: 'Bad call. That jumps past the part of the product that tests evidence handling and safe actions under ambiguity.',
+        effect: 'bad',
+      },
+    ],
+  },
+};
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -249,6 +396,16 @@ function loadReasoningProgress() {
   } catch (e) {
     localStorage.removeItem('gpusim_reasoning_progress');
     return { steps: {}, quizzes: [] };
+  }
+}
+
+function loadBranchingState() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('gpusim_branching_state') || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    localStorage.removeItem('gpusim_branching_state');
+    return {};
   }
 }
 
@@ -439,6 +596,10 @@ function getReasoningStatusValue(status) {
   return status === 'strong' ? 2 : status === 'good' ? 1 : 0;
 }
 
+function persistBranchingState() {
+  localStorage.setItem('gpusim_branching_state', JSON.stringify(branchingState));
+}
+
 function persistReasoningProgress() {
   localStorage.setItem('gpusim_reasoning_progress', JSON.stringify(reasoningProgress));
 }
@@ -545,6 +706,65 @@ function renderReasoningProgressSummary() {
           `).join('')}
         </div>
       ` : ''}
+    </section>
+  `;
+}
+
+function getBranchingFamily(labId, step) {
+  return getReasoningDomain(labId, step);
+}
+
+function getBranchingKey(labId, stepIdx) {
+  return `${labId}:${stepIdx}`;
+}
+
+function getConsequenceBranch(labId, step) {
+  return CONSEQUENCE_BRANCHES[getBranchingFamily(labId, step)] || CONSEQUENCE_BRANCHES.general_diagnosis;
+}
+
+function chooseIncidentBranch(labId, stepIdx, choiceId) {
+  if (!labId || typeof stepIdx !== 'number' || !choiceId) return;
+  branchingState[getBranchingKey(labId, stepIdx)] = choiceId;
+  persistBranchingState();
+  renderLabStepCoach();
+}
+
+function renderConsequenceBranch(labId, step, stepIdx, options = {}) {
+  if (!labId || typeof stepIdx !== 'number' || !step) return '';
+  const branch = getConsequenceBranch(labId, step);
+  const selectedId = branchingState[getBranchingKey(labId, stepIdx)];
+  const selectedChoice = branch.choices.find(item => item.id === selectedId) || null;
+  const title = options.title || 'Decision Drill';
+  const subtitle = options.subtitle || 'Choose the next move. Aegis will show what that operator choice does to the incident, not just whether it sounds plausible.';
+  return `
+    <section class="consequence-branch">
+      <div class="consequence-branch-title">${escHtml(title)}</div>
+      <div class="consequence-branch-subtitle">${escHtml(subtitle)}</div>
+      <div class="consequence-branch-prompt">${escHtml(branch.prompt)}</div>
+      <div class="consequence-branch-grid">
+        ${branch.choices.map(choice => `
+          <button
+            type="button"
+            class="consequence-choice${selectedId === choice.id ? ' is-selected' : ''}"
+            data-branch-choice="${escHtml(choice.id)}"
+            data-branch-lab="${escHtml(labId)}"
+            data-branch-step="${stepIdx}"
+          >
+            <span>${escHtml(choice.label)}</span>
+          </button>
+        `).join('')}
+      </div>
+      ${selectedChoice ? `
+        <div class="consequence-outcome consequence-outcome-${escHtml(selectedChoice.effect)}">
+          <div class="consequence-outcome-title">${selectedChoice.effect === 'best' ? 'Operational Result' : selectedChoice.effect === 'warn' ? 'Operational Risk' : 'Operational Consequence'}</div>
+          <p>${escHtml(tightenDisplayCopy(selectedChoice.outcome))}</p>
+        </div>
+      ` : `
+        <div class="consequence-outcome consequence-outcome-idle">
+          <div class="consequence-outcome-title">Make the call</div>
+          <p>Pick one path to see the downstream operational consequence.</p>
+        </div>
+      `}
     </section>
   `;
 }
@@ -728,6 +948,14 @@ function handleLabCoachClick(event) {
     event.preventDefault();
     event.stopPropagation();
     setLabCoachOpen(false);
+    return;
+  }
+
+  const choice = event.target.closest('[data-branch-choice]');
+  if (choice) {
+    event.preventDefault();
+    event.stopPropagation();
+    chooseIncidentBranch(choice.dataset.branchLab, Number(choice.dataset.branchStep), choice.dataset.branchChoice);
   }
 }
 
@@ -1515,6 +1743,7 @@ function renderLabStepCoach() {
   reasoningScoreState.byLab[currentLab] = scorecard;
   const diagnosis = renderDifferentialDiagnosis(currentLab, step);
   const incidentBrief = renderIncidentModeBrief(currentLab, step);
+  const consequenceBranch = renderConsequenceBranch(currentLab, step, currentStep);
 
   if (beginnerMode && step.explainerMode === 'beginner_story') {
     content.innerHTML = renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote);
@@ -1533,6 +1762,7 @@ function renderLabStepCoach() {
         subtitle: 'Incident mode scores the diagnosis on evidence control, layer ownership, and safe movement under uncertainty.',
       })}
       ${incidentBrief}
+      ${consequenceBranch}
       ${diagnosis}
       <div class="lab-step-coach-section">
         <div class="lab-step-coach-section-title">Command In Focus</div>
@@ -1567,6 +1797,7 @@ function renderLabStepCoach() {
       <p>${escHtml(tightenDisplayCopy(useTip))}</p>
     </div>
     ${renderReasoningScorecard(scorecard)}
+    ${(step.fault || incidentMode) ? consequenceBranch : ''}
     ${diagnosis}
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Command In Focus</div>
@@ -2840,8 +3071,13 @@ function resetAll() {
   completedLabs.clear();
   document.getElementById('h-done').textContent='0';
   document.getElementById('h-score').textContent='—';
+  document.getElementById('h-judgment').textContent='—';
   localStorage.removeItem('gpusim_completed');
   localStorage.removeItem('gpusim_score');
+  localStorage.removeItem('gpusim_reasoning_progress');
+  localStorage.removeItem('gpusim_branching_state');
+  reasoningProgress = { steps: {}, quizzes: [] };
+  branchingState = {};
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active','done'));
   clearCanvas();
   clearTerminal();
