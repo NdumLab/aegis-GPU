@@ -381,6 +381,100 @@ const CONSEQUENCE_BRANCHES = {
     ],
   },
 };
+const BRANCH_DETOUR_PLAYBOOKS = {
+  fault_isolation: {
+    title: 'Containment Recovery',
+    desc: 'Route correction required: containment checkpoint',
+    commands: [
+      'kubectl cordon gpu-node-01',
+      'dcgmi diag -g 0 -r 1',
+      'journalctl -k | grep -i xid',
+    ],
+    checks: [
+      'Stop new placement before touching remediation.',
+      'Capture the current fault evidence again so support still has a clean trail.',
+      'Do not resume normal flow until the node is in a controlled state.',
+    ],
+    terminal: [
+      '[detour] Node scheduling has been restricted.',
+      '[detour] Hardware-integrity evidence has been re-collected for review.',
+      '[detour] Normal progression remains blocked until containment is re-established.',
+    ],
+  },
+  fabric_path: {
+    title: 'Transport Recovery',
+    desc: 'Route correction required: path verification checkpoint',
+    commands: [
+      'env | grep NCCL',
+      'ibstat',
+      'NCCL_DEBUG=INFO ./all_reduce_perf',
+    ],
+    checks: [
+      'Prove the selected transport path before tuning the workload.',
+      'Re-read the fabric state and throughput together.',
+      'Clear the wrong-layer tuning loop before continuing.',
+    ],
+    terminal: [
+      '[detour] Transport-selection evidence is being re-validated.',
+      '[detour] Fabric state and collective path must agree before the next stage.',
+      '[detour] The lab will not advance on model tuning alone.',
+    ],
+  },
+  runtime_delivery: {
+    title: 'Stack Boundary Recovery',
+    desc: 'Route correction required: layer boundary checkpoint',
+    commands: [
+      'nvidia-smi',
+      'python -c "import torch; print(torch.cuda.is_available())"',
+      'docker run --gpus all nvcr.io/... nvidia-smi',
+    ],
+    checks: [
+      'Re-establish the failing handoff boundary before any broad rebuild.',
+      'Keep driver, runtime, framework, and container checks separate.',
+      'Only continue once one layer clearly owns the failure.',
+    ],
+    terminal: [
+      '[detour] Layer ownership is being narrowed again.',
+      '[detour] Broad stack changes remain blocked until the contract boundary is clear.',
+      '[detour] The next stage depends on a specific layer call, not a generic failure label.',
+    ],
+  },
+  platform_efficiency: {
+    title: 'Feed Path Recovery',
+    desc: 'Route correction required: upstream bottleneck checkpoint',
+    commands: [
+      'iostat -x 1 3',
+      'lfs getstripe /datasets/train',
+      'nvidia-smi dmon -s pucm',
+    ],
+    checks: [
+      'Re-check the feed path before changing compute behavior.',
+      'Hold storage and GPU evidence side by side.',
+      'Do not continue until the bottleneck owner is visible.',
+    ],
+    terminal: [
+      '[detour] Upstream delivery evidence is being compared against GPU behavior.',
+      '[detour] Compute tuning remains blocked until the starvation path is re-read.',
+      '[detour] The next stage requires a cleaner bottleneck call.',
+    ],
+  },
+  general_diagnosis: {
+    title: 'Evidence Recovery',
+    desc: 'Route correction required: ambiguity checkpoint',
+    commands: [
+      'collect one stronger clue',
+      'compare output with the previous healthy baseline',
+    ],
+    checks: [
+      'Resolve the ambiguity before continuing.',
+      'Prefer one decisive clue over several weak guesses.',
+    ],
+    terminal: [
+      '[detour] The earlier explanation was not strong enough to advance cleanly.',
+      '[detour] A stronger clue is required before the next stage can open.',
+    ],
+  },
+};
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -860,13 +954,20 @@ function getBranchDetourMessage(labId, stepIdx) {
     : 'Recovery detour: resolve the ambiguity before the lab advances.';
 }
 
+function getBranchDetourPlaybook(labId, stepIdx) {
+  const domain = getBranchConsequenceContext(labId, stepIdx).dominantDomain || 'general_diagnosis';
+  return BRANCH_DETOUR_PLAYBOOKS[domain] || BRANCH_DETOUR_PLAYBOOKS.general_diagnosis;
+}
+
 function renderBranchRouteStatus(labId, stepIdx) {
   const choice = getSelectedBranchChoice(labId, stepIdx);
   if (!choice) return '';
   const pending = isBranchDetourPending(labId, stepIdx);
+  const playbook = getBranchDetourPlaybook(labId, stepIdx);
   return `
     <section class="branch-route-status">
       <div class="branch-route-status-title">${pending ? 'Route Change Pending' : 'Route Change Recorded'}</div>
+      <p><strong>${escHtml(playbook.title)}</strong></p>
       <p>${escHtml(getBranchDetourMessage(labId, stepIdx) || '')}</p>
       <p>${escHtml(pending ? 'The next Run will go through a recovery detour before the lab advances.' : 'A recovery detour was required before this lab could continue normally.')}</p>
     </section>
@@ -923,18 +1024,18 @@ function renderConsequenceBranch(labId, step, stepIdx, options = {}) {
 function runBranchDetour(labId, stepIdx) {
   const lab = LABS[labId];
   const choice = getSelectedBranchChoice(labId, stepIdx);
+  const playbook = getBranchDetourPlaybook(labId, stepIdx);
   if (!lab || !choice) return false;
 
   switchTab('term');
   clearTerminal();
   document.getElementById('scen-step').style.display = '';
   document.getElementById('scen-step').textContent = `Recovery detour after Step ${stepIdx + 1}/${lab.steps.length}`;
-  document.getElementById('scen-desc').textContent = 'Route correction required';
-  logTerm([
-    { t: 'warn', v: '# recovery detour' },
-    { t: 'warn', v: getBranchDetourMessage(labId, stepIdx) || 'Recovery detour in progress.' },
-    { t: 'dim', v: '# Aegis is forcing a corrective checkpoint before the next stage can proceed.' },
-  ]);
+  document.getElementById('scen-desc').textContent = playbook.desc;
+  logTerm([{ t: 'warn', v: `# ${playbook.title}` }]);
+  playbook.commands.forEach(cmd => logTerm([{ t: 'cmd', v: cmd }]));
+  logTerm([{ t: 'warn', v: getBranchDetourMessage(labId, stepIdx) || 'Recovery detour in progress.' }]);
+  playbook.terminal.forEach(line => logTerm([{ t: 'dim', v: line }]));
   scrollTerminal();
 
   const log = document.getElementById('xid-log-entries');
@@ -942,7 +1043,7 @@ function runBranchDetour(labId, stepIdx) {
     const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const entry = document.createElement('div');
     entry.className = `xid-entry ${choice.effect === 'bad' ? 'crit' : 'warn'}`;
-    entry.textContent = `[${time}] Recovery detour inserted before the next stage`;
+    entry.textContent = `[${time}] ${playbook.title} inserted before the next stage`;
     log.prepend(entry);
     while (log.children.length > 8) log.removeChild(log.lastChild);
   }
