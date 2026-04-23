@@ -1,0 +1,48 @@
+AEGIS-GPU VERSION 3.0 RELEASE NOTES
+===================================
+
+Date
+----
+2026-04-23
+
+Scope
+-----
+Version 3.0 shifts Aegis from guided content delivery toward operator-grade reasoning support for AI infrastructure learning and troubleshooting.
+
+Delivered Components
+--------------------
+1. Reasoning Scorecard
+- Added reusable reasoning scorecards to guided lab and quiz surfaces.
+- Scores layer identification, evidence quality, and action safety.
+
+2. Differential Diagnosis Blocks
+- Added shared "what this is not" comparisons across all 16 labs.
+- Rendered into lab coach, guided intro flow, and study surfaces.
+
+3. Incident Mode
+- Added a persisted Incident Mode toggle in the main toolbar.
+- Reduced scaffolding in coach and study surfaces to emphasize evidence, uncertainty, and next safe move.
+
+4. Reasoning Analytics And Progress Model
+- Added persistent step-level troubleshooting judgment tracking.
+- Kept quiz accuracy separate from troubleshooting judgment.
+- Surfaced judgment in the header and progress detail in the study guide.
+
+5. Production Polish And Validation Hardening
+- Bumped local-live cache keys for app and stylesheet assets.
+- Completed repo validation loop after each component.
+- Completed local-live verification against served files under /var/www/html.
+
+Verification
+------------
+Repo validation used during the build loop:
+- node --check frontend/js/app.js
+- python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+- python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+- python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+
+Final local-live checks should verify:
+- index.html references css/styles.css?v=20260423v3a
+- index.html references js/app.js?v=20260423v3a
+- served app.js contains the v3 reasoning, incident, and analytics functions
+- served styles.css contains scorecard, differential diagnosis, and incident brief styles
