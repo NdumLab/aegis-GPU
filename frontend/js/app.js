@@ -269,7 +269,7 @@ function renderDetachedPanel(kind) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aegis ${escHtml(snapshot.title)}</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260421a">
+  <link rel="stylesheet" href="css/styles.css?v=20260423c">
 </head>
 <body class="detached-panel-window">
   <div class="detached-panel-frame" id="detached-panel-root"></div>
@@ -406,7 +406,34 @@ function renderOperatorStoryGuide(guide) {
     `);
   }
 
+  const takeHome = buildGuideTakeHome(guide);
+  if (takeHome.length) {
+    sections.push(`
+      <section class="learn-section learn-take-home">
+        <h4>Take Home</h4>
+        ${renderBulletList(takeHome, 'learn-list')}
+      </section>
+    `);
+  }
+
   return sections.join('');
+}
+
+function buildGuideTakeHome(guide) {
+  const takeHome = [];
+  if (guide.plainPicture) {
+    takeHome.push('First explain the plain picture in your own words before memorizing commands or acronyms.');
+  }
+  if (guide.commonMisreads && guide.commonMisreads.length) {
+    takeHome.push(guide.commonMisreads[0]);
+  }
+  if (guide.safeActions && guide.safeActions.length) {
+    takeHome.push(guide.safeActions[0]);
+  }
+  if (guide.wholePlatform && guide.wholePlatform.length) {
+    takeHome.push('Connect the local signal back to platform impact: capacity, reliability, scheduling, or user-visible workload health.');
+  }
+  return takeHome.slice(0, 4);
 }
 
 function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
@@ -536,6 +563,7 @@ function renderTerminalSnapshot(snapshot) {
   const title = snapshot.title ? `<div class="lab-step-shot-title">${escHtml(snapshot.title)}</div>` : '';
   const caption = snapshot.caption ? `<div class="lab-step-shot-caption">${escHtml(snapshot.caption)}</div>` : '';
   const lines = snapshot.lines.map(line => `<div class="lab-step-shot-line">${escHtml(line)}</div>`).join('');
+  const points = beginnerMode ? getSnapshotPointsOfInterest(snapshot) : [];
   return `
     <figure class="lab-step-shot-frame">
       ${title}
@@ -543,8 +571,85 @@ function renderTerminalSnapshot(snapshot) {
         ${lines}
       </div>
       ${caption}
+      ${points.length ? `
+        <div class="snapshot-interest">
+          <div class="snapshot-interest-title">Snapshot Read</div>
+          <ul>
+            ${points.map(point => `<li>${point}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
     </figure>
   `;
+}
+
+function getSnapshotPointsOfInterest(snapshot) {
+  const rawLines = Array.isArray(snapshot?.lines) ? snapshot.lines : [];
+  const lines = rawLines
+    .map(line => String(line || '').trim())
+    .filter(Boolean)
+    .filter(line => !line.startsWith('$') && !line.startsWith('#'))
+    .filter(line => !isSnapshotHeaderLine(line))
+    .slice(0, 6);
+
+  const summaries = [];
+  const seenMeanings = new Set();
+
+  lines.forEach(line => {
+    const meaning = explainOutputLineText(line, { fallback: false });
+    if (!meaning || seenMeanings.has(meaning)) return;
+    seenMeanings.add(meaning);
+    summaries.push({ line, meaning });
+  });
+
+  if (!summaries.length) return [];
+
+  const repeatedSignals = getRepeatedSnapshotSignals(lines);
+  if (repeatedSignals.length) {
+    return repeatedSignals.slice(0, 2).map(signal =>
+      `<span>${escHtml(signal.summary)}</span>`
+    );
+  }
+
+  return summaries.slice(0, 3).map(item =>
+    `<code>${escHtml(item.line)}</code><span>${escHtml(item.meaning)}</span>`
+  );
+}
+
+function isSnapshotHeaderLine(line) {
+  const lower = String(line || '').toLowerCase();
+  if (!lower) return false;
+  if (lower.includes('cpu affinity') && lower.includes('gpu0')) return true;
+  if (lower.includes('gpu   pid') && lower.includes('type')) return true;
+  if (lower.includes('timestamp') && lower.includes('value')) return true;
+  return false;
+}
+
+function getRepeatedSnapshotSignals(lines) {
+  const signals = [];
+  const joined = lines.join(' ').toLowerCase();
+  const nv4Rows = lines.filter(line => /\bnv4\b/i.test(line)).length;
+  const phbRows = lines.filter(line => /\bphb\b/i.test(line)).length;
+
+  if (nv4Rows >= 2) {
+    signals.push({
+      summary: 'The topology is consistently reporting NV4 between the visible GPU pairs. That indicates the expected direct NVLink path is present.'
+    });
+  }
+
+  if (phbRows >= 2) {
+    signals.push({
+      summary: 'The repeated PHB labels show traffic is crossing the PCIe host bridge instead of direct NVLink. That points to a slower inter-GPU path.'
+    });
+  }
+
+  if ((joined.includes('using network socket') || joined.includes('tcp fallback')) && lines.length >= 2) {
+    signals.push({
+      summary: 'NCCL is consistently selecting TCP sockets instead of the intended high-speed fabric. Treat this as a transport-path issue, not a model issue.'
+    });
+  }
+
+  return signals;
 }
 
 function describeScreenshotUse(step) {
@@ -597,10 +702,20 @@ function describeStepCommand(step) {
   return 'Runs the operator command for this stage so you can inspect the evidence it produces.';
 }
 
-function explainOutputLineText(text) {
+function explainOutputLineText(text, options = {}) {
+  const { fallback = true } = options;
   const lower = String(text || '').toLowerCase();
   if (lower.includes('nv4')) return 'NV4 means the GPUs are using a direct NVLink relationship, which is the fast path you want in this scenario.';
   if (lower.includes('phb')) return 'PHB means traffic is going through the PCIe host bridge instead of direct NVLink, which is much slower for collectives.';
+  if (lower.includes('nvrm version')) return 'This line identifies the NVIDIA kernel driver module. The number at the end is the installed NVIDIA driver version.';
+  if (lower.includes('gcc version')) return 'This is the compiler used to build the kernel module. It is supporting evidence, not the NVIDIA driver version.';
+  if (lower.includes('kernel module build')) return 'This timestamp tells you when the loaded NVIDIA kernel module was built.';
+  if (lower.includes('driver version')) return 'This is the NVIDIA driver version reported by user-space tools such as nvidia-smi.';
+  if (lower.includes('cuda version')) return 'This is the CUDA version reported by the tool or runtime. It is a different layer from the driver.';
+  if (lower.includes('pytorch') || lower.includes('torch')) return 'This points to the framework layer. A framework can fail even when the driver layer is working.';
+  if (lower.includes('tensorflow')) return 'This points to the framework layer. Use it to confirm whether the application library can see the CUDA stack.';
+  if (lower.includes('mig mode')) return 'MIG mode tells you whether the GPU is exposing partitioned instances or one full device.';
+  if (lower.includes('ngc') || lower.includes('nvcr.io')) return 'This points to a validated NVIDIA container image, which reduces software stack mismatch risk.';
   if (lower.includes('crc flit error count:       0') || lower.includes('crc errs: 0')) return 'Zero CRC or flit errors means the link looks clean right now.';
   if (lower.includes('crc flit error count') || lower.includes('crc')) return 'A rising CRC or flit error count points to link-integrity trouble rather than a software-only issue.';
   if (lower.includes('using network socket') || lower.includes('tcp fallback')) return 'This means NCCL is not using the preferred high-speed fabric path and has fallen back to TCP.';
@@ -620,7 +735,9 @@ function explainOutputLineText(text) {
   if (lower.includes('3 gb/s') || lower.includes('8 gb/s')) return 'This is a degraded throughput clue, not just a cosmetic number change.';
   if (lower.includes('ready 1/1') || lower.includes('running (16/16)')) return 'This is the success signal that the control plane or gang-scheduled workload reached the expected ready state.';
   if (lower.includes('gpu accessible') || lower.includes('available: true')) return 'This output confirms the container or runtime can actually see CUDA devices.';
-  return 'Treat this line as one of the important clues for the current stage and compare it with the step goal before moving on.';
+  return fallback
+    ? 'Treat this line as one of the important clues for the current stage and compare it with the step goal before moving on.'
+    : '';
 }
 
 function getKeyOutputClues(step) {
@@ -1466,6 +1583,211 @@ function startLab() {
   if(currentLab) runStep(currentLab, 0);
 }
 
+const EXAM_STUDY_GUIDES = {
+  nca_aiio: {
+    code: 'NCA-AIIO',
+    title: 'NVIDIA-Certified Associate: AI Infrastructure and Operations',
+    examShape: 'Associate-level, 50 questions, 60 minutes. The goal is foundational infrastructure reasoning, not memorizing every command flag.',
+    mentalModel: [
+      'GPU hardware is the capacity. The driver makes it visible to Linux. CUDA and libraries make it usable by applications. Containers and schedulers deliver it to workloads. Telemetry and logs tell operators whether that chain is still trustworthy.',
+      'When an exam question gives you a symptom, first locate the broken layer: hardware, driver, CUDA/runtime, container, scheduler, network, storage, or observability.',
+      'A correct operator answer usually preserves evidence, protects running workloads, and chooses the smallest safe recovery step before broad changes.'
+    ],
+    path: [
+      {
+        phase: '1',
+        title: 'GPU Foundations',
+        labs: ['cuda_stack', 'mig', 'nvlink'],
+        examFocus: 'Know what the GPU, driver, CUDA runtime, MIG, and NVLink each do in the stack.',
+        plain: 'This is the vocabulary layer. If you cannot explain what each layer owns, every later troubleshooting question feels random.',
+        connectDots: [
+          'A visible GPU does not prove CUDA is healthy.',
+          'A healthy driver does not prove the container can access the GPU.',
+          'A multi-GPU node is only valuable for distributed work if the fast GPU-to-GPU path is healthy.'
+        ],
+        trap: 'Do not collapse all GPU problems into hardware failure. Many exam scenarios are compatibility or exposure problems above healthy hardware.'
+      },
+      {
+        phase: '2',
+        title: 'Health Signals And Fault Codes',
+        labs: ['ecc', 'nvlink_fault', 'monitoring'],
+        examFocus: 'Read ECC counters, XID events, DCGM signals, and alert evidence as an operator story.',
+        plain: 'This is where raw numbers become decisions. SBE is a warning trend, DBE is an integrity problem, and XID codes tell you which fault family to confirm next.',
+        connectDots: [
+          'SBE means the GPU corrected memory trouble. Trend matters.',
+          'DBE means uncorrectable memory trouble. Containment matters.',
+          'XID 48, 74, and 79 point to different fault families, so they should not all trigger the same recovery path.'
+        ],
+        trap: 'The code is not the whole diagnosis. Use it to choose the next evidence source and the safe containment step.'
+      },
+      {
+        phase: '3',
+        title: 'Workload Delivery',
+        labs: ['container', 'k8s', 'slurm', 'training'],
+        examFocus: 'Understand how validated images, GPU runtimes, Kubernetes, Slurm, and distributed jobs consume GPU capacity.',
+        plain: 'This is the scheduling layer. The machine may be healthy while the workload still cannot land, start, or see a GPU.',
+        connectDots: [
+          'Containers reduce environment drift, but the runtime still has to expose GPUs.',
+          'Kubernetes extended resources such as nvidia.com/gpu are allocated as whole integer resources.',
+          'Distributed training may need gang scheduling so all ranks start together.'
+        ],
+        trap: 'A Pending pod or delayed Slurm job is not automatically a broken GPU. Read scheduler reasons before changing hardware or drivers.'
+      },
+      {
+        phase: '4',
+        title: 'Networking And Collectives',
+        labs: ['ib_fabric', 'roce', 'allreduce', 'nccl_fallback'],
+        examFocus: 'Connect InfiniBand, RoCE, NCCL path selection, topology, and AllReduce throughput.',
+        plain: 'Distributed AI jobs spend a lot of time exchanging gradients. If the fabric falls back to a slow path, the GPUs may be present but expensive time is wasted.',
+        connectDots: [
+          'NCCL chooses a communication path. Logs reveal whether it is using IB, NVLink, or TCP fallback.',
+          'InfiniBand Active means the port is up, not that every collective is configured correctly.',
+          'RoCE depends on Ethernet lossless behavior, so PFC and ECN mistakes can become performance incidents.'
+        ],
+        trap: 'Do not tune batch size before checking whether NCCL is on the intended network path.'
+      },
+      {
+        phase: '5',
+        title: 'Storage And Data Flow',
+        labs: ['storage', 'gds'],
+        examFocus: 'Recognize GPU starvation caused by slow data delivery and know why GPUDirect Storage changes the path.',
+        plain: 'A GPU can look underutilized because it is waiting for data, not because compute is weak. The exam often tests whether you can separate compute bottlenecks from input bottlenecks.',
+        connectDots: [
+          'Sawtooth GPU utilization often means data arrives in bursts.',
+          'High storage utilization with low GPU utilization points away from CUDA and toward I/O.',
+          'GPUDirect Storage can reduce CPU bounce-buffer overhead when the platform supports it.'
+        ],
+        trap: 'Low GPU utilization is not always a GPU problem. Check the data path before changing accelerator settings.'
+      }
+    ],
+    checkpoints: [
+      {
+        title: 'Layer Check',
+        prompt: 'A container starts, but PyTorch says CUDA is unavailable. Which layer do you inspect first?',
+        answer: 'Container GPU exposure and runtime configuration. The image starting only proves the container process ran; it does not prove CUDA devices were passed through.'
+      },
+      {
+        title: 'Evidence Check',
+        prompt: 'A log shows XID 48 and DCGM DBE is non-zero. What is the safe operator posture?',
+        answer: 'Treat it as a hardware-integrity incident: preserve evidence, drain or isolate the node, notify owners, and follow the hardware support path.'
+      },
+      {
+        title: 'Performance Check',
+        prompt: 'All GPUs are visible, but AllReduce is much slower and NCCL says Socket. What changed?',
+        answer: 'The collective communication path fell back to TCP/socket instead of the intended high-speed fabric.'
+      },
+      {
+        title: 'Scheduler Check',
+        prompt: 'A Kubernetes pod is Pending with Insufficient nvidia.com/gpu. What does that usually mean?',
+        answer: 'The requested GPU resource is not currently allocatable on schedulable nodes. It is a capacity or scheduling state clue, not proof of a driver failure.'
+      }
+    ]
+  }
+};
+
+function getLabName(id) {
+  return LABS[id]?.name || id;
+}
+
+function renderStudyLabLinks(labIds) {
+  if (!labIds || !labIds.length) return '';
+  return `
+    <div class="study-lab-links">
+      ${labIds.map(id => `
+        <button class="study-lab-link" type="button" data-study-lab="${escHtml(id)}">
+          <span>${escHtml(getLabName(id))}</span>
+          <small>${escHtml(id)}</small>
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderStudyGuide(examId = 'nca_aiio') {
+  const guide = EXAM_STUDY_GUIDES[examId];
+  if (!guide) return '<p>Study guide unavailable.</p>';
+
+  return `
+    <section class="study-hero">
+      <div class="study-hero-kicker">${escHtml(guide.code)}</div>
+      <h3>${escHtml(guide.title)}</h3>
+      <p>${escHtml(guide.examShape)}</p>
+    </section>
+
+    <section class="learn-section study-model">
+      <div class="learn-heading-row">
+        <h4>The Chain To Remember</h4>
+        <span class="learn-mode-tag">Connect the dots</span>
+      </div>
+      ${renderParagraphs(guide.mentalModel)}
+    </section>
+
+    <section class="learn-section">
+      <div class="learn-heading-row">
+        <h4>Study Path</h4>
+        <span class="learn-mode-tag">${guide.path.length} phases</span>
+      </div>
+      <div class="study-path">
+        ${guide.path.map(item => `
+          <article class="study-phase">
+            <div class="study-phase-top">
+              <div class="study-phase-num">${escHtml(item.phase)}</div>
+              <div>
+                <h5>${escHtml(item.title)}</h5>
+                <div class="study-focus">${escHtml(item.examFocus)}</div>
+              </div>
+            </div>
+            <p>${escHtml(item.plain)}</p>
+            <div class="study-mini-title">How it connects</div>
+            ${renderBulletList(item.connectDots, 'study-list')}
+            <div class="study-trap"><strong>Exam trap:</strong> ${escHtml(item.trap)}</div>
+            ${renderStudyLabLinks(item.labs)}
+          </article>
+        `).join('')}
+      </div>
+    </section>
+
+    <section class="learn-section">
+      <div class="learn-heading-row">
+        <h4>Self Check</h4>
+        <span class="learn-mode-tag">Explain out loud</span>
+      </div>
+      <div class="study-check-grid">
+        ${guide.checkpoints.map(item => `
+          <article class="study-check">
+            <div class="study-mini-title">${escHtml(item.title)}</div>
+            <p>${escHtml(item.prompt)}</p>
+            <details>
+              <summary>Show answer</summary>
+              <div>${escHtml(item.answer)}</div>
+            </details>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function openStudyGuide(examId = 'nca_aiio') {
+  const content = document.getElementById('study-content');
+  if (!content) return;
+  content.innerHTML = renderStudyGuide(examId);
+  document.getElementById('study-overlay')?.classList.add('show');
+}
+
+function closeStudyGuide() {
+  document.getElementById('study-overlay')?.classList.remove('show');
+}
+
+function openStudyLab(labId) {
+  closeStudyGuide();
+  if (!isProvisioned) {
+    document.getElementById('recon-overlay').style.display = 'flex';
+    return;
+  }
+  loadLab(labId);
+}
+
 // --- QUIZ DATA (Sprint 13: expanded to 20 questions, mapped to NCA-AIIO objectives) ---
 const QUIZ = [
   // XID & ECC — NCA-AIIO: Hardware Fault Response
@@ -1774,6 +2096,7 @@ function bindUIHandlers() {
 
   // Header
   on('btn-quiz',    'click', openQuiz);
+  on('btn-study',   'click', () => openStudyGuide('nca_aiio'));
   on('btn-blueprint', 'click', () => { document.getElementById('recon-overlay').style.display = 'flex'; });
   on('btn-learn',   'click', () => { if (currentLab) showIntro(currentLab); });
   on('btn-logout',  'click', aegisLogout);
@@ -1790,6 +2113,7 @@ function bindUIHandlers() {
   if (coachEl) coachEl.addEventListener('click', handleLabCoachClick);
 
   // Sidebar
+  on('sidebar-btn-study', 'click', () => openStudyGuide('nca_aiio'));
   on('sidebar-btn-quiz', 'click', openQuiz);
 
   // Provisioning
@@ -1825,6 +2149,13 @@ function bindUIHandlers() {
 
   // Quiz modal
   on('btn-quiz-close', 'click', closeQuiz);
+  on('btn-study-close', 'click', closeStudyGuide);
+  const studyContent = document.getElementById('study-content');
+  if (studyContent) studyContent.addEventListener('click', e => {
+    const labLink = e.target.closest('[data-study-lab]');
+    if (labLink) openStudyLab(labLink.dataset.studyLab);
+  });
+
   const quizContent = document.getElementById('quiz-content');
   if (quizContent) quizContent.addEventListener('click', e => {
     const option = e.target.closest('.quiz-option[data-quiz-question]');

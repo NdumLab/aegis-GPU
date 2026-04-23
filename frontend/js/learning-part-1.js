@@ -9,7 +9,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are watching how GPU memory errors move from healthy baseline, to warning signs, to a hard containment decision. Think of this like noticing hairline cracks in a pressure pipe before it finally bursts under load.",
-    plainPicture: "ECC is the GPU's memory protection system. A few corrected errors mean the hardware caught bad data and repaired it, but a repeated trend can mean the memory is getting weaker. An uncorrected error means the GPU could not safely fix the corruption anymore.",
+    plainPicture: "Picture GPU memory as a long wall of tiny storage boxes where the training job keeps numbers. ECC is the checker that looks at each box before the number is used. A single-bit error is like one smudged digit that the checker can repair before the job notices. That is useful, but if the same wall keeps getting smudges, the wall may be wearing out. A double-bit error is different: too much of the number is damaged, so the checker can no longer know the safe value. That is why corrected errors are warning lights, while uncorrected errors become a stop-and-protect-the-node event.",
     whyOperatorsCare: [
       "Operators care about ECC because it is one of the clearest early-warning systems for GPU memory health. It tells you whether the card is still correcting problems quietly or has crossed into unsafe hardware behavior.",
       "This matters because the node may still look available while the memory story is getting worse. Beginners need to learn that 'still running' does not mean 'still safe.'",
@@ -63,7 +63,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are learning how to read NVIDIA XID fault codes as operator signals instead of treating them like mysterious numbers. The beginner goal is not to memorize every code. It is to look at a code, classify the fault family, and decide what evidence and containment step should come next.",
-    plainPicture: "An XID code is the GPU driver's shorthand for a fault category. The number is only the starting point. What matters is the story behind it: is this more consistent with memory corruption, a hung GPU, or a degraded interconnect? This lab teaches that you do not stop at the code. You compare it with the screenshot evidence, confirm the fault family, and then choose the smallest safe action.",
+    plainPicture: "Picture the NVIDIA driver as the control-room operator watching the GPU. When something breaks, it writes a short incident code in the log instead of a long story. That short code is the XID. XID 48 is like the operator saying memory integrity failed. XID 79 is like saying the GPU stopped answering the bus. XID 74 is like saying the GPU-to-GPU link is noisy or damaged. The number is not the whole diagnosis; it is the signpost that tells you which room to inspect next.",
     whyOperatorsCare: [
       "Operators often see the XID code before they see a human explanation. Logs, alerts, and support tickets may give you only a short number, so the operator has to turn that into a safe containment decision quickly.",
       "This matters because different XIDs imply different fault families. A memory-integrity problem, a bus or hang problem, and a fabric problem do not all deserve the same response or the same recovery path.",
@@ -97,7 +97,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are checking whether 8 H100 GPUs are communicating over the direct NVLink fabric the node was designed to use. The beginner goal is not just to spot whether GPUs exist. It is to tell the difference between a healthy fast interconnect and a slower fallback path that can quietly waste the whole node.",
-    plainPicture: "NVLink is the short, high-bandwidth path between GPUs. When that path is healthy, collectives such as AllReduce stay fast. When it degrades, the job may still run, but traffic can fall back to a slower PCIe host-bridge path such as PHB. That is why this lab starts with the topology screenshot first: the map tells you what healthy communication should look like before you judge counters, logs, or bandwidth.",
+    plainPicture: "Picture eight GPUs in one server as eight workers passing heavy crates to each other. NVLink is the private high-speed hallway between those workers. When the hallway is open, crates move directly and training stays fast. If that hallway is blocked, the workers may still pass crates through the building lobby, which is the slower PCIe host-bridge path shown as PHB. The job may still run, but the route is much worse. The topology screenshot is the floor plan that shows whether traffic is using the private hallway or the slow lobby route.",
     whyOperatorsCare: [
       "Operators care about NVLink because distributed training health is not just 'can I see eight GPUs?' The real question is whether those GPUs can exchange data over the fast path the node was designed to use.",
       "A node can stay online, launch jobs, and still be operationally degraded. That is why the first screenshot in this lab matters: uptime is not the same as healthy interconnect performance.",
@@ -131,7 +131,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are taking one H100 GPU and carving it into 7 isolated MIG slices. The beginner goal is not just to see that partitioning exists. It is to understand that the hardware itself changes shape, and that this changes what the node can safely advertise to users and schedulers.",
-    plainPicture: "MIG is hardware partitioning, not just scheduling. The GPU itself changes mode and begins exposing smaller isolated instances instead of one full device. That is why this lab starts with the enablement screenshot, then the creation screenshot, then the verification screenshot. Operators do not stop at 'the command ran.' They prove the hardware contract changed the way they intended.",
+    plainPicture: "Picture one large GPU as a big apartment building. Without MIG, one tenant can rent the whole building. With MIG, the building is divided into smaller locked apartments, each with its own share of compute and memory. This is not just a calendar reservation; the hardware itself changes how it presents the rooms. Enabling MIG turns on apartment mode, creating instances builds the apartments, and verification checks that the expected apartments really exist before users move in.",
     whyOperatorsCare: [
       "When you partition a GPU, you are not only sharing capacity. You are changing the isolation story of the node.",
       "That matters because operators care about blast radius: if one tenant, one process, or one slice has a problem, how much of the machine is affected and what still remains safe to use?",
@@ -164,7 +164,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are checking whether the software layers above the GPU actually fit together. The beginner goal is to stop treating every CUDA failure like a hardware incident and to learn how to find the exact layer where the contract breaks.",
-    plainPicture: "The CUDA stack is a compatibility chain: driver, CUDA runtime, framework, and application. If one layer does not fit the others, the workload can fail even when the GPU hardware is perfectly healthy. That is why this lab walks upward through screenshots step by step: driver first, then CUDA, then framework, then the mismatch case, then the validated-image recovery path.",
+    plainPicture: "Picture the GPU as a powerful machine inside a locked hardware room. The NVIDIA driver is the badge reader that lets Linux open the door and talk to that machine. CUDA is the translator that gives programs a common language for sending work to the GPU. A framework such as PyTorch or TensorFlow is the worker using that language, and your training script is the actual job request. A compatibility chain means each person in that line must understand the one before and after it. If Linux can see the GPU but the driver is too old for the CUDA runtime, the door opens but the translator cannot speak correctly. If CUDA is present but the framework was built for a different CUDA version or GPU architecture, the worker misunderstands the job. The GPU can be perfectly healthy and the workload can still fail because the handoff between layers is broken.",
     whyOperatorsCare: [
       "Beginners often blame the GPU first when the real problem is software compatibility. Operators check the stack before calling it a hardware incident.",
       "This matters because a stack mismatch can waste expensive debugging time, pull healthy nodes out of service, or make supposedly identical servers behave differently under the same workload.",
@@ -198,7 +198,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are learning how to use a validated GPU container image as a known-good runtime environment. The beginner goal is to separate image quality from runtime quality and to prove both before trusting the workload.",
-    plainPicture: "A GPU container image packages the application environment so the same stack can be reused across nodes. The goal is not just convenience. The goal is consistency. But a good image is only half the story: the runtime still has to expose GPUs correctly. That is why this lab moves from image pull, to GPU runtime, to in-container verification, to real workload progress, to live monitoring.",
+    plainPicture: "Picture a container image as a sealed toolbox for an AI job. Inside the toolbox are Python, CUDA libraries, PyTorch, and the application code. That makes the job easier to move from one server to another. But the toolbox still needs a working power outlet. The GPU runtime is that outlet: it connects the sealed toolbox to the real NVIDIA GPU on the host. A good image without GPU runtime access is like a perfect power tool with no electricity. This lab checks both the toolbox and the outlet.",
     whyOperatorsCare: [
       "Operators care about containers because they reduce environment drift. Instead of debugging every node as a unique snowflake, they can start from one reproducible image baseline.",
       "This matters because many 'GPU problems' are really environment problems: the wrong libraries, the wrong framework build, or a runtime that does not actually expose the GPU inside the container.",
@@ -231,7 +231,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are walking through how one distributed training step actually works across many GPUs. The beginner goal is to separate local compute from shared synchronization so you can tell where a training job is actually healthy and where it is only pretending to be healthy.",
-    plainPicture: "Distributed training is not just many GPUs computing at once. Each rank does local work, then the group has to synchronize before the job can move forward together. That is why this lab now uses screenshots for each phase: launch, forward, backward, AllReduce, and update. Operators do not treat 'the job is running' as enough. They ask which phase is healthy, which phase is slow, and whether the whole loop still makes sense end to end.",
+    plainPicture: "Picture distributed training as a classroom where many students solve different parts of the same assignment. Each GPU, called a rank, works on its own mini-batch first. Then everyone must compare answers before the class can move to the next question. That compare step is synchronization. If one student is slow, missing, or cannot hear the group, the whole class waits. That is why operators look at launch, compute, synchronization, and update as separate stages instead of saying only that the job is running.",
     whyOperatorsCare: [
       "Many cluster incidents look like model or code problems when they are actually synchronization, storage, or network timing problems.",
       "A distributed job only moves as well as its slowest critical stage. One weak rank, one slow input path, or one bad communication phase can drag the whole run down.",
@@ -265,7 +265,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are tracing how many GPUs combine their gradient updates into one shared answer. The beginner goal is to stop treating collectives as invisible library magic and to see how one weak communication path can slow the whole job.",
-    plainPicture: "AllReduce is the shared checkpoint inside distributed training. Each rank has part of the update, and the job only stays correct if the group combines that information and gives the same result back to everyone. That is why this lab now walks through the path screenshot, the ring-reduce screenshot, the ring-gather screenshot, the benchmark screenshot, and the fallback screenshot. Operators care about the whole communication story, not just the final number.",
+    plainPicture: "Picture each GPU holding one page of notes about how the model should change. AllReduce is the group huddle where every GPU shares its page, the group combines the notes, and every GPU leaves with the same final answer. If the huddle uses the fast room-to-room path, training moves quickly. If it has to use a slow hallway or a bad network route, everyone still may get the answer, but much later. This lab shows the route, the sharing pattern, and the speed so you can see why collectives matter.",
     whyOperatorsCare: [
       "This is one of the clearest places where a cluster can fail softly. The job stays up, but communication slows down enough to waste large amounts of GPU time.",
       "A weak transport path, bad rank, or wrong NCCL path selection usually shows up here before users can explain why training suddenly feels slow.",
@@ -299,7 +299,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are checking whether the cluster's InfiniBand network is actually healthy enough for multi-node GPU jobs. The beginner goal is to stop thinking only in terms of nodes and to start thinking in terms of the path between nodes.",
-    plainPicture: "InfiniBand is the fast fabric that lets servers exchange data quickly during distributed work. A node can look healthy by itself while the path between nodes is still weak, noisy, or partially down. That is why this lab starts with the active-port screenshot, then the clean-counter screenshot, then the bandwidth screenshot, then the down-port and fabric-sweep views. Operators move from path existence, to path cleanliness, to path performance, to blast radius.",
+    plainPicture: "Picture a GPU cluster as several buildings connected by private express roads. InfiniBand is the express-road system. A server can look healthy inside its own building, but training still suffers if the road between buildings is closed, full of errors, or much slower than expected. An Active port means the road entrance is open. Clean counters mean cars are not constantly hitting debris. Bandwidth tests show whether traffic can actually move at highway speed. This lab teaches you to inspect the road, not just the building.",
     whyOperatorsCare: [
       "Many distributed training problems feel like software issues until someone checks the fabric and finds bad ports, dirty counters, or an unstable path.",
       "The interconnect decides whether multi-node GPU jobs scale cleanly or waste time waiting on the network.",
@@ -333,7 +333,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are checking whether Ethernet is configured well enough to carry RDMA traffic for distributed GPU jobs. The beginner goal is to understand that a link can be up and still be wrong for AI traffic if congestion behavior is unhealthy.",
-    plainPicture: "RoCE lets GPU jobs use RDMA over Ethernet, but that only works well if congestion controls across the path are aligned. The network can still look up while behaving badly for the kind of traffic AI jobs depend on. That is why this lab walks through the MTU screenshot, the PFC screenshot, the ECN screenshot, the bandwidth screenshot, and then the pause-storm fault screenshot. Operators care about the control behavior under pressure, not just whether the cable is alive.",
+    plainPicture: "Picture RoCE as trying to run express-lane truck traffic on an Ethernet highway. RDMA traffic wants a smooth path with very little packet loss. PFC pause frames are like traffic officers who can stop a lane when congestion builds. ECN is like an early warning sign that tells drivers to slow down before the lane has to stop. If those controls are tuned badly, the road can technically be open but traffic freezes in waves. This lab shows why RoCE health is about congestion behavior, not just link-up status.",
     whyOperatorsCare: [
       "RoCE teaches that a network can be available yet still be wrong for distributed training because congestion handling, not just link speed, determines whether the path stays healthy under load.",
       "Pause storms, MTU mismatches, or weak ECN behavior can quietly turn a high-speed fabric into a bottleneck for many jobs at once.",
