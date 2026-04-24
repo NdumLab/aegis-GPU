@@ -31,5 +31,26 @@ Entry 2
 - Final validation for component 2:
   - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
   - `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
-  - `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
+- `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
 - Component 2 status: complete
+
+Entry 3
+- Third target component: expanded targeted browser proof across more lab families without reverting to the full long browser matrix
+- Extended `frontend/tests/test_frontend_browser_proof.py` from 3 scenarios to 6 scenarios
+- Added cross-family branch coverage for:
+  - `ecc_bad`
+  - `nvlink_bad`
+  - `storage_warn`
+- Verified expanded machine-readable artifact at `/tmp/aegis-browser-proof-expanded.json`
+- Verified expanded artifact contains pass results for:
+  - study/progress empty state
+  - main coach Ask Aegis
+  - detached coach Ask Aegis
+  - ECC degraded branch path
+  - NVLink degraded branch path
+  - storage warning branch path
+- Final validation for component 3:
+  - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof-expanded.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
+  - `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
+  - `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
+- Component 3 status: complete

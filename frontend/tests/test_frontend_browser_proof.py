@@ -72,9 +72,30 @@ def _wait_for_http_ready(port, path='/', timeout=5.0):
 class FrontendBrowserProofTest(unittest.TestCase):
     def test_browser_proof_surfaces_report_success(self):
         scenarios = [
-            'study_progress_empty',
-            'ask_aegis_main',
-            'ask_aegis_detached',
+            {
+                'name': 'study_progress_empty',
+                'expected_details': ['study-progress-visible', 'empty-state-visible'],
+            },
+            {
+                'name': 'ask_aegis_main',
+                'expected_details': ['askaegis-main-visible', 'askaegis-main-updated'],
+            },
+            {
+                'name': 'ask_aegis_detached',
+                'expected_details': ['askaegis-detached-visible', 'askaegis-detached-updated'],
+            },
+            {
+                'name': 'ecc_bad',
+                'expected_details': ['effect-bad', 'detour-rendered', 'redirected-main-step'],
+            },
+            {
+                'name': 'nvlink_bad',
+                'expected_details': ['effect-bad', 'detour-rendered', 'redirected-main-step'],
+            },
+            {
+                'name': 'storage_warn',
+                'expected_details': ['effect-warn', 'detour-rendered', 'redirected-main-step'],
+            },
         ]
         report_rows = []
         result_server = _ThreadedTCPServer(('127.0.0.1', RESULT_PORT), _ResultHandler)
@@ -92,7 +113,9 @@ class FrontendBrowserProofTest(unittest.TestCase):
             _wait_for_http_ready(RESULT_PORT, '/result?status=ready&summary=probe&details=probe')
             _wait_for_http_ready(APP_PORT, '/index.html')
             for scenario in scenarios:
-                with self.subTest(scenario=scenario):
+                scenario_name = scenario['name']
+                expected_details = scenario['expected_details']
+                with self.subTest(scenario=scenario_name):
                     result_event = threading.Event()
                     _ResultHandler.result = {}
                     _ResultHandler.event = result_event
@@ -106,32 +129,25 @@ class FrontendBrowserProofTest(unittest.TestCase):
                                 '--new-instance',
                                 '--profile',
                                 profile_dir,
-                                f'http://127.0.0.1:{APP_PORT}/index.html?smokePort={RESULT_PORT}#browser-smoke:{scenario}',
+                                f'http://127.0.0.1:{APP_PORT}/index.html?smokePort={RESULT_PORT}#browser-smoke:{scenario_name}',
                             ],
                             stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL,
                         )
-                        self.assertTrue(result_event.wait(timeout=35), f'browser proof result was not reported in time for {scenario}')
+                        self.assertTrue(result_event.wait(timeout=35), f'browser proof result was not reported in time for {scenario_name}')
                         result = dict(_ResultHandler.result)
                         self.assertEqual(result.get('status'), 'pass', result)
-                        if scenario == 'study_progress_empty':
-                            self.assertIn('study-progress-visible', result.get('details', ''))
-                            self.assertIn('empty-state-visible', result.get('details', ''))
-                        elif scenario == 'ask_aegis_main':
-                            self.assertIn('askaegis-main-visible', result.get('details', ''))
-                            self.assertIn('askaegis-main-updated', result.get('details', ''))
-                        elif scenario == 'ask_aegis_detached':
-                            self.assertIn('askaegis-detached-visible', result.get('details', ''))
-                            self.assertIn('askaegis-detached-updated', result.get('details', ''))
+                        for marker in expected_details:
+                            self.assertIn(marker, result.get('details', ''))
                         report_rows.append({
-                            'scenario': scenario,
+                            'scenario': scenario_name,
                             'status': result.get('status', ''),
                             'summary': result.get('summary', ''),
                             'details': result.get('details', ''),
                         })
                     except Exception as exc:
                         report_rows.append({
-                            'scenario': scenario,
+                            'scenario': scenario_name,
                             'status': 'fail',
                             'summary': str(exc),
                             'details': dict(_ResultHandler.result).get('details', ''),
