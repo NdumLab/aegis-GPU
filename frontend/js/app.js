@@ -1979,6 +1979,21 @@ async function browserSmokeWaitFor(predicate, timeout = 2000, interval = 50) {
   return false;
 }
 
+function seedBrowserSmokeReasoningStep(labId, stepIdx, values = {}) {
+  reasoningProgress.steps[`${labId}:${stepIdx}`] = {
+    score: values.score ?? 2,
+    maxScore: values.maxScore ?? 6,
+    penalty: values.penalty ?? 0,
+    categories: [
+      { key: 'layer', label: 'Layer call', value: values.layer ?? 1 },
+      { key: 'evidence', label: 'Evidence quality', value: values.evidence ?? 1 },
+      { key: 'safety', label: 'Action safety', value: values.safety ?? 0 },
+    ],
+  };
+  persistReasoningProgress();
+  updateReasoningProgressUI();
+}
+
 async function runBrowserSmokeScenario() {
   const scenario = getBrowserSmokeScenarioName();
   const details = [];
@@ -2063,6 +2078,44 @@ async function runBrowserSmokeScenario() {
       details.push('askaegis-detached-updated');
       detached.close();
       setBrowserSmokeResult('pass', 'detached coach Ask Aegis verified', details);
+      return;
+    }
+
+    if (scenario === 'analytics_recommendation_transition') {
+      seedBrowserSmokeReasoningStep('nvlink', 3, {
+        score: 2,
+        maxScore: 6,
+        layer: 1,
+        evidence: 1,
+        safety: 0,
+      });
+      loadLab('nvlink');
+      chooseIncidentBranch('nvlink', 3, 'reboot_cluster');
+      recordLabCompletionOutcome('nvlink', false);
+      openStudyGuide('nca_aiio');
+      await browserSmokeWait(100);
+      const studyContent = document.getElementById('study-content');
+      const initialText = String(studyContent?.textContent || '');
+      if (!initialText.includes('Next training focus')) throw new Error('analytics recommendation did not render');
+      if (!initialText.includes('Recent risk pattern')) throw new Error('recent risk pattern did not render');
+      if (!initialText.includes('Start with the last compromised lab')) throw new Error('initial compromised recommendation wording missing');
+      if (!initialText.includes('Picked because your last compromised run was NVLink Topology in fabric path.')) throw new Error('initial recommendation rationale missing');
+      if (!initialText.includes('NCCL Fallback Drill')) throw new Error('domain drill recommendation missing');
+      details.push('analytics-focus-visible');
+      details.push('analytics-risk-visible');
+      details.push('analytics-initial-rationale');
+
+      loadLab('nccl_fallback');
+      chooseIncidentBranch('nccl_fallback', 0, 'verify_path');
+      recordLabCompletionOutcome('nccl_fallback', true);
+      openStudyGuide('nca_aiio');
+      await browserSmokeWait(100);
+      const adaptedText = String(studyContent?.textContent || '');
+      if (!adaptedText.includes('You already have clean finishes in fabric path')) throw new Error('same-domain recovery wording missing');
+      if (!adaptedText.includes('but you already cleaned up NCCL Fallback Drill in that same domain.')) throw new Error('same-domain rationale missing');
+      details.push('analytics-domain-adapted');
+      details.push('analytics-recovery-rationale');
+      setBrowserSmokeResult('pass', 'analytics recommendation transition verified', details);
       return;
     }
 

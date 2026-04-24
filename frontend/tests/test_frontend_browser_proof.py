@@ -85,6 +85,10 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 'expected_details': ['askaegis-detached-visible', 'askaegis-detached-updated'],
             },
             {
+                'name': 'analytics_recommendation_transition',
+                'expected_details': ['analytics-focus-visible', 'analytics-risk-visible', 'analytics-initial-rationale', 'analytics-domain-adapted', 'analytics-recovery-rationale'],
+            },
+            {
                 'name': 'ecc_bad',
                 'expected_details': ['effect-bad', 'detour-rendered', 'redirected-main-step'],
             },
