@@ -814,6 +814,102 @@ const ALTERNATE_BRANCH_STEPS = {
       { t: 'warn', v: 'Fabric integrity is still unresolved despite application-level retries' },
     ],
   },
+  mig: {
+    type: 'branch_mig_profile_recheck',
+    label: 'MIG Recovery Checkpoint',
+    cmd: 'nvidia-smi mig -lgi && nvidia-smi -L',
+    lookFor: [
+      'Whether the expected MIG profiles are still carved and visible.',
+      'Whether the earlier path confused partition layout with generic GPU disappearance.',
+    ],
+    meaning: 'This branch-only step forces a fresh read of MIG partition ownership before the main partitioning lab resumes.',
+    takeAction: ['Keep partition visibility separate from node-health and scheduling stories until the active break is explicit.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-checking MIG partition layout.' },
+      { t: 'dim', v: 'GPU 0 GI 3 CI 0 missing from expected profile inventory' },
+      { t: 'warn', v: 'Partition exposure remains inconsistent with the requested MIG shape' },
+    ],
+  },
+  container: {
+    type: 'branch_container_runtime_recheck',
+    label: 'Container Runtime Recovery Checkpoint',
+    cmd: 'docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi',
+    lookFor: [
+      'Whether the container runtime still exposes the GPU contract cleanly.',
+      'Whether the earlier recovery attempt blurred host-runtime issues with image-level issues.',
+    ],
+    meaning: 'This branch-only step forces a cleaner container-to-GPU contract check before the main container lab continues.',
+    takeAction: ['Do not advance until host runtime, toolkit injection, and image behavior are clearly separated.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-checking container GPU runtime exposure.' },
+      { t: 'dim', v: 'Container starts, but NVIDIA runtime hook still fails to expose all requested devices' },
+      { t: 'warn', v: 'Runtime injection remains the active fault boundary' },
+    ],
+  },
+  training: {
+    type: 'branch_training_pipeline_recheck',
+    label: 'Training Pipeline Recovery Checkpoint',
+    cmd: 'python3 train.py --dry-run --profile-input',
+    lookFor: [
+      'Whether the slowdown still belongs to the feed path, compute path, or orchestration path.',
+      'Whether the earlier weak call mixed utilization symptoms with end-to-end training ownership.',
+    ],
+    meaning: 'This branch-only step forces a tighter training-pipeline diagnosis before the main training lab resumes.',
+    takeAction: ['Keep data feed, compute saturation, and launch behavior separated until one of them clearly owns the slowdown.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-checking end-to-end training path ownership.' },
+      { t: 'dim', v: 'Step time still gated by input wait, not by GPU kernel saturation' },
+      { t: 'warn', v: 'Pipeline bottleneck remains upstream of steady-state compute' },
+    ],
+  },
+  roce: {
+    type: 'branch_roce_fabric_recheck',
+    label: 'RoCE Recovery Checkpoint',
+    cmd: 'rdma link show && ethtool -S eth0 | grep -i pause',
+    lookFor: [
+      'Whether the Ethernet-based RDMA path still shows the expected lossless behavior.',
+      'Whether the earlier path treated RoCE symptoms as generic network congestion without reading the RDMA cues.',
+    ],
+    meaning: 'This branch-only step forces a RoCE-specific transport reread before the main fabric lab continues.',
+    takeAction: ['Do not collapse PFC, link health, and application retries into one generic network story.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-checking RoCE transport integrity.' },
+      { t: 'dim', v: 'RoCE link remains up, but pause-frame imbalance still points to lossless-fabric drift' },
+      { t: 'warn', v: 'Transport health is still constrained below the application layer' },
+    ],
+  },
+  gds: {
+    type: 'branch_gds_capability_recheck',
+    label: 'GDS Recovery Checkpoint',
+    cmd: 'python3 -c "import cufile; print(cufile.__version__)" && gdscheck -p',
+    lookFor: [
+      'Whether GPUDirect Storage capability is actually present at runtime.',
+      'Whether the earlier response confused architectural intent with verified feature availability.',
+    ],
+    meaning: 'This branch-only step forces a runtime-capability reread before the main GPUDirect Storage lab resumes.',
+    takeAction: ['Do not interpret path diagrams as proof until the runtime support layer is explicit.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-checking GPUDirect Storage capability.' },
+      { t: 'dim', v: 'cuFile import succeeds, but gdscheck still reports partial path readiness' },
+      { t: 'warn', v: 'Direct storage path remains only partially verified' },
+    ],
+  },
+  monitoring: {
+    type: 'branch_monitoring_signal_recheck',
+    label: 'Monitoring Recovery Checkpoint',
+    cmd: 'curl -s http://localhost:9090/api/v1/query?query=DCGM_FI_DEV_GPU_UTIL',
+    lookFor: [
+      'Whether the signal path still reflects the real GPU state cleanly.',
+      'Whether the earlier mistake came from trusting dashboards without checking telemetry freshness or source.',
+    ],
+    meaning: 'This branch-only step forces a monitoring-signal ownership check before the main observability lab resumes.',
+    takeAction: ['Keep telemetry freshness, source integrity, and actual device state separated until the broken leg is explicit.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-checking telemetry signal integrity.' },
+      { t: 'dim', v: 'Dashboard still shows stale utilization while node-side telemetry has already shifted' },
+      { t: 'warn', v: 'Observability gap remains in the signal path, not in the GPU itself' },
+    ],
+  },
 };
 
 function authHdr() {
