@@ -2243,6 +2243,13 @@ async function runBrowserSmokeScenario() {
         expectedEffect: 'bad',
         expectDetour: true,
       },
+      slurm_best: {
+        labId: 'slurm',
+        stepIdx: 2,
+        choiceId: 'own_boundary',
+        expectedEffect: 'best',
+        expectDetour: false,
+      },
       slurm_bad: {
         labId: 'slurm',
         stepIdx: 2,

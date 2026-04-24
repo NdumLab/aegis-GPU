@@ -17,6 +17,8 @@ SCENARIO_GROUPS = {
     'cuda_stack_bad': 'runtime delivery proof',
     'k8s_best': 'runtime delivery proof',
     'k8s_bad': 'runtime delivery proof',
+    'slurm_best': 'runtime delivery proof',
+    'slurm_bad': 'runtime delivery proof',
 }
 
 
