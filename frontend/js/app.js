@@ -1690,6 +1690,12 @@ function isBrowserSmokeMode() {
   return window.location.hash.includes('browser-smoke');
 }
 
+function getBrowserSmokeScenarioName() {
+  const hash = String(window.location.hash || '');
+  const match = hash.match(/browser-smoke(?::([a-z0-9_]+))?/i);
+  return match?.[1] || 'ecc';
+}
+
 function setBrowserSmokeResult(status, summary, details = []) {
   let node = document.getElementById('browser-smoke-result');
   if (!node) {
@@ -1714,6 +1720,7 @@ function browserSmokeWait(ms) {
 }
 
 async function runBrowserSmokeScenario() {
+  const scenario = getBrowserSmokeScenarioName();
   const details = [];
   try {
     resetAll();
@@ -1721,14 +1728,47 @@ async function runBrowserSmokeScenario() {
     if (!isProvisioned) throw new Error('provisioning did not complete');
     details.push('provisioned');
 
-    loadLab('ecc');
-    runStep('ecc', 3);
-    if (currentLab !== 'ecc' || currentStep !== 3) throw new Error('failed to enter ECC fault step');
-    details.push('entered-ecc-fault-step');
+    const scenarios = {
+      ecc: {
+        labId: 'ecc',
+        stepIdx: 3,
+        choiceId: 'broad_fix',
+        expectedRedirect: 'ECC Containment Decision',
+        expectedChainLength: 2,
+      },
+      nvlink: {
+        labId: 'nvlink',
+        stepIdx: 3,
+        choiceId: 'reboot_cluster',
+        expectedRedirect: 'Fabric Rejoin Decision',
+        expectedChainLength: 2,
+      },
+      nccl_fallback: {
+        labId: 'nccl_fallback',
+        stepIdx: 0,
+        choiceId: 'reboot_cluster',
+        expectedRedirect: 'Transport Rejoin Decision',
+        expectedChainLength: 1,
+      },
+      storage: {
+        labId: 'storage',
+        stepIdx: 0,
+        choiceId: 'swap_gpu_settings',
+        expectedRedirect: 'Feed Path Rejoin Decision',
+        expectedChainLength: 1,
+      },
+    };
+    const config = scenarios[scenario];
+    if (!config) throw new Error(`unknown browser smoke scenario: ${scenario}`);
 
-    chooseIncidentBranch('ecc', 3, 'broad_fix');
-    if (getSelectedBranchChoice('ecc', 3)?.id !== 'broad_fix') throw new Error('failed to persist bad branch choice');
-    details.push('selected-bad-branch');
+    loadLab(config.labId);
+    runStep(config.labId, config.stepIdx);
+    if (currentLab !== config.labId || currentStep !== config.stepIdx) throw new Error(`failed to enter scenario step for ${config.labId}`);
+    details.push(`entered-${config.labId}-step-${config.stepIdx + 1}`);
+
+    chooseIncidentBranch(config.labId, config.stepIdx, config.choiceId);
+    if (getSelectedBranchChoice(config.labId, config.stepIdx)?.id !== config.choiceId) throw new Error('failed to persist bad branch choice');
+    details.push(`selected-${config.choiceId}`);
 
     runCurrentStep();
     await browserSmokeWait(50);
@@ -1737,24 +1777,19 @@ async function runBrowserSmokeScenario() {
     }
     details.push('detour-rendered');
 
-    runCurrentStep();
-    await browserSmokeWait(50);
-    if (!String(document.getElementById('scen-step')?.textContent || '').includes('Recovery chain step 1/2')) {
-      throw new Error('first recovery-chain step did not render');
+    for (let idx = 1; idx <= config.expectedChainLength; idx += 1) {
+      runCurrentStep();
+      await browserSmokeWait(50);
+      if (!String(document.getElementById('scen-step')?.textContent || '').includes(`Recovery chain step ${idx}/${config.expectedChainLength}`)) {
+        throw new Error(`recovery-chain step ${idx}/${config.expectedChainLength} did not render`);
+      }
+      details.push(`chain-step-${idx}`);
     }
-    details.push('chain-step-1');
-
-    runCurrentStep();
-    await browserSmokeWait(50);
-    if (!String(document.getElementById('scen-step')?.textContent || '').includes('Recovery chain step 2/2')) {
-      throw new Error('second recovery-chain step did not render');
-    }
-    details.push('chain-step-2');
 
     runCurrentStep();
     await browserSmokeWait(700);
-    if (currentStep !== 4) throw new Error(`redirected main step did not advance to step 5, currentStep=${currentStep}`);
-    if (!activeMainRedirectStep || activeMainRedirectStep.label !== 'ECC Containment Decision') {
+    if (currentStep !== config.stepIdx + 1) throw new Error(`redirected main step did not advance to step ${config.stepIdx + 2}, currentStep=${currentStep}`);
+    if (!activeMainRedirectStep || activeMainRedirectStep.label !== config.expectedRedirect) {
       throw new Error('redirected main step state is missing');
     }
     if (!String(document.getElementById('scen-desc')?.textContent || '').includes('Redirected recovery-aware main path')) {
@@ -1762,7 +1797,7 @@ async function runBrowserSmokeScenario() {
     }
     details.push('redirected-main-step');
 
-    setBrowserSmokeResult('pass', 'ecc branch chain and redirected main step verified', details);
+    setBrowserSmokeResult('pass', `${scenario} branch chain and redirected main step verified`, details);
   } catch (err) {
     details.push(`error=${err.message}`);
     setBrowserSmokeResult('fail', err.message, details);

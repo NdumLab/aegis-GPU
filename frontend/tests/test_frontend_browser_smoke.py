@@ -1,5 +1,5 @@
 import http.server
-import os
+import shutil
 import socketserver
 import subprocess
 import tempfile
@@ -47,10 +47,7 @@ class _ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 class FrontendBrowserSmokeTest(unittest.TestCase):
     def test_browser_branch_flow_reports_success(self):
-        result_event = threading.Event()
-        _ResultHandler.result = {}
-        _ResultHandler.event = result_event
-
+        scenarios = ['ecc', 'nvlink', 'nccl_fallback', 'storage']
         result_server = _ThreadedTCPServer(('127.0.0.1', RESULT_PORT), _ResultHandler)
         result_thread = threading.Thread(target=result_server.serve_forever, daemon=True)
         result_thread.start()
@@ -62,33 +59,41 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
             stderr=subprocess.DEVNULL,
         )
 
-        firefox = None
         try:
             time.sleep(1.0)
-            with tempfile.TemporaryDirectory(prefix='aegis-ff-profile-') as profile_dir:
-                firefox = subprocess.Popen(
-                    [
-                        'firefox',
-                        '--headless',
-                        '--new-instance',
-                        '--profile',
-                        profile_dir,
-                        f'http://127.0.0.1:{APP_PORT}/index.html#browser-smoke',
-                    ],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                self.assertTrue(result_event.wait(timeout=30), 'browser smoke result was not reported in time')
-                result = dict(_ResultHandler.result)
-                self.assertEqual(result.get('status'), 'pass', result)
-                self.assertIn('redirected-main-step', result.get('details', ''))
+            for scenario in scenarios:
+                with self.subTest(scenario=scenario):
+                    result_event = threading.Event()
+                    _ResultHandler.result = {}
+                    _ResultHandler.event = result_event
+                    firefox = None
+                    profile_dir = tempfile.mkdtemp(prefix='aegis-ff-profile-')
+                    try:
+                        firefox = subprocess.Popen(
+                            [
+                                'firefox',
+                                '--headless',
+                                '--new-instance',
+                                '--profile',
+                                profile_dir,
+                                f'http://127.0.0.1:{APP_PORT}/index.html#browser-smoke:{scenario}',
+                            ],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                        self.assertTrue(result_event.wait(timeout=35), f'browser smoke result was not reported in time for {scenario}')
+                        result = dict(_ResultHandler.result)
+                        self.assertEqual(result.get('status'), 'pass', result)
+                        self.assertIn('redirected-main-step', result.get('details', ''))
+                    finally:
+                        if firefox is not None:
+                            firefox.terminate()
+                            try:
+                                firefox.wait(timeout=5)
+                            except subprocess.TimeoutExpired:
+                                firefox.kill()
+                        shutil.rmtree(profile_dir, ignore_errors=True)
         finally:
-            if firefox is not None:
-                firefox.terminate()
-                try:
-                    firefox.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    firefox.kill()
             app_server.terminate()
             try:
                 app_server.wait(timeout=5)
