@@ -105,9 +105,10 @@ Entry 6
   - Expanded the browser-driven smoke harness into a scenario matrix that now exercises ECC, NVLink, NCCL fallback, and storage branch paths end to end in Firefox headless
   - Deepened the browser-driven smoke matrix so it now distinguishes weak versus bad branch choices within ECC, NVLink, and storage families instead of testing only one failure path per family
   - Added best-path browser variants so the matrix now proves the opposite side of the contract too: correct operator choices stay on the normal route without detours or redirected main steps
+  - Expanded redirected main-path coverage into additional families including CUDA stack, Kubernetes GPU placement, Slurm scheduling, collective performance, and InfiniBand fabric so more labs now have truly divergent authored recovery flow
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260423v3r
-    - js/app.js?v=20260423v3r
+    - css/styles.css?v=20260423v3s
+    - js/app.js?v=20260423v3s
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'

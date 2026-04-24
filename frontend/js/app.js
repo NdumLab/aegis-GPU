@@ -1109,6 +1109,86 @@ const ALTERNATE_MAIN_PATH_STEPS = {
       { t: 'warn', v: 'The main path remains tied to upstream evidence until the starvation story clears' },
     ],
   },
+  cuda_stack: {
+    type: 'branch_cuda_main_redirect',
+    label: 'Stack Contract Decision',
+    cmd: 'python3 -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"',
+    lookFor: [
+      'Whether the next main step now proves the software contract is usable instead of only nominally installed.',
+      'Whether the framework layer now agrees with the lower stack strongly enough to leave recovery mode.',
+    ],
+    meaning: 'This branch-aware main step replaces the default next stage so the user must re-establish a credible stack contract before the normal lab path resumes.',
+    takeAction: ['Only rejoin the main stack flow when framework visibility and lower-layer evidence align.'],
+    virtualOutput: [
+      { t: 'warn', v: '[main-redirect] The next main step now requires a stack contract decision.' },
+      { t: 'dim', v: 'Framework visibility is being re-checked against the recovered driver/runtime boundary' },
+      { t: 'warn', v: 'The main path stays recovery-aware until the software contract is explicit again' },
+    ],
+  },
+  k8s: {
+    type: 'branch_k8s_main_redirect',
+    label: 'GPU Placement Decision',
+    cmd: 'kubectl describe pod trainer-0 && kubectl get events --sort-by=.lastTimestamp | tail -n 20',
+    lookFor: [
+      'Whether the next main step now confirms one clear owner for GPU placement instead of blending scheduler, plugin, and node issues.',
+      'Whether the pod path is ready to rejoin the normal sequence without hidden control-plane ambiguity.',
+    ],
+    meaning: 'This branch-aware main step replaces the default next stage so the user must explicitly re-own Kubernetes GPU placement before continuing normally.',
+    takeAction: ['Do not resume the main Kubernetes flow until placement ownership is clear and singular.'],
+    virtualOutput: [
+      { t: 'warn', v: '[main-redirect] The next main step now requires a GPU placement decision.' },
+      { t: 'dim', v: 'Scheduler and pod evidence are being re-read together before the default path resumes' },
+      { t: 'warn', v: 'The main path remains tied to control-plane ownership until placement is clear' },
+    ],
+  },
+  slurm: {
+    type: 'branch_slurm_main_redirect',
+    label: 'Scheduler Ownership Decision',
+    cmd: 'squeue && scontrol show job 4821 && sinfo -R',
+    lookFor: [
+      'Whether the next main step now separates queue policy from node-health evidence clearly enough to resume normal flow.',
+      'Whether the pending reason is stable enough to leave recovery mode.',
+    ],
+    meaning: 'This branch-aware main step replaces the default next stage so the user must resolve scheduler ownership before the main Slurm path continues.',
+    takeAction: ['Only rejoin the main scheduler flow once policy and node state stop competing for ownership.'],
+    virtualOutput: [
+      { t: 'warn', v: '[main-redirect] The next main step now requires a scheduler ownership decision.' },
+      { t: 'dim', v: 'Pending-reason evidence is being compared with node commentary before the default sequence continues' },
+      { t: 'warn', v: 'The main path stays recovery-aware until queue ownership is explicit' },
+    ],
+  },
+  allreduce: {
+    type: 'branch_allreduce_main_redirect',
+    label: 'Collective Rejoin Decision',
+    cmd: 'NCCL_DEBUG=INFO ./all_reduce_perf -b 64M -e 256M -f 2',
+    lookFor: [
+      'Whether the next main step now proves collective behavior is ready to leave recovery mode.',
+      'Whether transport clues and collective bandwidth finally align.',
+    ],
+    meaning: 'This branch-aware main step replaces the default next stage so the user must prove the collective path is healthy enough to rejoin the normal all-reduce flow.',
+    takeAction: ['Do not return to the default collective path until bandwidth and transport evidence agree.'],
+    virtualOutput: [
+      { t: 'warn', v: '[main-redirect] The next main step now requires a collective rejoin decision.' },
+      { t: 'dim', v: 'Collective bandwidth is being re-checked against recovered path evidence' },
+      { t: 'warn', v: 'The main path remains recovery-aware until communication behavior and path evidence converge' },
+    ],
+  },
+  ib_fabric: {
+    type: 'branch_ib_main_redirect',
+    label: 'Fabric Availability Decision',
+    cmd: 'ibstat && perfquery -x && ib_write_bw',
+    lookFor: [
+      'Whether the next main step now proves the fabric is available and clean enough to rejoin the normal path.',
+      'Whether physical state, counters, and throughput finally support the same conclusion.',
+    ],
+    meaning: 'This branch-aware main step replaces the default next stage so the user must prove the fabric is credibly back before normal flow resumes.',
+    takeAction: ['Only return to the default fabric path once availability, counters, and throughput align.'],
+    virtualOutput: [
+      { t: 'warn', v: '[main-redirect] The next main step now requires a fabric availability decision.' },
+      { t: 'dim', v: 'Link state, counters, and bandwidth are being re-evaluated together before the default path resumes' },
+      { t: 'warn', v: 'The main path stays recovery-aware until fabric availability is credible again' },
+    ],
+  },
 };
 
 function getAlternateBranchChain(labId) {
