@@ -1496,6 +1496,16 @@ function getReasoningFocusRecommendation(summary) {
   };
 }
 
+function getRecommendedLabsForDomain(domain, fallbackLabs = []) {
+  const domainLabs = {
+    fault_isolation: ['ecc', 'nvlink_fault', 'mig'],
+    fabric_path: ['nvlink', 'nccl_fallback', 'ib_fabric'],
+    runtime_delivery: ['cuda_stack', 'k8s', 'slurm'],
+    platform_efficiency: ['storage', 'allreduce', 'training'],
+  };
+  return domainLabs[domain] || fallbackLabs;
+}
+
 function getRecentRiskPattern() {
   const entries = Object.entries(reasoningProgress.completion || {})
     .map(([labId, entry]) => ({ labId, entry }))
@@ -1503,9 +1513,17 @@ function getRecentRiskPattern() {
     .sort((a, b) => ((b.entry.badCount || 0) + (b.entry.warnCount || 0)) - ((a.entry.badCount || 0) + (a.entry.warnCount || 0)) || ((b.entry.ts || 0) - (a.entry.ts || 0)));
   if (!entries.length) return null;
   const top = entries[0];
+  const domainLabels = {
+    fault_isolation: 'fault isolation',
+    fabric_path: 'fabric path',
+    runtime_delivery: 'runtime delivery',
+    platform_efficiency: 'platform efficiency',
+  };
   return {
     labName: LABS[top.labId]?.name || top.labId,
     detail: `${top.entry.warnCount || 0} weak and ${top.entry.badCount || 0} bad calls were recorded before the lab finished.`,
+    domain: top.entry.dominantDomain || null,
+    domainLabel: domainLabels[top.entry.dominantDomain] || null,
   };
 }
 
@@ -1542,10 +1560,12 @@ function recordLabCompletionOutcome(labId, clean) {
     badCount: context.badCount,
     warnCount: context.warnCount,
     bestCount: context.bestCount,
+    dominantDomain: context.dominantDomain || null,
     route: context.priorChoices.map(item => ({
       stepIdx: item.stepIdx,
       label: item.choice.label,
       effect: item.choice.effect,
+      domain: item.domain,
     })),
     ts: Date.now(),
   };
@@ -1575,6 +1595,16 @@ function renderReasoningProgressSummary() {
   if (summary.judgmentPct === null && summary.lastQuizPct === null) return '';
   const recommendation = getReasoningFocusRecommendation(summary);
   const recentRisk = getRecentRiskPattern();
+  const effectiveRecommendation = recommendation ? {
+    ...recommendation,
+    title: recentRisk?.domainLabel ? `${recommendation.title} in ${recentRisk.domainLabel}` : recommendation.title,
+    action: recentRisk?.domainLabel
+      ? `${recommendation.action} Start with the drills tied to the recent ${recentRisk.domainLabel} misses.`
+      : recommendation.action,
+    labs: recentRisk?.domain
+      ? getRecommendedLabsForDomain(recentRisk.domain, recommendation.labs || [])
+      : (recommendation.labs || []),
+  } : null;
   const recentOutcomes = Object.entries(reasoningProgress.completion || {})
     .map(([labId, entry]) => ({ labId, entry }))
     .sort((a, b) => (b.entry.ts || 0) - (a.entry.ts || 0))
@@ -1612,16 +1642,16 @@ function renderReasoningProgressSummary() {
           `).join('')}
         </div>
       ` : ''}
-      ${(recommendation || recentRisk) ? `
+      ${(effectiveRecommendation || recentRisk) ? `
         <div class="study-focus-grid">
-          ${recommendation ? `
+          ${effectiveRecommendation ? `
             <article class="study-focus-card">
               <div class="study-mini-title">Next training focus</div>
-              <strong>${escHtml(recommendation.title)}</strong>
-              <p>${escHtml(recommendation.action)}</p>
-              ${recommendation.labs?.length ? `
+              <strong>${escHtml(effectiveRecommendation.title)}</strong>
+              <p>${escHtml(effectiveRecommendation.action)}</p>
+              ${effectiveRecommendation.labs?.length ? `
                 <div class="study-lab-links">
-                  ${recommendation.labs.map(labId => `
+                  ${effectiveRecommendation.labs.map(labId => `
                     <button class="study-lab-link" type="button" data-study-lab="${escHtml(labId)}">
                       <span>${escHtml(LABS[labId]?.name || labId)}</span>
                       <small>recommended drill</small>
