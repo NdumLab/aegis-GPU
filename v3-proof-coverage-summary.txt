@@ -1,10 +1,10 @@
 Aegis V3 Phase 2 Evidence Summary
 
-Label: broader-proof-priority1c
-Commit: b956b56
+Label: broader-proof-priority1e
+Commit: 911dc5b
 Suite: frontend_browser_proof
-Scenarios: 9
-Passed: 9
+Scenarios: 11
+Passed: 11
 Failed: 0
 All passed: yes
 
@@ -23,7 +23,10 @@ Coverage groups:
 - fabric path proof:
   - nccl_fallback_best: pass (nccl_fallback_best best-path stayed on normal route)
   - nccl_fallback: pass (nccl_fallback branch chain and redirected main step verified)
+- runtime delivery proof:
+  - cuda_stack_best: pass (cuda_stack_best best-path stayed on normal route)
+  - cuda_stack_bad: pass (cuda_stack_bad branch chain and redirected main step verified)
 
 Interpretation:
-- The proof set demonstrates state-aware study guidance, in-page Ask Aegis, detached coach behavior, and cross-family branch flows, including fabric-path best and degraded behavior.
+- The proof set demonstrates state-aware study guidance, in-page Ask Aegis, detached coach behavior, and cross-family branch flows, including fabric-path and runtime-delivery best and degraded behavior.
 - This is evidence for pilot and grant packaging, not a market-ranking claim.

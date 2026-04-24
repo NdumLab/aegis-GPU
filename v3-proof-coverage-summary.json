@@ -1,9 +1,9 @@
 {
-  "report_label": "broader-proof-priority1c",
-  "commit": "b956b56",
+  "report_label": "broader-proof-priority1e",
+  "commit": "911dc5b",
   "suite": "frontend_browser_proof",
-  "scenario_count": 9,
-  "pass_count": 9,
+  "scenario_count": 11,
+  "pass_count": 11,
   "fail_count": 0,
   "all_passed": true,
   "result_port": 18082,
@@ -62,6 +62,18 @@
         "scenario": "nccl_fallback",
         "status": "pass",
         "summary": "nccl_fallback branch chain and redirected main step verified"
+      }
+    ],
+    "runtime delivery proof": [
+      {
+        "scenario": "cuda_stack_best",
+        "status": "pass",
+        "summary": "cuda_stack_best best-path stayed on normal route"
+      },
+      {
+        "scenario": "cuda_stack_bad",
+        "status": "pass",
+        "summary": "cuda_stack_bad branch chain and redirected main step verified"
       }
     ]
   }

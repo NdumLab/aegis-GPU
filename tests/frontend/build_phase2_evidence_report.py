@@ -13,6 +13,8 @@ SCENARIO_GROUPS = {
     'storage_warn': 'branch consequence flow',
     'nccl_fallback_best': 'fabric path proof',
     'nccl_fallback': 'fabric path proof',
+    'cuda_stack_best': 'runtime delivery proof',
+    'cuda_stack_bad': 'runtime delivery proof',
 }
 
 
@@ -64,7 +66,7 @@ def build_text(summary):
     lines.extend([
         '',
         'Interpretation:',
-        '- The proof set demonstrates state-aware study guidance, in-page Ask Aegis, detached coach behavior, and cross-family branch flows, including fabric-path best and degraded behavior.',
+        '- The proof set demonstrates state-aware study guidance, in-page Ask Aegis, detached coach behavior, and cross-family branch flows, including fabric-path and runtime-delivery best and degraded behavior.',
         '- This is evidence for pilot and grant packaging, not a market-ranking claim.',
     ])
     return '\n'.join(lines) + '\n'

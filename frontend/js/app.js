@@ -2211,6 +2211,13 @@ async function runBrowserSmokeScenario() {
         expectedEffect: 'bad',
         expectDetour: true,
       },
+      cuda_stack_best: {
+        labId: 'cuda_stack',
+        stepIdx: 3,
+        choiceId: 'own_boundary',
+        expectedEffect: 'best',
+        expectDetour: false,
+      },
       cuda_stack_bad: {
         labId: 'cuda_stack',
         stepIdx: 3,

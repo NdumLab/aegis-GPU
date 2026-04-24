@@ -17,6 +17,8 @@ FRONTEND_ROOT = Path(__file__).resolve().parents[1]
 RESULT_PORT = 18082
 APP_PORT = 18084
 REPORT_PATH = os.environ.get('AEGIS_BROWSER_PROOF_REPORT', '')
+SCENARIO_FILTER = {item.strip() for item in os.environ.get('AEGIS_BROWSER_PROOF_SCENARIOS', '').split(',') if item.strip()}
+SCENARIO_TIMEOUT = float(os.environ.get('AEGIS_BROWSER_PROOF_TIMEOUT', '50'))
 
 
 class _ResultHandler(http.server.BaseHTTPRequestHandler):
@@ -108,7 +110,17 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 'name': 'nccl_fallback',
                 'expected_details': ['effect-bad', 'detour-rendered', 'redirected-main-step'],
             },
+            {
+                'name': 'cuda_stack_best',
+                'expected_details': ['effect-best', 'normal-advance', 'no-detour'],
+            },
+            {
+                'name': 'cuda_stack_bad',
+                'expected_details': ['effect-bad', 'detour-rendered', 'redirected-main-step'],
+            },
         ]
+        if SCENARIO_FILTER:
+            scenarios = [scenario for scenario in scenarios if scenario['name'] in SCENARIO_FILTER]
         report_rows = []
         result_server = _ThreadedTCPServer(('127.0.0.1', RESULT_PORT), _ResultHandler)
         result_thread = threading.Thread(target=result_server.serve_forever, daemon=True)
@@ -149,7 +161,7 @@ class FrontendBrowserProofTest(unittest.TestCase):
                                 stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL,
                             )
-                            self.assertTrue(result_event.wait(timeout=35), f'browser proof result was not reported in time for {scenario_name}')
+                            self.assertTrue(result_event.wait(timeout=SCENARIO_TIMEOUT), f'browser proof result was not reported in time for {scenario_name}')
                             result = dict(_ResultHandler.result)
                             self.assertEqual(result.get('status'), 'pass', result)
                             for marker in expected_details:

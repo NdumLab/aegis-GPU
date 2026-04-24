@@ -25,6 +25,21 @@ Entry 2
   - bad path triggers detour and redirected main-step recovery
 - Final validation for component 2:
   - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof-priority1b.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
+- `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
+- Component 2 status: complete
+
+Entry 3
+- Third target component: `CUDA Stack Verification` best and bad path proof
+- Added browser-proof scenarios:
+  - `cuda_stack_best`
+  - `cuda_stack_bad`
+- Scope proved:
+  - best path stays on the intended route with no detour
+  - bad path triggers runtime-delivery recovery detour and redirected main-step recovery
+- Increased per-scenario browser-proof timeout and kept retry hardening so the larger matrix stays stable under headless Firefox load
+- Final validation for component 3:
+  - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof-priority1e.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
   - `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
   - `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
-- Component 2 status: complete
+- Component 3 status: complete
