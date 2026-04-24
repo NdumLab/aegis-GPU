@@ -59,6 +59,11 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
             'storage_best',
             'storage_warn',
             'storage_bad',
+            'cuda_stack_bad',
+            'k8s_bad',
+            'slurm_bad',
+            'allreduce_bad',
+            'ib_fabric_bad',
         ]
         result_server = _ThreadedTCPServer(('127.0.0.1', RESULT_PORT), _ResultHandler)
         result_thread = threading.Thread(target=result_server.serve_forever, daemon=True)

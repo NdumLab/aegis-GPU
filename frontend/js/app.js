@@ -1786,13 +1786,22 @@ function setBrowserSmokeResult(status, summary, details = []) {
   }
   node.dataset.status = status;
   node.textContent = [`status=${status}`, `summary=${summary}`, ...details.map(item => `detail=${item}`)].join('\n');
-  const beacon = new Image();
   const params = new URLSearchParams({
     status,
     summary,
     details: details.join(' || '),
   });
-  beacon.src = `http://127.0.0.1:18080/result?${params.toString()}`;
+  const url = `http://127.0.0.1:18080/result?${params.toString()}`;
+  if (window.fetch) {
+    window.fetch(url, {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-store',
+      keepalive: true,
+    }).catch(() => {});
+  }
+  const beacon = new Image();
+  beacon.src = url;
 }
 
 function browserSmokeWait(ms) {
@@ -1897,6 +1906,51 @@ async function runBrowserSmokeScenario() {
         choiceId: 'swap_gpu_settings',
         expectedRedirect: 'Feed Path Rejoin Decision',
         expectedChainLength: 1,
+        expectedEffect: 'bad',
+        expectDetour: true,
+      },
+      cuda_stack_bad: {
+        labId: 'cuda_stack',
+        stepIdx: 3,
+        choiceId: 'rebuild_everything',
+        expectedRedirect: 'Stack Contract Decision',
+        expectedChainLength: 2,
+        expectedEffect: 'bad',
+        expectDetour: true,
+      },
+      k8s_bad: {
+        labId: 'k8s',
+        stepIdx: 2,
+        choiceId: 'rebuild_everything',
+        expectedRedirect: 'GPU Placement Decision',
+        expectedChainLength: 2,
+        expectedEffect: 'bad',
+        expectDetour: true,
+      },
+      slurm_bad: {
+        labId: 'slurm',
+        stepIdx: 2,
+        choiceId: 'rebuild_everything',
+        expectedRedirect: 'Scheduler Ownership Decision',
+        expectedChainLength: 2,
+        expectedEffect: 'bad',
+        expectDetour: true,
+      },
+      allreduce_bad: {
+        labId: 'allreduce',
+        stepIdx: 3,
+        choiceId: 'reboot_cluster',
+        expectedRedirect: 'Collective Rejoin Decision',
+        expectedChainLength: 2,
+        expectedEffect: 'bad',
+        expectDetour: true,
+      },
+      ib_fabric_bad: {
+        labId: 'ib_fabric',
+        stepIdx: 3,
+        choiceId: 'reboot_cluster',
+        expectedRedirect: 'Fabric Availability Decision',
+        expectedChainLength: 2,
         expectedEffect: 'bad',
         expectDetour: true,
       },
