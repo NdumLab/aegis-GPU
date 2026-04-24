@@ -51,6 +51,27 @@ Entry 3
   - storage warning branch path
 - Final validation for component 3:
   - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof-expanded.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
-  - `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
-  - `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
+- `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
 - Component 3 status: complete
+
+Entry 4
+- Fourth target component: evaluation/reporting artifact for pilot and grant packaging
+- Added `tests/frontend/build_phase2_evidence_report.py`
+- Generated repo evidence outputs:
+  - `v3-phase2-evidence-summary.json`
+  - `v3-phase2-evidence-summary.txt`
+- Generated local-live evidence outputs:
+  - `/tmp/aegis-phase2-live-evidence-summary.json`
+  - `/tmp/aegis-phase2-live-evidence-summary.txt`
+- Synced reporting artifacts and generator into `/var/www/html/tests`
+- Verified summary coverage groups:
+  - adaptive guidance
+  - state-aware Ask Aegis
+  - detached coach behavior
+  - branch consequence flow
+- Final validation for component 4:
+  - `python3 tests/frontend/build_phase2_evidence_report.py --input /tmp/aegis-browser-proof-expanded.json ...` passed
+  - `python3 /var/www/html/tests/build_phase2_evidence_report.py --input /tmp/aegis-browser-proof-live-expanded.json ...` passed
+  - deployed and workspace summary files both show `6/6` scenarios passed
+- Component 4 status: complete
