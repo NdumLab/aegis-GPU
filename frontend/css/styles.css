@@ -529,6 +529,9 @@ header h1 span { color: var(--green); }
 .branch-route-status-title { margin-bottom: 6px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--copper); }
 .branch-route-status p { margin: 0 0 6px; font-size: 11px; line-height: 1.6; color: var(--text); }
 .branch-route-status p:last-child { margin-bottom: 0; }
+.branch-step-context { margin-bottom: 10px; padding: 10px; border-radius: 6px; border: 1px solid rgba(74,158,255,.14); background: rgba(74,158,255,.05); }
+.branch-step-context-title { margin-bottom: 6px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--blue); }
+.branch-step-context p { margin: 0; font-size: 11px; line-height: 1.6; color: var(--text); }
 
 /* ── SVG DIAGRAM STYLES ── */
 .node-box { transition: all .2s; cursor: pointer; }

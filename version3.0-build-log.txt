@@ -94,9 +94,10 @@ Entry 6
   - Added branch-aware next-step routing so weak or bad choices force a recovery detour before the lab can advance
   - Replaced shared detour copy with domain-specific recovery playbooks for containment, transport, stack-boundary, and feed-path mistakes
   - Added lab-family-specific recovery playbooks for ECC, XID drill, NVLink topology, NCCL fallback, storage starvation, Slurm, and Kubernetes GPU placement
+  - Added lab-family-specific next-step modifiers so later guided step framing changes after a weak or bad branch
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260423v3g
-    - js/app.js?v=20260423v3g
+    - css/styles.css?v=20260423v3h
+    - js/app.js?v=20260423v3h
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'

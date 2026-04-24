@@ -608,6 +608,50 @@ const BRANCH_DETOUR_PLAYBOOKS = {
     ],
   },
 };
+const BRANCH_STEP_MODIFIERS = {
+  ecc: {
+    title: 'ECC Revalidation Stage',
+    purpose: 'This step is now about proving whether the node is still in warning-trend territory or has crossed into a hardware-integrity event after the earlier weak call.',
+    lookFor: 'Treat every ECC counter and XID signal here as recovery evidence, not just as normal lab progression.',
+    meaning: 'The step is no longer only teaching the happy path. It is checking whether you regained control of the memory-integrity story.',
+  },
+  nvlink_fault: {
+    title: 'XID Recovery Stage',
+    purpose: 'This step now tests whether the exact XID family has been re-owned before the incident grows wider.',
+    lookFor: 'Read the fault code, the driver evidence, and the containment posture together before accepting any recovery narrative.',
+    meaning: 'You are no longer on the default flow. This stage is validating that the earlier fault-family mistake was corrected.',
+  },
+  nvlink: {
+    title: 'Fabric Baseline Recovery',
+    purpose: 'This step is now about rebuilding the intended NVLink baseline after the earlier wrong-layer move.',
+    lookFor: 'Use topology, link health, and throughput as one story. Do not treat any single number as enough on its own.',
+    meaning: 'This stage is functioning as a fabric recovery checkpoint rather than a normal guided progression step.',
+  },
+  nccl_fallback: {
+    title: 'Fallback Path Recovery',
+    purpose: 'This step now checks whether you have actually cleared the TCP fallback cause instead of just talking around it.',
+    lookFor: 'Confirm the transport selected, the config that shaped it, and the resulting bandwidth before moving on.',
+    meaning: 'This stage is validating transport ownership after the earlier wrong path decision.',
+  },
+  storage: {
+    title: 'Data Path Recovery',
+    purpose: 'This step is now focused on whether the upstream feed path was really fixed before returning to GPU-side interpretation.',
+    lookFor: 'Hold storage evidence and utilization evidence together. The question is whether starvation is still present.',
+    meaning: 'This stage is no longer just teaching storage fundamentals. It is checking whether the bottleneck was truly re-owned.',
+  },
+  slurm: {
+    title: 'Scheduler Recovery Stage',
+    purpose: 'This step now asks whether you separated queue policy from node-health reasoning after the earlier mix-up.',
+    lookFor: 'Read scheduler state, fairshare, and drain clues as separate causes, not as one blended delay story.',
+    meaning: 'This stage is verifying a cleaner scheduling diagnosis before the lab proceeds normally again.',
+  },
+  k8s: {
+    title: 'GPU Placement Recovery',
+    purpose: 'This step now checks whether you separated pod placement, device exposure, and node state after the earlier weak path.',
+    lookFor: 'Treat Pending, device-plugin, and node-health clues as distinct layers that need a clear owner.',
+    meaning: 'This stage is validating a corrected Kubernetes GPU diagnosis, not just replaying the default lab path.',
+  },
+};
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -1091,6 +1135,13 @@ function getBranchDetourPlaybook(labId, stepIdx) {
   if (BRANCH_DETOUR_PLAYBOOKS[labId]) return BRANCH_DETOUR_PLAYBOOKS[labId];
   const domain = getBranchConsequenceContext(labId, stepIdx).dominantDomain || 'general_diagnosis';
   return BRANCH_DETOUR_PLAYBOOKS[domain] || BRANCH_DETOUR_PLAYBOOKS.general_diagnosis;
+}
+
+function getBranchStepModifier(labId, stepIdx) {
+  if (!labId || typeof stepIdx !== 'number' || stepIdx <= 0) return null;
+  const context = getBranchConsequenceContext(labId, stepIdx);
+  if (!context.hasPenalty) return null;
+  return BRANCH_STEP_MODIFIERS[labId] || null;
 }
 
 function renderBranchRouteStatus(labId, stepIdx) {
@@ -2163,6 +2214,12 @@ function renderLabStepCoach() {
   const incidentBrief = renderIncidentModeBrief(currentLab, step);
   const consequenceBranch = renderConsequenceBranch(currentLab, step, currentStep);
   const routeStatus = renderBranchRouteStatus(currentLab, currentStep);
+  const stepModifier = getBranchStepModifier(currentLab, currentStep);
+  const stepPurpose = stepModifier?.purpose || describeStepCommand(step);
+  const lookForLead = stepModifier?.lookFor
+    ? `<div class="branch-step-context"><div class="branch-step-context-title">Branch Context</div><p>${escHtml(tightenDisplayCopy(stepModifier.lookFor))}</p></div>`
+    : '';
+  const meaningText = stepModifier?.meaning || tightenDisplayCopy(step.meaning || completion);
 
   if (beginnerMode && step.explainerMode === 'beginner_story') {
     content.innerHTML = renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote);
@@ -2209,11 +2266,11 @@ function renderLabStepCoach() {
   const topKicker = document.querySelector('#lab-step-coach .lab-step-coach-kicker');
   const topTitle = document.querySelector('#lab-step-coach .lab-step-coach-title');
   if (topKicker) topKicker.textContent = `${lab.name} • Step ${currentStep + 1}/${lab.steps.length}`;
-  if (topTitle) topTitle.textContent = step.label;
+  if (topTitle) topTitle.textContent = stepModifier ? `${stepModifier.title} • ${step.label}` : step.label;
 
-  content.innerHTML = `
+    content.innerHTML = `
     <div class="${calloutClass}">
-      <p><strong>What this step is for:</strong> ${escHtml(describeStepCommand(step))}</p>
+      <p><strong>What this step is for:</strong> ${escHtml(stepPurpose)}</p>
       <p>${escHtml(tightenDisplayCopy(useTip))}</p>
     </div>
     ${renderReasoningScorecard(scorecard)}
@@ -2227,6 +2284,7 @@ function renderLabStepCoach() {
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">What To Look For</div>
+      ${lookForLead}
       ${renderBulletList(observationList, 'lab-step-coach-list')}
     </div>
     ${renderStepScreenshots(step)}
@@ -2249,7 +2307,7 @@ function renderLabStepCoach() {
     ` : ''}
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">What It Means</div>
-      <p>${escHtml(tightenDisplayCopy(step.meaning || completion))}</p>
+      <p>${escHtml(meaningText)}</p>
     </div>
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">How To Tell You Are Done</div>
@@ -2691,6 +2749,7 @@ function runStep(labId, stepIdx) {
   if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
   const lab = LABS[labId];
   const step = lab.steps[stepIdx];
+  const stepModifier = getBranchStepModifier(labId, stepIdx);
 
   document.querySelectorAll('.step-btn').forEach((btn,i) => {
     btn.classList.toggle('active', i===stepIdx);
@@ -2698,7 +2757,7 @@ function runStep(labId, stepIdx) {
 
   document.getElementById('scen-step').style.display = '';
   document.getElementById('scen-step').textContent = `Step ${stepIdx+1}/${lab.steps.length}`;
-  document.getElementById('scen-desc').textContent = step.label;
+  document.getElementById('scen-desc').textContent = stepModifier ? `${stepModifier.title} • ${step.label}` : step.label;
   const cmdInput = document.getElementById('cmd-input');
   if (cmdInput) cmdInput.value = step.cmd || '';
 
