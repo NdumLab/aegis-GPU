@@ -40,6 +40,20 @@ Entry 3
 - Increased per-scenario browser-proof timeout and kept retry hardening so the larger matrix stays stable under headless Firefox load
 - Final validation for component 3:
   - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof-priority1e.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
+- `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
+- Component 3 status: complete
+
+Entry 4
+- Fourth target component: `Kubernetes GPU Ops` best and bad path proof
+- Added browser-proof scenarios:
+  - `k8s_best`
+  - `k8s_bad`
+- Scope proved:
+  - best path stays on the intended route with no detour
+  - bad path triggers orchestration recovery detour and redirected main-step recovery
+- Final validation for component 4:
+  - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof-priority1f.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
   - `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
   - `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
-- Component 3 status: complete
+- Component 4 status: complete

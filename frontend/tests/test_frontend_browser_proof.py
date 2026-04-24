@@ -118,6 +118,14 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 'name': 'cuda_stack_bad',
                 'expected_details': ['effect-bad', 'detour-rendered', 'redirected-main-step'],
             },
+            {
+                'name': 'k8s_best',
+                'expected_details': ['effect-best', 'normal-advance', 'no-detour'],
+            },
+            {
+                'name': 'k8s_bad',
+                'expected_details': ['effect-bad', 'detour-rendered', 'redirected-main-step'],
+            },
         ]
         if SCENARIO_FILTER:
             scenarios = [scenario for scenario in scenarios if scenario['name'] in SCENARIO_FILTER]

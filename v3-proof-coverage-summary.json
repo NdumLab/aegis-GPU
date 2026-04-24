@@ -1,9 +1,9 @@
 {
-  "report_label": "broader-proof-priority1e",
-  "commit": "911dc5b",
+  "report_label": "broader-proof-priority1f",
+  "commit": "f1a7d07",
   "suite": "frontend_browser_proof",
-  "scenario_count": 11,
-  "pass_count": 11,
+  "scenario_count": 13,
+  "pass_count": 13,
   "fail_count": 0,
   "all_passed": true,
   "result_port": 18082,
@@ -74,6 +74,16 @@
         "scenario": "cuda_stack_bad",
         "status": "pass",
         "summary": "cuda_stack_bad branch chain and redirected main step verified"
+      },
+      {
+        "scenario": "k8s_best",
+        "status": "pass",
+        "summary": "k8s_best best-path stayed on normal route"
+      },
+      {
+        "scenario": "k8s_bad",
+        "status": "pass",
+        "summary": "k8s_bad branch chain and redirected main step verified"
       }
     ]
   }

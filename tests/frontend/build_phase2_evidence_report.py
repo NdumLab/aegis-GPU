@@ -15,6 +15,8 @@ SCENARIO_GROUPS = {
     'nccl_fallback': 'fabric path proof',
     'cuda_stack_best': 'runtime delivery proof',
     'cuda_stack_bad': 'runtime delivery proof',
+    'k8s_best': 'runtime delivery proof',
+    'k8s_bad': 'runtime delivery proof',
 }
 
 

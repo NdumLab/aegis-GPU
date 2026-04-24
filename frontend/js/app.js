@@ -2227,6 +2227,13 @@ async function runBrowserSmokeScenario() {
         expectedEffect: 'bad',
         expectDetour: true,
       },
+      k8s_best: {
+        labId: 'k8s',
+        stepIdx: 2,
+        choiceId: 'own_boundary',
+        expectedEffect: 'best',
+        expectDetour: false,
+      },
       k8s_bad: {
         labId: 'k8s',
         stepIdx: 2,
