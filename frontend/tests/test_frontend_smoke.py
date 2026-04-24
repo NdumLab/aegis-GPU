@@ -70,6 +70,7 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('getRecommendedLabsForDomain', APP_JS)
         self.assertIn('getUniqueLabs', APP_JS)
         self.assertIn('getRecoveryProgressSignal', APP_JS)
+        self.assertIn('Start one lab or quiz', APP_JS)
         self.assertIn('fault isolation', APP_JS)
         self.assertIn('fabric path', APP_JS)
         self.assertIn('last compromised lab', APP_JS)

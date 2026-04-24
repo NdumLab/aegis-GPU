@@ -1619,10 +1619,10 @@ function recordQuizReasoningProgress(pct, scorecard) {
 
 function renderReasoningProgressSummary() {
   const summary = getReasoningProgressSummary();
-  if (summary.judgmentPct === null && summary.lastQuizPct === null) return '';
   const recommendation = getReasoningFocusRecommendation(summary);
   const recentRisk = getRecentRiskPattern();
   const recoverySignal = getRecoveryProgressSignal(recentRisk?.domain || null);
+  const hasAnyProgress = summary.completedSteps > 0 || summary.quizAttempts > 0 || summary.cleanLabs > 0 || summary.compromisedLabs > 0;
   const effectiveRecommendation = recommendation ? {
     ...recommendation,
     title: recentRisk?.domainLabel ? `${recommendation.title} in ${recentRisk.domainLabel}` : recommendation.title,
@@ -1658,7 +1658,7 @@ function renderReasoningProgressSummary() {
         <article class="study-progress-card">
           <div class="study-mini-title">Troubleshooting judgment</div>
           <div class="study-progress-value">${summary.judgmentPct === null ? '—' : `${summary.judgmentPct}%`}</div>
-          <p>${summary.completedSteps} guided steps have stored reasoning snapshots.</p>
+          <p>${hasAnyProgress ? `${summary.completedSteps} guided steps have stored reasoning snapshots.` : 'No guided-step reasoning snapshots recorded yet.'}</p>
         </article>
         <article class="study-progress-card">
           <div class="study-mini-title">Quiz accuracy</div>
@@ -1671,6 +1671,15 @@ function renderReasoningProgressSummary() {
           <p>${summary.compromisedLabs ? `${summary.compromisedLabs} labs reached the end with branch penalties still active.` : 'No compromised completions recorded.'}</p>
         </article>
       </div>
+      ${!hasAnyProgress ? `
+        <div class="study-focus-grid">
+          <article class="study-focus-card">
+            <div class="study-mini-title">How this fills in</div>
+            <strong>Start one lab or quiz</strong>
+            <p>Aegis will begin showing judgment, incident outcomes, and targeted drill guidance after your first scored lab step, quiz, or lab completion.</p>
+          </article>
+        </div>
+      ` : ''}
       ${summary.categoryAverages.length ? `
         <div class="study-progress-breakdown">
           ${summary.categoryAverages.map(item => `

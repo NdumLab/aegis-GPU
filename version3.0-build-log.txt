@@ -113,9 +113,10 @@ Entry 6
   - Tightened the recommendation again so the most recent compromised lab becomes the first drill target when it fits the weakness, instead of only suggesting a broad family bucket
   - Added a visible rationale line under the training focus so the recommendation now explains which compromised lab and incident domain caused Aegis to pick that drill path
   - Made the wording adaptive to improvement inside the same domain, so once the user has at least one clean finish there Aegis switches from pure recovery language to a consolidation prompt
+  - Fixed the study overlay so Reasoning Progress always renders, even for a fresh user with no stored quiz or lab history yet
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260424v3z
-    - js/app.js?v=20260424v3z
+    - css/styles.css?v=20260424v3aa
+    - js/app.js?v=20260424v3aa
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
