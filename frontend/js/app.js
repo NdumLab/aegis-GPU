@@ -912,6 +912,144 @@ const ALTERNATE_BRANCH_STEPS = {
   },
 };
 
+const ALTERNATE_BRANCH_FOLLOWUPS = {
+  ecc: {
+    type: 'branch_ecc_containment_verify',
+    label: 'ECC Containment Verification',
+    cmd: 'dcgmi health -g 0 && scontrol show node gpu-node-01',
+    lookFor: [
+      'Whether the node is now held out of service while the ECC fault remains active.',
+      'Whether containment status and hardware evidence now agree with each other.',
+    ],
+    meaning: 'This second branch-only step checks whether the ECC incident moved from diagnosis into actual containment instead of remaining a theory.',
+    takeAction: ['Do not return to the main flow until the node state reflects the hardware fault classification.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Verifying ECC containment posture.' },
+      { t: 'dim', v: 'Node state=drain reason=ECC containment verification in progress' },
+      { t: 'warn', v: 'Containment now matches the active DBE/XID evidence' },
+    ],
+  },
+  nvlink_fault: {
+    type: 'branch_xid_recovery_verify',
+    label: 'XID Recovery Verification',
+    cmd: 'nvidia-smi -q -d PERFORMANCE && journalctl -k | tail -n 25',
+    lookFor: [
+      'Whether the classified XID family now maps to a concrete recovery boundary.',
+      'Whether the bus-level or fabric-level fault is still being blurred into a generic reset story.',
+    ],
+    meaning: 'This second branch-only step checks whether the XID classification now drives the recovery boundary correctly.',
+    takeAction: ['Only return to the main path once the recovery boundary matches the XID family you identified.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Verifying XID-aligned recovery boundary.' },
+      { t: 'dim', v: 'Bus-level fault handling remains in force for the affected GPU path' },
+      { t: 'warn', v: 'Recovery boundary now matches the active XID family instead of a generic reset guess' },
+    ],
+  },
+  nvlink: {
+    type: 'branch_nvlink_integrity_verify',
+    label: 'NVLink Integrity Verification',
+    cmd: 'nvidia-smi nvlink -e && ./nccl-tests/build/all_reduce_perf -b 64M -e 256M -f 2 -g 8',
+    lookFor: [
+      'Whether topology recovery is now backed by clean link counters and recovering collective performance.',
+      'Whether the fabric story is healthy in practice, not just on the map.',
+    ],
+    meaning: 'This second branch-only step checks that NVLink recovery is now consistent across topology, counters, and communication behavior.',
+    takeAction: ['Return to the main flow only when topology evidence and workload behavior no longer disagree.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Verifying recovered NVLink integrity.' },
+      { t: 'dim', v: 'CRC counters are flat, but benchmark bandwidth is still recovering toward baseline' },
+      { t: 'warn', v: 'Fabric story is now converging across map, counters, and collective behavior' },
+    ],
+  },
+  cuda_stack: {
+    type: 'branch_cuda_framework_verify',
+    label: 'CUDA Contract Verification',
+    cmd: 'python3 -c "import torch; print(torch.__version__); print(torch.cuda.device_count())"',
+    lookFor: [
+      'Whether the framework now agrees with the lower runtime and driver layers.',
+      'Whether the broken contract edge has narrowed enough to leave observation mode.',
+    ],
+    meaning: 'This second branch-only step checks whether the CUDA stack boundary has been narrowed into a usable framework contract.',
+    takeAction: ['Only resume the main flow once the framework view is consistent with the lower stack.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Verifying framework-level CUDA contract.' },
+      { t: 'dim', v: 'torch import now succeeds, but device enumeration remains lower than expected' },
+      { t: 'warn', v: 'Stack boundary is narrower now, but still needs explicit framework confirmation' },
+    ],
+  },
+  k8s: {
+    type: 'branch_k8s_scheduler_verify',
+    label: 'Kubernetes Route Verification',
+    cmd: 'kubectl get pods -A -o wide && kubectl get events --sort-by=.lastTimestamp | tail -n 20',
+    lookFor: [
+      'Whether scheduler output, node state, and device exposure now tell one consistent placement story.',
+      'Whether pending behavior still belongs to one clear control-plane owner.',
+    ],
+    meaning: 'This second branch-only step checks whether the Kubernetes placement diagnosis has converged on one clear owner.',
+    takeAction: ['Do not return to the main flow until the control-plane evidence stops splitting across layers.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Verifying Kubernetes placement route.' },
+      { t: 'dim', v: 'Scheduler and event stream now both point to the same GPU resource bottleneck' },
+      { t: 'warn', v: 'Placement ownership is now converging instead of staying split across node and runtime theories' },
+    ],
+  },
+  slurm: {
+    type: 'branch_slurm_policy_verify',
+    label: 'Slurm Policy Verification',
+    cmd: 'scontrol show job 4821 && sinfo -R && squeue -o "%.18i %.9P %.8j %.8u %.2t %.10M %.6D %R"',
+    lookFor: [
+      'Whether queue policy and node-health evidence now stop contradicting each other.',
+      'Whether the pending reason is explicit enough to leave the recovery chain.',
+    ],
+    meaning: 'This second branch-only step checks whether the scheduler diagnosis has settled on a policy versus health owner cleanly enough to proceed.',
+    takeAction: ['Return to the main lab only when the pending reason is explicit and stable.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Verifying scheduler policy ownership.' },
+      { t: 'dim', v: 'Pending reason and node commentary now agree on a fairshare-driven delay' },
+      { t: 'warn', v: 'Queue behavior is now owned by scheduler policy rather than suspect node state' },
+    ],
+  },
+  allreduce: {
+    type: 'branch_collective_path_verify',
+    label: 'Collective Path Verification',
+    cmd: 'NCCL_DEBUG=INFO ./all_reduce_perf -b 64M -e 512M -f 2 && env | grep NCCL',
+    lookFor: [
+      'Whether the collective path is now measurably recovering instead of just being renamed.',
+      'Whether synchronization behavior aligns with the transport story.',
+    ],
+    meaning: 'This second branch-only step checks whether the collective-path diagnosis now matches measured synchronization behavior.',
+    takeAction: ['Resume the main flow only once transport clues and collective behavior stop disagreeing.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Verifying collective-path recovery.' },
+      { t: 'dim', v: 'Collective bandwidth is recovering, but still below the healthy transport baseline' },
+      { t: 'warn', v: 'Synchronization behavior now points to a narrowed transport issue rather than generic compute weakness' },
+    ],
+  },
+  ib_fabric: {
+    type: 'branch_ib_link_verify',
+    label: 'InfiniBand Route Verification',
+    cmd: 'ibstat && perfquery -x && ib_write_bw',
+    lookFor: [
+      'Whether link state, counters, and bandwidth now agree on the same fabric condition.',
+      'Whether the transport path is healthy enough to leave the recovery chain.',
+    ],
+    meaning: 'This second branch-only step checks whether the InfiniBand diagnosis is now consistent across physical, counter, and throughput evidence.',
+    takeAction: ['Do not return to the main path until the fabric story is coherent across all three signals.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Verifying InfiniBand route health.' },
+      { t: 'dim', v: 'Port state remains active and bandwidth is improving, but degraded counters still need explanation' },
+      { t: 'warn', v: 'Fabric health is stabilizing, but not yet fully back to clean-baseline status' },
+    ],
+  },
+};
+
+function getAlternateBranchChain(labId) {
+  const first = ALTERNATE_BRANCH_STEPS[labId];
+  if (!first) return [];
+  const second = ALTERNATE_BRANCH_FOLLOWUPS[labId];
+  return second ? [first, second] : [first];
+}
+
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
 }
@@ -1443,15 +1581,19 @@ function markBranchDetourDone(labId, stepIdx) {
 }
 
 function isAlternateBranchStepPending(labId, stepIdx) {
-  if (!ALTERNATE_BRANCH_STEPS[labId]) return false;
+  const chain = getAlternateBranchChain(labId);
+  if (!chain.length) return false;
   const choice = getSelectedBranchChoice(labId, stepIdx);
   if (!choice || choice.effect === 'best') return false;
   if (isBranchDetourPending(labId, stepIdx)) return false;
-  return branchingState[getBranchMetaKey(labId, stepIdx, 'alt_done')] !== true;
+  const progress = branchingState[getBranchMetaKey(labId, stepIdx, 'alt_progress')] || 0;
+  return progress < chain.length;
 }
 
 function markAlternateBranchStepDone(labId, stepIdx) {
-  branchingState[getBranchMetaKey(labId, stepIdx, 'alt_done')] = true;
+  const progressKey = getBranchMetaKey(labId, stepIdx, 'alt_progress');
+  const progress = branchingState[progressKey] || 0;
+  branchingState[progressKey] = progress + 1;
   persistBranchingState();
 }
 
@@ -1592,14 +1734,21 @@ function runBranchDetour(labId, stepIdx) {
 }
 
 function runAlternateBranchStep(labId, stepIdx) {
-  const template = ALTERNATE_BRANCH_STEPS[labId];
+  const chain = getAlternateBranchChain(labId);
+  const progress = branchingState[getBranchMetaKey(labId, stepIdx, 'alt_progress')] || 0;
+  const template = chain[progress];
   if (!template) return false;
-  activeAlternateStep = { ...template, branchSourceStep: stepIdx };
+  activeAlternateStep = {
+    ...template,
+    branchSourceStep: stepIdx,
+    alternateChainIndex: progress + 1,
+    alternateChainLength: chain.length,
+  };
   switchTab('term');
   clearTerminal();
   document.getElementById('scen-step').style.display = '';
-  document.getElementById('scen-step').textContent = `Alternate recovery step after Step ${stepIdx + 1}`;
-  document.getElementById('scen-desc').textContent = template.label;
+  document.getElementById('scen-step').textContent = `Recovery chain step ${progress + 1}/${chain.length} after Step ${stepIdx + 1}`;
+  document.getElementById('scen-desc').textContent = `${template.label} (${progress + 1}/${chain.length})`;
   logTerm([{ t: 'warn', v: `# ${template.label}` }, { t: 'cmd', v: template.cmd }]);
   getStepOutput(activeAlternateStep).forEach(line => logTerm([line]));
   scrollTerminal();
@@ -2638,7 +2787,9 @@ function renderLabStepCoach() {
 
   const topKicker = document.querySelector('#lab-step-coach .lab-step-coach-kicker');
   const topTitle = document.querySelector('#lab-step-coach .lab-step-coach-title');
-  if (topKicker) topKicker.textContent = activeAlternateStep ? `${lab.name} • Alternate Recovery Step` : `${lab.name} • Step ${currentStep + 1}/${lab.steps.length}`;
+  if (topKicker) topKicker.textContent = activeAlternateStep
+    ? `${lab.name} • Recovery Chain ${activeAlternateStep.alternateChainIndex || 1}/${activeAlternateStep.alternateChainLength || 1}`
+    : `${lab.name} • Step ${currentStep + 1}/${lab.steps.length}`;
   if (topTitle) topTitle.textContent = activeAlternateStep
     ? activeAlternateStep.label
     : (stepModifier ? `${stepModifier.title} • ${step.label}` : step.label);
