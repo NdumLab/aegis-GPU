@@ -58,9 +58,13 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('recordQuizReasoningProgress', APP_JS)
         self.assertIn('recordLabCompletionOutcome', APP_JS)
         self.assertIn('isLabCompletionClean', APP_JS)
+        self.assertIn('getLabOutcomeSummary', APP_JS)
+        self.assertIn('renderLabOutcomeSummary', APP_JS)
         self.assertIn('renderReasoningProgressSummary', APP_JS)
         self.assertIn('Reasoning Progress', APP_JS)
         self.assertIn('Clean incident finishes', APP_JS)
+        self.assertIn('Incident Outcome', APP_JS)
+        self.assertIn('Recent incident outcomes', APP_JS)
 
     def test_consequence_branching_is_available(self):
         self.assertIn('CONSEQUENCE_BRANCHES', APP_JS)
@@ -99,6 +103,8 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('Route Change Pending', APP_JS)
         self.assertIn('Branch consequence', APP_JS)
         self.assertIn('Decision Drill', APP_JS)
+        self.assertIn('Clean incident finish', APP_JS)
+        self.assertIn('Compromised incident finish', APP_JS)
 
     def test_frontend_uses_same_origin_api_prefix(self):
         self.assertIn('/api/v1', APP_JS)

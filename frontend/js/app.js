@@ -1209,8 +1209,17 @@ function recordLabReasoningProgress(labId, stepIdx, scorecard) {
 
 function recordLabCompletionOutcome(labId, clean) {
   if (!reasoningProgress.completion) reasoningProgress.completion = {};
+  const context = getBranchConsequenceContext(labId, Number.POSITIVE_INFINITY);
   reasoningProgress.completion[labId] = {
     clean: !!clean,
+    badCount: context.badCount,
+    warnCount: context.warnCount,
+    bestCount: context.bestCount,
+    route: context.priorChoices.map(item => ({
+      stepIdx: item.stepIdx,
+      label: item.choice.label,
+      effect: item.choice.effect,
+    })),
     ts: Date.now(),
   };
   persistReasoningProgress();
@@ -1237,6 +1246,10 @@ function recordQuizReasoningProgress(pct, scorecard) {
 function renderReasoningProgressSummary() {
   const summary = getReasoningProgressSummary();
   if (summary.judgmentPct === null && summary.lastQuizPct === null) return '';
+  const recentOutcomes = Object.entries(reasoningProgress.completion || {})
+    .map(([labId, entry]) => ({ labId, entry }))
+    .sort((a, b) => (b.entry.ts || 0) - (a.entry.ts || 0))
+    .slice(0, 3);
   return `
     <section class="learn-section study-progress">
       <div class="learn-heading-row">
@@ -1267,6 +1280,74 @@ function renderReasoningProgressSummary() {
               <strong>${escHtml(item.label)}</strong>
               <span>${item.pct}%</span>
             </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      ${recentOutcomes.length ? `
+        <div class="study-progress-recent">
+          <div class="study-mini-title">Recent incident outcomes</div>
+          <div class="study-progress-outcomes">
+            ${recentOutcomes.map(({ labId, entry }) => `
+              <article class="study-outcome-card${entry.clean ? '' : ' is-compromised'}">
+                <div class="study-outcome-card-top">
+                  <strong>${escHtml(LABS[labId]?.name || labId)}</strong>
+                  <span>${entry.clean ? 'Clean' : 'Compromised'}</span>
+                </div>
+                <p>${entry.clean
+                  ? escHtml(`${entry.bestCount || 0} strong calls held the incident on the intended route.`)
+                  : escHtml(`${entry.warnCount || 0} weak and ${entry.badCount || 0} bad branch calls forced recovery work before the lab ended.`)}</p>
+              </article>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </section>
+  `;
+}
+
+function getLabOutcomeSummary(labId) {
+  if (!labId) return null;
+  const lab = LABS[labId];
+  if (!lab) return null;
+  const context = getBranchConsequenceContext(labId, Number.POSITIVE_INFINITY);
+  const stored = reasoningProgress.completion?.[labId] || null;
+  const clean = stored ? !!stored.clean : !context.hasPenalty;
+  if (!context.priorChoices.length && !stored) return null;
+
+  const headline = clean ? 'Clean incident finish' : 'Compromised incident finish';
+  const summary = clean
+    ? 'The incident reached the end without active branch penalties. The route stayed controlled enough to count as a clean finish.'
+    : 'The lab reached the end, but earlier branch choices forced detours or left reasoning debt active. This counts as a compromised finish.';
+  const highlights = [];
+  if (context.bestCount) highlights.push(`${context.bestCount} strong branch call${context.bestCount === 1 ? '' : 's'} kept the incident on the intended route.`);
+  if (context.warnCount) highlights.push(`${context.warnCount} weak branch call${context.warnCount === 1 ? '' : 's'} triggered recovery work before the next stage.`);
+  if (context.badCount) highlights.push(`${context.badCount} bad branch call${context.badCount === 1 ? '' : 's'} changed later lab state and reduced completion quality.`);
+  if (!highlights.length) highlights.push('No branch penalties were recorded for this lab.');
+
+  const route = context.priorChoices.slice(-3).map(item => ({
+    step: item.stepIdx + 1,
+    label: item.choice.label,
+    effect: item.choice.effect,
+  }));
+
+  return { clean, headline, summary, highlights, route };
+}
+
+function renderLabOutcomeSummary(labId) {
+  const outcome = getLabOutcomeSummary(labId);
+  if (!outcome) return '';
+  return `
+    <section class="lab-outcome-summary${outcome.clean ? '' : ' is-compromised'}">
+      <div class="lab-outcome-summary-top">
+        <div class="lab-outcome-summary-title">Incident Outcome</div>
+        <span class="lab-outcome-summary-tag">${escHtml(outcome.headline)}</span>
+      </div>
+      <p>${escHtml(tightenDisplayCopy(outcome.summary))}</p>
+      ${renderBulletList(outcome.highlights, 'lab-step-coach-list')}
+      ${outcome.route.length ? `
+        <div class="lab-outcome-summary-route">
+          ${outcome.route.map(item => `
+            <div class="lab-outcome-route-chip effect-${escHtml(item.effect)}">Step ${item.step}: ${escHtml(item.label)}</div>
           `).join('')}
         </div>
       ` : ''}
@@ -2510,6 +2591,7 @@ function renderLabStepCoach() {
     ? `<div class="branch-step-context"><div class="branch-step-context-title">Branch Context</div><p>${escHtml(tightenDisplayCopy(stepModifier.lookFor))}</p></div>`
     : '';
   const meaningText = stepModifier?.meaning || tightenDisplayCopy(step.meaning || completion);
+  const outcomeSummary = currentStep === lab.steps.length - 1 ? renderLabOutcomeSummary(currentLab) : '';
 
   if (beginnerMode && step.explainerMode === 'beginner_story') {
     content.innerHTML = renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote);
@@ -2530,6 +2612,7 @@ function renderLabStepCoach() {
       ${incidentBrief}
       ${consequenceBranch}
       ${routeStatus}
+      ${outcomeSummary}
       ${diagnosis}
       <div class="lab-step-coach-section">
         <div class="lab-step-coach-section-title">Command In Focus</div>
@@ -2568,6 +2651,7 @@ function renderLabStepCoach() {
     ${renderReasoningScorecard(scorecard)}
     ${(step.fault || incidentMode) ? consequenceBranch : ''}
     ${routeStatus}
+    ${outcomeSummary}
     ${diagnosis}
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Command In Focus</div>

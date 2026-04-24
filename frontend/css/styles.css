@@ -759,3 +759,96 @@ header h1 span { color: var(--green); }
 
 #btn-login { transition: opacity 0.2s; }
 #btn-login:hover { opacity: 0.85; }
+
+.lab-outcome-summary {
+  margin: 14px 0;
+  padding: 14px 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(118, 185, 0, 0.26);
+  background: rgba(118, 185, 0, 0.08);
+}
+
+.lab-outcome-summary.is-compromised {
+  border-color: rgba(244, 162, 97, 0.34);
+  background: rgba(244, 162, 97, 0.10);
+}
+
+.lab-outcome-summary-top,
+.study-outcome-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.lab-outcome-summary-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.lab-outcome-summary-tag,
+.study-outcome-card-top span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(12, 18, 28, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.lab-outcome-summary-route,
+.study-progress-outcomes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lab-outcome-route-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(10, 16, 26, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: var(--text);
+}
+
+.lab-outcome-route-chip.effect-best {
+  border-color: rgba(118, 185, 0, 0.34);
+}
+
+.lab-outcome-route-chip.effect-warn {
+  border-color: rgba(244, 162, 97, 0.34);
+}
+
+.lab-outcome-route-chip.effect-bad {
+  border-color: rgba(231, 111, 81, 0.42);
+}
+
+.study-progress-recent {
+  margin-top: 14px;
+}
+
+.study-outcome-card {
+  flex: 1 1 220px;
+  min-width: 220px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(118, 185, 0, 0.22);
+  background: rgba(118, 185, 0, 0.07);
+}
+
+.study-outcome-card.is-compromised {
+  border-color: rgba(244, 162, 97, 0.30);
+  background: rgba(244, 162, 97, 0.10);
+}

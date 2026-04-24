@@ -98,9 +98,10 @@ Entry 6
   - Added alternate authored branch steps for core labs so the graph itself can insert a recovery checkpoint before returning to the main sequence
   - Expanded alternate authored branch steps into additional families: NVLink topology, CUDA stack, Kubernetes GPU placement, Slurm scheduling, collective performance, and InfiniBand fabric
   - Expanded alternate authored branch steps into the remaining families so all 16 lab ids now have branch-aware recovery checkpoint coverage, including MIG, containers, training throughput, RoCE, GPUDirect Storage, and monitoring
+  - Added a branch-aware Incident Outcome summary to the end-of-lab coach and the study progress surface so clean versus compromised finishes explain the reasoning debt that created them
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260423v3k
-    - js/app.js?v=20260423v3k
+    - css/styles.css?v=20260423v3l
+    - js/app.js?v=20260423v3l
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
