@@ -7,6 +7,7 @@
 let currentLab = null;
 let currentStep = 0;
 let activeAlternateStep = null;
+let activeMainRedirectStep = null;
 let completedLabs = new Set();
 let activeTab = 'term';
 let termLines = { term:[], dmesg:[], dcgm:[] };
@@ -1043,6 +1044,73 @@ const ALTERNATE_BRANCH_FOLLOWUPS = {
   },
 };
 
+const ALTERNATE_MAIN_PATH_STEPS = {
+  ecc: {
+    type: 'branch_ecc_main_redirect',
+    label: 'ECC Containment Decision',
+    cmd: 'scontrol update NodeName=gpu-node-01 State=DRAIN Reason="ECC containment"',
+    lookFor: [
+      'Whether the next main decision now reflects containment instead of passive observation.',
+      'Whether node state and hardware integrity finally line up before the lab continues.',
+    ],
+    meaning: 'This branch-aware main step replaces the default next stage so the user has to own the containment decision explicitly.',
+    takeAction: ['Drain or isolate the node before continuing normal verification flow.'],
+    virtualOutput: [
+      { t: 'warn', v: '[main-redirect] Replacing the next main step with an explicit containment decision.' },
+      { t: 'dim', v: 'Node gpu-node-01 state updated to DRAIN for ECC containment review' },
+      { t: 'warn', v: 'Main path now requires containment alignment before normal progression resumes' },
+    ],
+  },
+  nvlink: {
+    type: 'branch_nvlink_main_redirect',
+    label: 'Fabric Rejoin Decision',
+    cmd: 'nvidia-smi topo -m && ./nccl-tests/build/all_reduce_perf -b 64M -e 128M -f 2 -g 8',
+    lookFor: [
+      'Whether the node is actually ready to rejoin the intended fast path.',
+      'Whether communication behavior now supports leaving recovery mode.',
+    ],
+    meaning: 'This branch-aware main step replaces the default next stage so the user must prove the fabric is ready to rejoin the main path.',
+    takeAction: ['Do not resume normal fabric expectations until topology and bandwidth evidence agree.'],
+    virtualOutput: [
+      { t: 'warn', v: '[main-redirect] The next main step now requires a fabric rejoin decision.' },
+      { t: 'dim', v: 'Topology and collective bandwidth are being checked together before returning to the default flow' },
+      { t: 'warn', v: 'Main path remains recovery-aware until the fast path is credibly back' },
+    ],
+  },
+  nccl_fallback: {
+    type: 'branch_nccl_main_redirect',
+    label: 'Transport Rejoin Decision',
+    cmd: 'env | grep NCCL && NCCL_DEBUG=INFO ./all_reduce_perf -b 64M -e 128M -f 2',
+    lookFor: [
+      'Whether the transport path is now stable enough to resume the default main sequence.',
+      'Whether the next main move is grounded in transport evidence instead of hope.',
+    ],
+    meaning: 'This branch-aware main step replaces the default next stage so the user must explicitly decide whether the transport path is ready to rejoin normal flow.',
+    takeAction: ['Keep the lab on the transport story until the fallback is clearly resolved.'],
+    virtualOutput: [
+      { t: 'warn', v: '[main-redirect] The next main step now requires a transport rejoin decision.' },
+      { t: 'dim', v: 'NCCL transport evidence is being re-read before the normal sequence can continue' },
+      { t: 'warn', v: 'The main path will not resume until the fallback story is narrowed cleanly' },
+    ],
+  },
+  storage: {
+    type: 'branch_storage_main_redirect',
+    label: 'Feed Path Rejoin Decision',
+    cmd: 'iostat -x 1 2 && nvidia-smi dmon -s u',
+    lookFor: [
+      'Whether the input path is actually feeding the GPUs steadily enough to leave recovery mode.',
+      'Whether the next main step is still compute-facing when the feed path remains weak.',
+    ],
+    meaning: 'This branch-aware main step replaces the default next stage so the user must decide whether the data path is ready to rejoin normal performance analysis.',
+    takeAction: ['Return to the main flow only when feed-path evidence stops contradicting GPU behavior.'],
+    virtualOutput: [
+      { t: 'warn', v: '[main-redirect] The next main step now requires a feed-path rejoin decision.' },
+      { t: 'dim', v: 'Storage and GPU utilization are being checked together before the default path resumes' },
+      { t: 'warn', v: 'The main path remains tied to upstream evidence until the starvation story clears' },
+    ],
+  },
+};
+
 function getAlternateBranchChain(labId) {
   const first = ALTERNATE_BRANCH_STEPS[labId];
   if (!first) return [];
@@ -1594,6 +1662,27 @@ function markAlternateBranchStepDone(labId, stepIdx) {
   const progressKey = getBranchMetaKey(labId, stepIdx, 'alt_progress');
   const progress = branchingState[progressKey] || 0;
   branchingState[progressKey] = progress + 1;
+  persistBranchingState();
+}
+
+function scheduleMainPathRedirect(labId, stepIdx) {
+  branchingState[getBranchMetaKey(labId, stepIdx, 'main_redirect_pending')] = true;
+  persistBranchingState();
+}
+
+function getMainPathRedirectStep(labId, stepIdx) {
+  if (!ALTERNATE_MAIN_PATH_STEPS[labId]) return null;
+  if (branchingState[getBranchMetaKey(labId, stepIdx, 'main_redirect_pending')] !== true) return null;
+  if (branchingState[getBranchMetaKey(labId, stepIdx, 'main_redirect_done')] === true) return null;
+  return {
+    ...ALTERNATE_MAIN_PATH_STEPS[labId],
+    redirectTargetStep: stepIdx,
+  };
+}
+
+function markMainPathRedirectDone(labId, stepIdx) {
+  branchingState[getBranchMetaKey(labId, stepIdx, 'main_redirect_done')] = true;
+  branchingState[getBranchMetaKey(labId, stepIdx, 'main_redirect_pending')] = false;
   persistBranchingState();
 }
 
@@ -2711,7 +2800,8 @@ function renderLabStepCoach() {
     return;
   }
 
-  const step = activeAlternateStep || lab.steps[currentStep];
+  const redirectedMainStep = activeMainRedirectStep || getMainPathRedirectStep(currentLab, currentStep);
+  const step = activeAlternateStep || redirectedMainStep || lab.steps[currentStep];
   const outputClues = getKeyOutputClues(step);
   const useTip = step.cmd?.startsWith('#')
     ? 'This step is a simulated transition. You are meant to study the new state it creates, not to memorize a literal shell command.'
@@ -2789,9 +2879,13 @@ function renderLabStepCoach() {
   const topTitle = document.querySelector('#lab-step-coach .lab-step-coach-title');
   if (topKicker) topKicker.textContent = activeAlternateStep
     ? `${lab.name} • Recovery Chain ${activeAlternateStep.alternateChainIndex || 1}/${activeAlternateStep.alternateChainLength || 1}`
+    : redirectedMainStep
+      ? `${lab.name} • Redirected Main Step`
     : `${lab.name} • Step ${currentStep + 1}/${lab.steps.length}`;
   if (topTitle) topTitle.textContent = activeAlternateStep
     ? activeAlternateStep.label
+    : redirectedMainStep
+      ? redirectedMainStep.label
     : (stepModifier ? `${stepModifier.title} • ${step.label}` : step.label);
 
     content.innerHTML = `
@@ -3235,6 +3329,7 @@ function loadLab(id) {
   clearCanvas();
   clearTerminal();
   activeAlternateStep = null;
+  activeMainRedirectStep = null;
   currentLab = id;
   currentStep = -1;
   if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
@@ -3274,10 +3369,13 @@ function loadLab(id) {
 function runStep(labId, stepIdx) {
   if(currentLab !== labId) return;
   activeAlternateStep = null;
+  activeMainRedirectStep = null;
   currentStep = stepIdx;
   if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
   const lab = LABS[labId];
-  const step = lab.steps[stepIdx];
+  const redirectedMainStep = getMainPathRedirectStep(labId, stepIdx);
+  const step = redirectedMainStep || lab.steps[stepIdx];
+  activeMainRedirectStep = redirectedMainStep;
   const stepModifier = getBranchStepModifier(labId, stepIdx);
 
   document.querySelectorAll('.step-btn').forEach((btn,i) => {
@@ -3286,7 +3384,9 @@ function runStep(labId, stepIdx) {
 
   document.getElementById('scen-step').style.display = '';
   document.getElementById('scen-step').textContent = `Step ${stepIdx+1}/${lab.steps.length}`;
-  document.getElementById('scen-desc').textContent = stepModifier ? `${stepModifier.title} • ${step.label}` : step.label;
+  document.getElementById('scen-desc').textContent = redirectedMainStep
+    ? `${step.label} • Redirected recovery-aware main path`
+    : (stepModifier ? `${stepModifier.title} • ${step.label}` : step.label);
   const cmdInput = document.getElementById('cmd-input');
   if (cmdInput) cmdInput.value = step.cmd || '';
 
@@ -3316,6 +3416,7 @@ function runStep(labId, stepIdx) {
   addXIDLog(labId, stepIdx, step);
   renderLabStepCoach();
   recordLabReasoningProgress(labId, stepIdx, getReasoningScorecardContext(labId, step));
+  if (redirectedMainStep) markMainPathRedirectDone(labId, stepIdx);
 
   // Sprint 18: Surface AIOps Engine for fault steps
   const aiFaultTargets = {
@@ -3361,8 +3462,15 @@ function runCurrentStep() {
     if (runAlternateBranchStep(currentLab, currentStep)) return;
   }
   activeAlternateStep = null;
+  activeMainRedirectStep = null;
   const lab = LABS[currentLab];
   const next = currentStep+1;
+  if (currentStep >= 0 && next < lab.steps.length) {
+    const choice = getSelectedBranchChoice(currentLab, currentStep);
+    if (choice && choice.effect !== 'best' && ALTERNATE_MAIN_PATH_STEPS[currentLab] && branchingState[getBranchMetaKey(currentLab, next, 'main_redirect_done')] !== true) {
+      scheduleMainPathRedirect(currentLab, next);
+    }
+  }
   if(next < lab.steps.length) runStep(currentLab, next);
 }
 
@@ -4136,6 +4244,7 @@ function resetAll() {
   clearCanvas();
   clearTerminal();
   activeAlternateStep = null;
+  activeMainRedirectStep = null;
   currentLab=null; currentStep=-1;
   document.getElementById('scen-title').textContent='GPU Infrastructure Simulator';
   document.getElementById('scen-step').style.display='none';
