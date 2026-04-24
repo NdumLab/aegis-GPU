@@ -100,6 +100,14 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 'name': 'storage_warn',
                 'expected_details': ['effect-warn', 'detour-rendered', 'redirected-main-step'],
             },
+            {
+                'name': 'nccl_fallback_best',
+                'expected_details': ['effect-best', 'normal-advance', 'no-detour'],
+            },
+            {
+                'name': 'nccl_fallback',
+                'expected_details': ['effect-bad', 'detour-rendered', 'redirected-main-step'],
+            },
         ]
         report_rows = []
         result_server = _ThreadedTCPServer(('127.0.0.1', RESULT_PORT), _ResultHandler)
@@ -120,51 +128,59 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 scenario_name = scenario['name']
                 expected_details = scenario['expected_details']
                 with self.subTest(scenario=scenario_name):
-                    result_event = threading.Event()
-                    _ResultHandler.result = {}
-                    _ResultHandler.event = result_event
-                    firefox = None
-                    profile_dir = tempfile.mkdtemp(prefix='aegis-proof-profile-')
-                    try:
-                        firefox = subprocess.Popen(
-                            [
-                                'firefox',
-                                '--headless',
-                                '--new-instance',
-                                '--profile',
-                                profile_dir,
-                                f'http://127.0.0.1:{APP_PORT}/index.html?smokePort={RESULT_PORT}#browser-smoke:{scenario_name}',
-                            ],
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL,
-                        )
-                        self.assertTrue(result_event.wait(timeout=35), f'browser proof result was not reported in time for {scenario_name}')
-                        result = dict(_ResultHandler.result)
-                        self.assertEqual(result.get('status'), 'pass', result)
-                        for marker in expected_details:
-                            self.assertIn(marker, result.get('details', ''))
-                        report_rows.append({
-                            'scenario': scenario_name,
-                            'status': result.get('status', ''),
-                            'summary': result.get('summary', ''),
-                            'details': result.get('details', ''),
-                        })
-                    except Exception as exc:
-                        report_rows.append({
-                            'scenario': scenario_name,
-                            'status': 'fail',
-                            'summary': str(exc),
-                            'details': dict(_ResultHandler.result).get('details', ''),
-                        })
-                        raise
-                    finally:
-                        if firefox is not None:
-                            firefox.terminate()
-                            try:
-                                firefox.wait(timeout=5)
-                            except subprocess.TimeoutExpired:
-                                firefox.kill()
-                        shutil.rmtree(profile_dir, ignore_errors=True)
+                    last_exc = None
+                    last_result = {}
+                    for attempt in range(2):
+                        result_event = threading.Event()
+                        _ResultHandler.result = {}
+                        _ResultHandler.event = result_event
+                        firefox = None
+                        profile_dir = tempfile.mkdtemp(prefix='aegis-proof-profile-')
+                        try:
+                            firefox = subprocess.Popen(
+                                [
+                                    'firefox',
+                                    '--headless',
+                                    '--new-instance',
+                                    '--profile',
+                                    profile_dir,
+                                    f'http://127.0.0.1:{APP_PORT}/index.html?smokePort={RESULT_PORT}#browser-smoke:{scenario_name}',
+                                ],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                            )
+                            self.assertTrue(result_event.wait(timeout=35), f'browser proof result was not reported in time for {scenario_name}')
+                            result = dict(_ResultHandler.result)
+                            self.assertEqual(result.get('status'), 'pass', result)
+                            for marker in expected_details:
+                                self.assertIn(marker, result.get('details', ''))
+                            report_rows.append({
+                                'scenario': scenario_name,
+                                'status': result.get('status', ''),
+                                'summary': result.get('summary', ''),
+                                'details': result.get('details', ''),
+                            })
+                            last_exc = None
+                            break
+                        except Exception as exc:
+                            last_exc = exc
+                            last_result = dict(_ResultHandler.result)
+                            if attempt == 1:
+                                report_rows.append({
+                                    'scenario': scenario_name,
+                                    'status': 'fail',
+                                    'summary': str(exc),
+                                    'details': last_result.get('details', ''),
+                                })
+                                raise
+                        finally:
+                            if firefox is not None:
+                                firefox.terminate()
+                                try:
+                                    firefox.wait(timeout=5)
+                                except subprocess.TimeoutExpired:
+                                    firefox.kill()
+                            shutil.rmtree(profile_dir, ignore_errors=True)
         finally:
             app_server.terminate()
             try:

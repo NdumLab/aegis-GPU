@@ -7,9 +7,12 @@ SCENARIO_GROUPS = {
     'study_progress_empty': 'adaptive guidance',
     'ask_aegis_main': 'state-aware Ask Aegis',
     'ask_aegis_detached': 'detached coach behavior',
+    'analytics_recommendation_transition': 'adaptive guidance',
     'ecc_bad': 'branch consequence flow',
     'nvlink_bad': 'branch consequence flow',
     'storage_warn': 'branch consequence flow',
+    'nccl_fallback_best': 'fabric path proof',
+    'nccl_fallback': 'fabric path proof',
 }
 
 
@@ -61,7 +64,7 @@ def build_text(summary):
     lines.extend([
         '',
         'Interpretation:',
-        '- The proof set demonstrates state-aware study guidance, in-page Ask Aegis, detached coach behavior, and cross-family degraded branch flows.',
+        '- The proof set demonstrates state-aware study guidance, in-page Ask Aegis, detached coach behavior, and cross-family branch flows, including fabric-path best and degraded behavior.',
         '- This is evidence for pilot and grant packaging, not a market-ranking claim.',
     ])
     return '\n'.join(lines) + '\n'

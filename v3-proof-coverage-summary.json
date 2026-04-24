@@ -1,9 +1,9 @@
 {
-  "report_label": "broader-proof-priority1",
-  "commit": "df8eef2",
+  "report_label": "broader-proof-priority1c",
+  "commit": "b956b56",
   "suite": "frontend_browser_proof",
-  "scenario_count": 7,
-  "pass_count": 7,
+  "scenario_count": 9,
+  "pass_count": 9,
   "fail_count": 0,
   "all_passed": true,
   "result_port": 18082,
@@ -14,6 +14,11 @@
         "scenario": "study_progress_empty",
         "status": "pass",
         "summary": "study progress empty state verified"
+      },
+      {
+        "scenario": "analytics_recommendation_transition",
+        "status": "pass",
+        "summary": "analytics recommendation transition verified"
       }
     ],
     "state-aware Ask Aegis": [
@@ -28,13 +33,6 @@
         "scenario": "ask_aegis_detached",
         "status": "pass",
         "summary": "detached coach Ask Aegis verified"
-      }
-    ],
-    "other": [
-      {
-        "scenario": "analytics_recommendation_transition",
-        "status": "pass",
-        "summary": "analytics recommendation transition verified"
       }
     ],
     "branch consequence flow": [
@@ -52,6 +50,18 @@
         "scenario": "storage_warn",
         "status": "pass",
         "summary": "storage_warn branch chain and redirected main step verified"
+      }
+    ],
+    "fabric path proof": [
+      {
+        "scenario": "nccl_fallback_best",
+        "status": "pass",
+        "summary": "nccl_fallback_best best-path stayed on normal route"
+      },
+      {
+        "scenario": "nccl_fallback",
+        "status": "pass",
+        "summary": "nccl_fallback branch chain and redirected main step verified"
       }
     ]
   }

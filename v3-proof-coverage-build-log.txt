@@ -11,6 +11,20 @@ Entry 1
   - adapted wording after a clean `NCCL Fallback Drill` finish in the same domain
 - Final validation for component 1:
   - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof-priority1.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
+- `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
+- Component 1 status: complete
+
+Entry 2
+- Second target component: `NCCL Fallback Drill` best and bad path proof
+- Added browser-proof scenarios:
+  - `nccl_fallback_best`
+  - `nccl_fallback`
+- Scope proved:
+  - best path stays on the intended route with no detour
+  - bad path triggers detour and redirected main-step recovery
+- Final validation for component 2:
+  - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof-priority1b.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
   - `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
   - `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
-- Component 1 status: complete
+- Component 2 status: complete

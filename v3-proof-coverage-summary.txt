@@ -1,27 +1,29 @@
 Aegis V3 Phase 2 Evidence Summary
 
-Label: broader-proof-priority1
-Commit: df8eef2
+Label: broader-proof-priority1c
+Commit: b956b56
 Suite: frontend_browser_proof
-Scenarios: 7
-Passed: 7
+Scenarios: 9
+Passed: 9
 Failed: 0
 All passed: yes
 
 Coverage groups:
 - adaptive guidance:
   - study_progress_empty: pass (study progress empty state verified)
+  - analytics_recommendation_transition: pass (analytics recommendation transition verified)
 - state-aware Ask Aegis:
   - ask_aegis_main: pass (main coach Ask Aegis verified)
 - detached coach behavior:
   - ask_aegis_detached: pass (detached coach Ask Aegis verified)
-- other:
-  - analytics_recommendation_transition: pass (analytics recommendation transition verified)
 - branch consequence flow:
   - ecc_bad: pass (ecc_bad branch chain and redirected main step verified)
   - nvlink_bad: pass (nvlink_bad branch chain and redirected main step verified)
   - storage_warn: pass (storage_warn branch chain and redirected main step verified)
+- fabric path proof:
+  - nccl_fallback_best: pass (nccl_fallback_best best-path stayed on normal route)
+  - nccl_fallback: pass (nccl_fallback branch chain and redirected main step verified)
 
 Interpretation:
-- The proof set demonstrates state-aware study guidance, in-page Ask Aegis, detached coach behavior, and cross-family degraded branch flows.
+- The proof set demonstrates state-aware study guidance, in-page Ask Aegis, detached coach behavior, and cross-family branch flows, including fabric-path best and degraded behavior.
 - This is evidence for pilot and grant packaging, not a market-ranking claim.
