@@ -718,6 +718,102 @@ const ALTERNATE_BRANCH_STEPS = {
       { t: 'warn', v: 'GPU utilization remains bursty because the feed path is still constrained' },
     ],
   },
+  nvlink: {
+    type: 'branch_nvlink_topology_recheck',
+    label: 'NVLink Recovery Checkpoint',
+    cmd: 'nvidia-smi topo -m && nvidia-smi nvlink -e',
+    lookFor: [
+      'Whether the direct NVLink topology is restored and still clean.',
+      'Whether the earlier wrong-layer path hid a fabric problem that is still present.',
+    ],
+    meaning: 'This branch-only step checks whether the NVLink fast path has really been re-established before the main topology lab resumes.',
+    takeAction: ['Do not leave this checkpoint until topology and link-integrity evidence agree.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-baselining NVLink topology after the earlier wrong path.' },
+      { t: 'dim', v: 'GPU0 GPU1 GPU2 GPU3  ...  CPU Affinity' },
+      { t: 'warn', v: 'Observed path still shows mixed NV4/PHB; fast path not fully restored yet' },
+    ],
+  },
+  cuda_stack: {
+    type: 'branch_cuda_boundary_recheck',
+    label: 'CUDA Stack Recovery Checkpoint',
+    cmd: 'nvidia-smi && python -c "import torch; print(torch.cuda.is_available())"',
+    lookFor: [
+      'Which layer is still failing: driver visibility, runtime, or framework.',
+      'Whether the earlier broad-stack move actually narrowed the boundary at all.',
+    ],
+    meaning: 'This branch-only step forces a tighter CUDA boundary read before the main stack lab can continue.',
+    takeAction: ['Do not advance while the failing contract edge is still ambiguous.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-establishing the CUDA stack boundary.' },
+      { t: 'dim', v: 'nvidia-smi reports the GPU, but torch.cuda.is_available() is still false' },
+      { t: 'warn', v: 'Framework/runtime boundary remains the active fault edge' },
+    ],
+  },
+  k8s: {
+    type: 'branch_k8s_gpu_placement_recheck',
+    label: 'Kubernetes Recovery Checkpoint',
+    cmd: 'kubectl describe pod trainer-0 && kubectl describe node gpu-node-01',
+    lookFor: [
+      'Whether the issue is still resource placement, device plumbing, or node readiness.',
+      'Whether the earlier mixed diagnosis has now been separated into one owning layer.',
+    ],
+    meaning: 'This branch-only step forces a cleaner Kubernetes GPU placement read before normal progression returns.',
+    takeAction: ['Keep scheduling, runtime, and node-state evidence separated until one of them clearly owns the failure.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-reading Kubernetes GPU placement evidence.' },
+      { t: 'dim', v: 'Pod still Pending: Insufficient nvidia.com/gpu on schedulable nodes' },
+      { t: 'warn', v: 'Placement remains a scheduler/resource-state issue, not a generic driver failure' },
+    ],
+  },
+  slurm: {
+    type: 'branch_slurm_state_recheck',
+    label: 'Slurm Recovery Checkpoint',
+    cmd: 'squeue && scontrol show job 4821 && sshare',
+    lookFor: [
+      'Whether the queueing problem is still policy-driven or now tied to node state.',
+      'Whether fairshare, reservation, or drain evidence is still being mixed together.',
+    ],
+    meaning: 'This branch-only step forces a cleaner scheduler-state diagnosis before the main Slurm path continues.',
+    takeAction: ['Do not proceed until queue policy and node health are separated cleanly.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-checking Slurm policy versus node-state ownership.' },
+      { t: 'dim', v: 'Job 4821 remains pending due to fairshare pressure; node health is not the primary blocker' },
+      { t: 'warn', v: 'Scheduler evidence still points to policy delay rather than hardware loss' },
+    ],
+  },
+  allreduce: {
+    type: 'branch_allreduce_collective_recheck',
+    label: 'Collective Recovery Checkpoint',
+    cmd: 'NCCL_DEBUG=INFO ./all_reduce_perf -b 8M -e 256M -f 2',
+    lookFor: [
+      'Whether the collective is still weak because of the path or because of another layer.',
+      'Whether the earlier interpretation confused compute health with synchronization health.',
+    ],
+    meaning: 'This branch-only step forces a collective-path re-read before the main all-reduce lab resumes.',
+    takeAction: ['Stay on the communication path until the synchronization bottleneck has a clear owner.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-checking collective-path health.' },
+      { t: 'dim', v: 'AllReduce bandwidth remains below healthy baseline despite healthy local compute' },
+      { t: 'warn', v: 'Synchronization path remains the active bottleneck' },
+    ],
+  },
+  ib_fabric: {
+    type: 'branch_ib_fabric_recheck',
+    label: 'InfiniBand Recovery Checkpoint',
+    cmd: 'ibstat && perfquery -x',
+    lookFor: [
+      'Whether the HCA and fabric state actually support the expected transport path.',
+      'Whether the earlier response still over-trusts application logs over fabric evidence.',
+    ],
+    meaning: 'This branch-only step forces a fresh InfiniBand fabric read before the main fabric lab proceeds.',
+    takeAction: ['Do not leave this checkpoint until physical or transport-level fabric ownership is explicit.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-reading InfiniBand fabric health.' },
+      { t: 'dim', v: 'Port state active on one path, degraded counters still present on the affected link' },
+      { t: 'warn', v: 'Fabric integrity is still unresolved despite application-level retries' },
+    ],
+  },
 };
 
 function authHdr() {

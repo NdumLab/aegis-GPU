@@ -96,9 +96,10 @@ Entry 6
   - Added lab-family-specific recovery playbooks for ECC, XID drill, NVLink topology, NCCL fallback, storage starvation, Slurm, and Kubernetes GPU placement
   - Added lab-family-specific next-step modifiers so later guided step framing changes after a weak or bad branch
   - Added alternate authored branch steps for core labs so the graph itself can insert a recovery checkpoint before returning to the main sequence
+  - Expanded alternate authored branch steps into additional families: NVLink topology, CUDA stack, Kubernetes GPU placement, Slurm scheduling, collective performance, and InfiniBand fabric
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260423v3i
-    - js/app.js?v=20260423v3i
+    - css/styles.css?v=20260423v3j
+    - js/app.js?v=20260423v3j
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
