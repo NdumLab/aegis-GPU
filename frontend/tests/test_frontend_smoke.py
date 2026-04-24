@@ -63,6 +63,10 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('renderReasoningProgressSummary', APP_JS)
         self.assertIn('Reasoning Progress', APP_JS)
         self.assertIn('Clean incident finishes', APP_JS)
+        self.assertIn('Next training focus', APP_JS)
+        self.assertIn('Recent risk pattern', APP_JS)
+        self.assertIn('getReasoningFocusRecommendation', APP_JS)
+        self.assertIn('getRecentRiskPattern', APP_JS)
         self.assertIn('Incident Outcome', APP_JS)
         self.assertIn('Recent incident outcomes', APP_JS)
 

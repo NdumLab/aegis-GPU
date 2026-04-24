@@ -1444,7 +1444,7 @@ function getReasoningProgressSummary() {
     key,
     label: value.label,
     pct: value.max ? Math.round((value.total / value.max) * 100) : 0,
-  }));
+  })).sort((a, b) => a.pct - b.pct);
   const completionEntries = Object.values(reasoningProgress.completion || {});
   completionEntries.forEach(entry => {
     if (entry.clean) cleanLabs += 1;
@@ -1460,11 +1460,48 @@ function getReasoningProgressSummary() {
     judgmentPct: totalMax ? Math.round((totalScore / totalMax) * 100) : null,
     completedSteps: stepEntries.length,
     categoryAverages,
+    weakestCategory: categoryAverages[0] || null,
     lastQuizPct: lastQuiz ? lastQuiz.pct : null,
     avgQuizPct: avgQuiz,
     quizAttempts: quizAttempts.length,
     cleanLabs,
     compromisedLabs,
+  };
+}
+
+function getReasoningFocusRecommendation(summary) {
+  const weakest = summary?.weakestCategory;
+  if (!weakest) return null;
+  const recommendations = {
+    layer: {
+      title: 'Layer ownership needs work',
+      action: 'Drill CUDA stack, Kubernetes, or Slurm until the owning layer is explicit before any fix is attempted.',
+    },
+    evidence: {
+      title: 'Evidence control needs work',
+      action: 'Re-run ECC, NVLink, or storage labs and justify the diagnosis from on-screen signals before touching remediation.',
+    },
+    safety: {
+      title: 'Action safety needs work',
+      action: 'Use incident mode and aim for clean finishes: contain first, keep the change set narrow, and avoid broad resets.',
+    },
+  };
+  return recommendations[weakest.key] || {
+    title: `${weakest.label} needs work`,
+    action: 'Repeat the incident path and focus on the weakest reasoning category before optimizing for speed.',
+  };
+}
+
+function getRecentRiskPattern() {
+  const entries = Object.entries(reasoningProgress.completion || {})
+    .map(([labId, entry]) => ({ labId, entry }))
+    .filter(({ entry }) => !entry.clean)
+    .sort((a, b) => ((b.entry.badCount || 0) + (b.entry.warnCount || 0)) - ((a.entry.badCount || 0) + (a.entry.warnCount || 0)) || ((b.entry.ts || 0) - (a.entry.ts || 0)));
+  if (!entries.length) return null;
+  const top = entries[0];
+  return {
+    labName: LABS[top.labId]?.name || top.labId,
+    detail: `${top.entry.warnCount || 0} weak and ${top.entry.badCount || 0} bad calls were recorded before the lab finished.`,
   };
 }
 
@@ -1532,6 +1569,8 @@ function recordQuizReasoningProgress(pct, scorecard) {
 function renderReasoningProgressSummary() {
   const summary = getReasoningProgressSummary();
   if (summary.judgmentPct === null && summary.lastQuizPct === null) return '';
+  const recommendation = getReasoningFocusRecommendation(summary);
+  const recentRisk = getRecentRiskPattern();
   const recentOutcomes = Object.entries(reasoningProgress.completion || {})
     .map(([labId, entry]) => ({ labId, entry }))
     .sort((a, b) => (b.entry.ts || 0) - (a.entry.ts || 0))
@@ -1567,6 +1606,24 @@ function renderReasoningProgressSummary() {
               <span>${item.pct}%</span>
             </div>
           `).join('')}
+        </div>
+      ` : ''}
+      ${(recommendation || recentRisk) ? `
+        <div class="study-focus-grid">
+          ${recommendation ? `
+            <article class="study-focus-card">
+              <div class="study-mini-title">Next training focus</div>
+              <strong>${escHtml(recommendation.title)}</strong>
+              <p>${escHtml(recommendation.action)}</p>
+            </article>
+          ` : ''}
+          ${recentRisk ? `
+            <article class="study-focus-card study-focus-card-risk">
+              <div class="study-mini-title">Recent risk pattern</div>
+              <strong>${escHtml(recentRisk.labName)}</strong>
+              <p>${escHtml(recentRisk.detail)}</p>
+            </article>
+          ` : ''}
         </div>
       ` : ''}
       ${recentOutcomes.length ? `

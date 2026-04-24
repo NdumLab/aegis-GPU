@@ -505,6 +505,11 @@ header h1 span { color: var(--green); }
 .study-progress-breakdown { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .study-progress-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(74,158,255,.18); background: rgba(74,158,255,.06); font-size: 11px; color: var(--text); }
 .study-progress-chip strong { font-family: var(--font-mono); font-size: 10px; color: var(--white); }
+.study-focus-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+.study-focus-card { padding: 12px 13px; border-radius: 10px; border: 1px solid rgba(74,158,255,.18); background: rgba(74,158,255,.08); }
+.study-focus-card strong { display: block; margin-top: 6px; color: var(--white); font-size: 13px; }
+.study-focus-card p { margin: 8px 0 0; font-size: 11px; line-height: 1.6; color: var(--text); }
+.study-focus-card-risk { border-color: rgba(244,162,97,.26); background: rgba(244,162,97,.08); }
 
 /* ── V3: CONSEQUENCE BRANCHING ── */
 .consequence-branch { margin-bottom: 14px; padding: 12px; border: 1px solid rgba(244,162,97,.18); border-radius: 6px; background: linear-gradient(180deg, rgba(244,162,97,.05), rgba(11,18,28,.1)); }
