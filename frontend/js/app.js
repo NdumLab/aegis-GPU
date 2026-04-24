@@ -6,6 +6,7 @@
 // --- GLOBAL STATE ---
 let currentLab = null;
 let currentStep = 0;
+let activeAlternateStep = null;
 let completedLabs = new Set();
 let activeTab = 'term';
 let termLines = { term:[], dmesg:[], dcgm:[] };
@@ -652,6 +653,72 @@ const BRANCH_STEP_MODIFIERS = {
     meaning: 'This stage is validating a corrected Kubernetes GPU diagnosis, not just replaying the default lab path.',
   },
 };
+const ALTERNATE_BRANCH_STEPS = {
+  ecc: {
+    type: 'branch_ecc_recheck',
+    label: 'ECC Recovery Checkpoint',
+    cmd: 'dcgmi dmon -e 156,157 -g 0 && dmesg | grep -i "Xid\\|ECC"',
+    lookFor: [
+      'Whether DBE has stopped growing or is still active.',
+      'Whether the evidence now supports containment instead of hopeful monitoring.',
+    ],
+    meaning: 'This branch-only step checks whether you corrected the earlier weak ECC judgment or are still treating a hardware-integrity signal too casually.',
+    takeAction: ['Keep the node contained if DBE or XID evidence remains active.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-checking ECC evidence after the earlier weak path.' },
+      { t: 'dim', v: 'GPU 0  SBE=58  DBE=1  status=containment-required' },
+      { t: 'warn', v: 'NVRM: Xid (PCI:0000:17:00): 48 still present in recent logs' },
+    ],
+  },
+  nvlink_fault: {
+    type: 'branch_xid_reclassify',
+    label: 'XID Recovery Checkpoint',
+    cmd: 'journalctl -k | grep -i xid && nvidia-smi -q -x',
+    lookFor: [
+      'The exact XID family and whether the recovery path matches it.',
+      'Whether the incident is still being treated as a generic GPU failure instead of a classified fault.',
+    ],
+    meaning: 'This branch-only step forces a reclassification of the XID incident before normal lab progression resumes.',
+    takeAction: ['Choose the recovery path that matches the exact XID family, not a generic GPU reset story.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-classifying the XID fault family.' },
+      { t: 'dim', v: 'Latest fault evidence: XID 79 remains the active incident family' },
+      { t: 'warn', v: 'Recovery path mismatch detected: containment and bus-level recovery still required' },
+    ],
+  },
+  nccl_fallback: {
+    type: 'branch_nccl_path_recheck',
+    label: 'Transport Recovery Checkpoint',
+    cmd: 'env | grep NCCL && NCCL_DEBUG=INFO ./all_reduce_perf',
+    lookFor: [
+      'Whether NCCL is still selecting Socket/TCP.',
+      'Whether the earlier wrong-layer fix actually changed the transport path.',
+    ],
+    meaning: 'This branch-only step checks whether the fallback path was truly cleared before the lab returns to the main flow.',
+    takeAction: ['Do not leave this checkpoint until the transport selection story is explicit.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-validating NCCL transport selection.' },
+      { t: 'warn', v: 'NCCL INFO Using network Socket' },
+      { t: 'dim', v: 'Bandwidth remains degraded because the fallback cause is still unresolved' },
+    ],
+  },
+  storage: {
+    type: 'branch_storage_bottleneck_recheck',
+    label: 'Storage Recovery Checkpoint',
+    cmd: 'iostat -x 1 3 && lfs getstripe /datasets/train',
+    lookFor: [
+      'Whether the dataset path is still under-striped or saturated.',
+      'Whether the GPU symptom still points upstream instead of at compute.',
+    ],
+    meaning: 'This branch-only step checks whether the starvation cause was truly re-owned before the main lab path resumes.',
+    takeAction: ['Keep the investigation on the data path if the GPU is still waiting on input.'],
+    virtualOutput: [
+      { t: 'warn', v: '[branch-step] Re-checking upstream starvation evidence.' },
+      { t: 'dim', v: 'sda util=100%  rMB/s=446  stripe_count=1' },
+      { t: 'warn', v: 'GPU utilization remains bursty because the feed path is still constrained' },
+    ],
+  },
+};
 
 function authHdr() {
   return JWT_TOKEN ? { 'Authorization': 'Bearer ' + JWT_TOKEN } : {};
@@ -1102,6 +1169,19 @@ function markBranchDetourDone(labId, stepIdx) {
   persistBranchingState();
 }
 
+function isAlternateBranchStepPending(labId, stepIdx) {
+  if (!ALTERNATE_BRANCH_STEPS[labId]) return false;
+  const choice = getSelectedBranchChoice(labId, stepIdx);
+  if (!choice || choice.effect === 'best') return false;
+  if (isBranchDetourPending(labId, stepIdx)) return false;
+  return branchingState[getBranchMetaKey(labId, stepIdx, 'alt_done')] !== true;
+}
+
+function markAlternateBranchStepDone(labId, stepIdx) {
+  branchingState[getBranchMetaKey(labId, stepIdx, 'alt_done')] = true;
+  persistBranchingState();
+}
+
 function getBranchDetourMessage(labId, stepIdx) {
   const choice = getSelectedBranchChoice(labId, stepIdx);
   const domain = getBranchConsequenceContext(labId, stepIdx).dominantDomain;
@@ -1234,6 +1314,23 @@ function runBranchDetour(labId, stepIdx) {
   }
 
   markBranchDetourDone(labId, stepIdx);
+  renderLabStepCoach();
+  return true;
+}
+
+function runAlternateBranchStep(labId, stepIdx) {
+  const template = ALTERNATE_BRANCH_STEPS[labId];
+  if (!template) return false;
+  activeAlternateStep = { ...template, branchSourceStep: stepIdx };
+  switchTab('term');
+  clearTerminal();
+  document.getElementById('scen-step').style.display = '';
+  document.getElementById('scen-step').textContent = `Alternate recovery step after Step ${stepIdx + 1}`;
+  document.getElementById('scen-desc').textContent = template.label;
+  logTerm([{ t: 'warn', v: `# ${template.label}` }, { t: 'cmd', v: template.cmd }]);
+  getStepOutput(activeAlternateStep).forEach(line => logTerm([line]));
+  scrollTerminal();
+  markAlternateBranchStepDone(labId, stepIdx);
   renderLabStepCoach();
   return true;
 }
@@ -1901,6 +1998,7 @@ function renderBeginnerStoryGuidedDetails(step) {
 
 function getStepOutput(step) {
   if (!step || typeof TERMINAL_OUTPUT === 'undefined') return [];
+  if (Array.isArray(step.virtualOutput)) return step.virtualOutput;
   return TERMINAL_OUTPUT[step.type] || [];
 }
 
@@ -2191,7 +2289,7 @@ function renderLabStepCoach() {
     return;
   }
 
-  const step = lab.steps[currentStep];
+  const step = activeAlternateStep || lab.steps[currentStep];
   const outputClues = getKeyOutputClues(step);
   const useTip = step.cmd?.startsWith('#')
     ? 'This step is a simulated transition. You are meant to study the new state it creates, not to memorize a literal shell command.'
@@ -2265,8 +2363,10 @@ function renderLabStepCoach() {
 
   const topKicker = document.querySelector('#lab-step-coach .lab-step-coach-kicker');
   const topTitle = document.querySelector('#lab-step-coach .lab-step-coach-title');
-  if (topKicker) topKicker.textContent = `${lab.name} • Step ${currentStep + 1}/${lab.steps.length}`;
-  if (topTitle) topTitle.textContent = stepModifier ? `${stepModifier.title} • ${step.label}` : step.label;
+  if (topKicker) topKicker.textContent = activeAlternateStep ? `${lab.name} • Alternate Recovery Step` : `${lab.name} • Step ${currentStep + 1}/${lab.steps.length}`;
+  if (topTitle) topTitle.textContent = activeAlternateStep
+    ? activeAlternateStep.label
+    : (stepModifier ? `${stepModifier.title} • ${step.label}` : step.label);
 
     content.innerHTML = `
     <div class="${calloutClass}">
@@ -2707,6 +2807,7 @@ function loadLab(id) {
   if (!isProvisioned) return;
   clearCanvas();
   clearTerminal();
+  activeAlternateStep = null;
   currentLab = id;
   currentStep = -1;
   if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
@@ -2745,6 +2846,7 @@ function loadLab(id) {
 
 function runStep(labId, stepIdx) {
   if(currentLab !== labId) return;
+  activeAlternateStep = null;
   currentStep = stepIdx;
   if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
   const lab = LABS[labId];
@@ -2828,6 +2930,10 @@ function runCurrentStep() {
   if (currentStep >= 0 && isBranchDetourPending(currentLab, currentStep)) {
     if (runBranchDetour(currentLab, currentStep)) return;
   }
+  if (currentStep >= 0 && isAlternateBranchStepPending(currentLab, currentStep)) {
+    if (runAlternateBranchStep(currentLab, currentStep)) return;
+  }
+  activeAlternateStep = null;
   const lab = LABS[currentLab];
   const next = currentStep+1;
   if(next < lab.steps.length) runStep(currentLab, next);
@@ -3602,6 +3708,7 @@ function resetAll() {
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active','done'));
   clearCanvas();
   clearTerminal();
+  activeAlternateStep = null;
   currentLab=null; currentStep=-1;
   document.getElementById('scen-title').textContent='GPU Infrastructure Simulator';
   document.getElementById('scen-step').style.display='none';
