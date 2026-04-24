@@ -231,6 +231,12 @@ header h1 span { color: var(--green); }
 .lab-step-coach-callout { border-left: 3px solid var(--green); padding: 0 0 0 12px; margin-bottom: 14px; }
 .lab-step-coach-callout.warn { border-color: var(--yellow); }
 .lab-step-coach-callout.err { border-color: var(--red); }
+.ask-aegis { border-color: rgba(244,162,97,.22); background: rgba(244,162,97,.05); }
+.ask-aegis-subtitle { margin: 0 0 10px; font-size: 10.5px; line-height: 1.6; color: var(--text-soft); }
+.ask-aegis-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.ask-aegis-btn { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(244,162,97,.22); background: rgba(10,16,26,.65); color: var(--text); font-size: 10.5px; cursor: pointer; }
+.ask-aegis-btn.is-active, .ask-aegis-btn:hover { border-color: rgba(244,162,97,.5); background: rgba(244,162,97,.12); color: var(--white); }
+.ask-aegis-answer { padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,.06); background: rgba(10,16,26,.55); color: var(--text); font-size: 11px; line-height: 1.7; }
 .lab-step-shot-grid { display: grid; gap: 12px; }
 .lab-step-shot-frame { margin: 0; }
 .lab-step-shot-title { font-family: var(--font-mono); font-size: 10px; color: var(--white); letter-spacing: .04em; margin-bottom: 8px; }

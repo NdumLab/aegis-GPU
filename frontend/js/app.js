@@ -8,6 +8,7 @@ let currentLab = null;
 let currentStep = 0;
 let activeAlternateStep = null;
 let activeMainRedirectStep = null;
+let askAegisIntent = 'what_changed';
 let completedLabs = new Set();
 let activeTab = 'term';
 let termLines = { term:[], dmesg:[], dcgm:[] };
@@ -2506,6 +2507,83 @@ function toggleLabCoach() {
   setLabCoachOpen(!labCoachOpen);
 }
 
+function inferOwningLayer(labId) {
+  if (['ecc', 'nvlink_fault', 'mig', 'monitoring'].includes(labId)) return 'hardware and fault isolation';
+  if (['nvlink', 'allreduce', 'nccl_fallback', 'ib_fabric', 'roce'].includes(labId)) return 'fabric and collective communication';
+  if (['cuda_stack', 'container', 'k8s', 'slurm'].includes(labId)) return 'runtime delivery and workload placement';
+  if (['storage', 'gds', 'training'].includes(labId)) return 'data path and platform efficiency';
+  return 'the currently visible infrastructure layer';
+}
+
+function getAskAegisResponse(intent, labId, step, stepIdx) {
+  if (!labId || !step) {
+    return 'Ask Aegis becomes available once a lab step is active.';
+  }
+  const clues = getKeyOutputClues(step);
+  const context = getBranchConsequenceContext(labId, stepIdx);
+  const firstClue = clues[0];
+  const secondClue = clues[1];
+  const layer = inferOwningLayer(labId);
+  const nextCheck = (step.takeAction && step.takeAction[0]) || (step.lookFor && step.lookFor[0]) || 'Compare the current output with the step goal before advancing.';
+  const branchChoice = getSelectedBranchChoice(labId, stepIdx);
+
+  if (intent === 'what_changed') {
+    return firstClue
+      ? `The main change on this step is ${firstClue.text}. Aegis reads that as: ${firstClue.meaning}`
+      : 'The current step is mainly about comparing the visible output against the expected healthy or degraded state.';
+  }
+
+  if (intent === 'owning_layer') {
+    return secondClue
+      ? `The current evidence points first to ${layer}. The strongest visible clue after the main signal is ${secondClue.text}`
+      : `The current evidence points first to ${layer}. Keep the diagnosis in that layer before changing anything broader.`;
+  }
+
+  if (intent === 'next_check') {
+    return `The next operator check is: ${tightenDisplayCopy(nextCheck)}`;
+  }
+
+  if (intent === 'branch_reason') {
+    if (!branchChoice) {
+      return 'No branch choice is recorded on this step yet. Pick a Decision Drill option first, then Ask Aegis can explain the consequence.';
+    }
+    const penalty = getBranchPenaltyMessages(labId, stepIdx)[0];
+    return branchChoice.effect === 'best'
+      ? `That branch is currently scored as strong because it keeps the incident narrow and evidence-led.`
+      : penalty || `That branch is weak because it adds ambiguity before the owning layer is fully clear.`;
+  }
+
+  return 'Aegis can currently answer only from the active lab evidence, the current step goal, and any branch choices recorded on this step.';
+}
+
+function renderAskAegisBlock(labId, step, stepIdx) {
+  if (!labId || !step) return '';
+  const intents = [
+    { id: 'what_changed', label: 'What changed?' },
+    { id: 'owning_layer', label: 'Which layer owns this?' },
+    { id: 'next_check', label: 'What should I check next?' },
+    { id: 'branch_reason', label: 'Why is this branch scored this way?' },
+  ];
+  const activeIntent = intents.some(item => item.id === askAegisIntent) ? askAegisIntent : intents[0].id;
+  const answer = getAskAegisResponse(activeIntent, labId, step, stepIdx);
+  return `
+    <section class="lab-step-coach-section ask-aegis">
+      <div class="lab-step-coach-section-title">Ask Aegis</div>
+      <div class="ask-aegis-subtitle">Bounded to the current lab state, visible evidence, and branch history.</div>
+      <div class="ask-aegis-actions">
+        ${intents.map(intent => `
+          <button
+            type="button"
+            class="ask-aegis-btn${activeIntent === intent.id ? ' is-active' : ''}"
+            data-ask-aegis="${escHtml(intent.id)}"
+          >${escHtml(intent.label)}</button>
+        `).join('')}
+      </div>
+      <div class="ask-aegis-answer">${escHtml(answer)}</div>
+    </section>
+  `;
+}
+
 function handleLabCoachClick(event) {
   if (event.target.closest('#btn-close-coach') || event.target.closest('.lab-step-coach-close')) {
     event.preventDefault();
@@ -2519,6 +2597,15 @@ function handleLabCoachClick(event) {
     event.preventDefault();
     event.stopPropagation();
     chooseIncidentBranch(choice.dataset.branchLab, Number(choice.dataset.branchStep), choice.dataset.branchChoice);
+    return;
+  }
+
+  const askBtn = event.target.closest('[data-ask-aegis]');
+  if (askBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+    askAegisIntent = askBtn.dataset.askAegis;
+    renderLabStepCoach();
   }
 }
 
@@ -3334,6 +3421,7 @@ function renderLabStepCoach() {
       ${renderReasoningScorecard(scorecard, {
         subtitle: 'Incident mode scores the diagnosis on evidence control, layer ownership, and safe movement under uncertainty.',
       })}
+      ${renderAskAegisBlock(currentLab, step, currentStep)}
       ${incidentBrief}
       ${consequenceBranch}
       ${routeStatus}
@@ -3380,6 +3468,7 @@ function renderLabStepCoach() {
       <p>${escHtml(tightenDisplayCopy(useTip))}</p>
     </div>
     ${renderReasoningScorecard(scorecard)}
+    ${renderAskAegisBlock(currentLab, step, currentStep)}
     ${(step.fault || incidentMode) ? consequenceBranch : ''}
     ${routeStatus}
     ${outcomeSummary}

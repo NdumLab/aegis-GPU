@@ -80,6 +80,15 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('Incident Outcome', APP_JS)
         self.assertIn('Recent incident outcomes', APP_JS)
 
+    def test_ask_aegis_is_available(self):
+        self.assertIn('renderAskAegisBlock', APP_JS)
+        self.assertIn('getAskAegisResponse', APP_JS)
+        self.assertIn('Ask Aegis', APP_JS)
+        self.assertIn('What changed?', APP_JS)
+        self.assertIn('Which layer owns this?', APP_JS)
+        self.assertIn('What should I check next?', APP_JS)
+        self.assertIn('Why is this branch scored this way?', APP_JS)
+
     def test_consequence_branching_is_available(self):
         self.assertIn('CONSEQUENCE_BRANCHES', APP_JS)
         self.assertIn('loadBranchingState', APP_JS)
