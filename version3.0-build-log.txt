@@ -110,9 +110,10 @@ Entry 6
   - Upgraded the reasoning analytics panel so it now names the weakest reasoning category, recommends the next training focus, and surfaces the most recent compromised incident pattern instead of only showing percentages
   - Made the analytics recommendation actionable by attaching direct drill buttons to the suggested labs, so users can jump straight from a weak category into the right practice path
   - Made the recommendation domain-aware too, so recent fault-isolation, fabric, runtime, or efficiency misses now bias the suggested drills toward the actual incident family that broke down
+  - Tightened the recommendation again so the most recent compromised lab becomes the first drill target when it fits the weakness, instead of only suggesting a broad family bucket
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260423v3w
-    - js/app.js?v=20260423v3w
+    - css/styles.css?v=20260424v3x
+    - js/app.js?v=20260424v3x
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'

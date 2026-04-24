@@ -1506,6 +1506,15 @@ function getRecommendedLabsForDomain(domain, fallbackLabs = []) {
   return domainLabs[domain] || fallbackLabs;
 }
 
+function getUniqueLabs(list = []) {
+  const seen = new Set();
+  return list.filter(labId => {
+    if (!labId || seen.has(labId)) return false;
+    seen.add(labId);
+    return true;
+  });
+}
+
 function getRecentRiskPattern() {
   const entries = Object.entries(reasoningProgress.completion || {})
     .map(([labId, entry]) => ({ labId, entry }))
@@ -1520,6 +1529,7 @@ function getRecentRiskPattern() {
     platform_efficiency: 'platform efficiency',
   };
   return {
+    labId: top.labId,
     labName: LABS[top.labId]?.name || top.labId,
     detail: `${top.entry.warnCount || 0} weak and ${top.entry.badCount || 0} bad calls were recorded before the lab finished.`,
     domain: top.entry.dominantDomain || null,
@@ -1599,11 +1609,14 @@ function renderReasoningProgressSummary() {
     ...recommendation,
     title: recentRisk?.domainLabel ? `${recommendation.title} in ${recentRisk.domainLabel}` : recommendation.title,
     action: recentRisk?.domainLabel
-      ? `${recommendation.action} Start with the drills tied to the recent ${recentRisk.domainLabel} misses.`
+      ? `${recommendation.action} Start with the last compromised lab, then widen into the drills tied to the recent ${recentRisk.domainLabel} misses.`
       : recommendation.action,
-    labs: recentRisk?.domain
-      ? getRecommendedLabsForDomain(recentRisk.domain, recommendation.labs || [])
-      : (recommendation.labs || []),
+    labs: getUniqueLabs([
+      recentRisk?.labId || null,
+      ...(recentRisk?.domain
+        ? getRecommendedLabsForDomain(recentRisk.domain, recommendation.labs || [])
+        : (recommendation.labs || [])),
+    ]),
   } : null;
   const recentOutcomes = Object.entries(reasoningProgress.completion || {})
     .map(([labId, entry]) => ({ labId, entry }))
