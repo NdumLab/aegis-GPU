@@ -382,6 +382,139 @@ const CONSEQUENCE_BRANCHES = {
   },
 };
 const BRANCH_DETOUR_PLAYBOOKS = {
+  ecc: {
+    title: 'ECC Integrity Recovery',
+    desc: 'Route correction required: ECC containment checkpoint',
+    commands: [
+      'dcgmi dmon -e 156,157 -g 0',
+      'dmesg | grep -i "Xid\\|ECC"',
+      'kubectl cordon gpu-node-01',
+    ],
+    checks: [
+      'Re-check SBE versus DBE instead of treating all ECC signals the same.',
+      'Preserve the memory-integrity evidence before any hardware recovery step.',
+      'Keep the node out of fresh scheduling until the hardware story is stable.',
+    ],
+    terminal: [
+      '[detour] ECC counters are being re-read to separate trend from hard fault.',
+      '[detour] The node is being held out of new placement while integrity is re-checked.',
+      '[detour] The lab will not advance until memory health is back under control.',
+    ],
+  },
+  nvlink_fault: {
+    title: 'XID Fault Recovery',
+    desc: 'Route correction required: XID fault-family checkpoint',
+    commands: [
+      'journalctl -k | grep -i xid',
+      'nvidia-smi -q -x',
+      'dcgmi diag -g 0 -r 1',
+    ],
+    checks: [
+      'Re-classify the fault family before choosing reset, containment, or hardware escalation.',
+      'Use the exact XID evidence, not a generic GPU-failure label.',
+      'Do not continue until the blast radius is under control.',
+    ],
+    terminal: [
+      '[detour] The driver fault code is being reclassified before recovery proceeds.',
+      '[detour] Containment and fault-family ownership are required before the next stage.',
+      '[detour] The lab remains in incident mode until the XID path is narrowed again.',
+    ],
+  },
+  nvlink: {
+    title: 'NVLink Topology Recovery',
+    desc: 'Route correction required: NVLink baseline checkpoint',
+    commands: [
+      'nvidia-smi topo -m',
+      'nvidia-smi nvlink -e',
+      'NCCL_DEBUG=INFO ./all_reduce_perf',
+    ],
+    checks: [
+      'Rebuild the healthy topology baseline before tuning collectives.',
+      'Hold path shape and link integrity together.',
+      'Do not advance on throughput alone if the topology story is still wrong.',
+    ],
+    terminal: [
+      '[detour] Topology and NVLink integrity are being re-baselined.',
+      '[detour] The fast path must be visible before the simulator allows the next stage.',
+      '[detour] The lab is waiting for a clean NVLink read, not only a performance guess.',
+    ],
+  },
+  nccl_fallback: {
+    title: 'NCCL Fallback Recovery',
+    desc: 'Route correction required: transport-selection checkpoint',
+    commands: [
+      'env | grep NCCL',
+      'ibstat',
+      'NCCL_DEBUG=INFO ./all_reduce_perf',
+    ],
+    checks: [
+      'Re-check environment overrides before blaming the fabric.',
+      'Confirm the selected transport path and the achieved bandwidth together.',
+      'Do not move forward while TCP fallback is still unowned.',
+    ],
+    terminal: [
+      '[detour] NCCL environment and transport selection are being re-read.',
+      '[detour] The fallback route must be explained before the next stage opens.',
+      '[detour] The lab is holding on the communication path, not on workload tuning.',
+    ],
+  },
+  storage: {
+    title: 'Storage Starvation Recovery',
+    desc: 'Route correction required: data-path checkpoint',
+    commands: [
+      'iostat -x 1 3',
+      'lfs getstripe /datasets/train',
+      'nvidia-smi dmon -s pucm',
+    ],
+    checks: [
+      'Re-read the storage feed path before touching GPU settings.',
+      'Pair the storage metrics with the utilization pattern.',
+      'Do not continue until the starvation owner is explicit.',
+    ],
+    terminal: [
+      '[detour] Storage throughput and GPU starvation evidence are being compared again.',
+      '[detour] The simulator is forcing the bottleneck back upstream before the next step.',
+      '[detour] The lab will not advance on accelerator tuning while the feed path stays unresolved.',
+    ],
+  },
+  slurm: {
+    title: 'Slurm Scheduling Recovery',
+    desc: 'Route correction required: scheduler-state checkpoint',
+    commands: [
+      'squeue',
+      'scontrol show job <id>',
+      'sshare',
+    ],
+    checks: [
+      'Re-separate policy delay from node-health delay.',
+      'Confirm whether the scheduler is waiting on fairshare, reservation, or drain state.',
+      'Do not continue while policy and hardware clues are still mixed together.',
+    ],
+    terminal: [
+      '[detour] Scheduler state is being re-read before any hardware conclusion is accepted.',
+      '[detour] Slurm policy and node health must be separated before the next stage.',
+      '[detour] The lab is holding on allocation reasoning, not only queue frustration.',
+    ],
+  },
+  k8s: {
+    title: 'Kubernetes GPU Recovery',
+    desc: 'Route correction required: pod-placement checkpoint',
+    commands: [
+      'kubectl describe pod <name>',
+      'kubectl describe node gpu-node-01',
+      'kubectl get pods -A -o wide',
+    ],
+    checks: [
+      'Re-check resource request, device exposure, and node state separately.',
+      'Do not collapse scheduling and runtime problems into one label.',
+      'Advance only when the placement failure has a clear owner.',
+    ],
+    terminal: [
+      '[detour] Pod placement and node GPU exposure are being separated again.',
+      '[detour] The lab requires a cleaner Kubernetes ownership call before the next stage.',
+      '[detour] Device plumbing and scheduling state must agree before progression resumes.',
+    ],
+  },
   fault_isolation: {
     title: 'Containment Recovery',
     desc: 'Route correction required: containment checkpoint',
@@ -955,6 +1088,7 @@ function getBranchDetourMessage(labId, stepIdx) {
 }
 
 function getBranchDetourPlaybook(labId, stepIdx) {
+  if (BRANCH_DETOUR_PLAYBOOKS[labId]) return BRANCH_DETOUR_PLAYBOOKS[labId];
   const domain = getBranchConsequenceContext(labId, stepIdx).dominantDomain || 'general_diagnosis';
   return BRANCH_DETOUR_PLAYBOOKS[domain] || BRANCH_DETOUR_PLAYBOOKS.general_diagnosis;
 }
