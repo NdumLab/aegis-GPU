@@ -72,6 +72,7 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('fault isolation', APP_JS)
         self.assertIn('fabric path', APP_JS)
         self.assertIn('last compromised lab', APP_JS)
+        self.assertIn('Picked because your last compromised run was', APP_JS)
         self.assertIn('recommended drill', APP_JS)
         self.assertIn('Incident Outcome', APP_JS)
         self.assertIn('Recent incident outcomes', APP_JS)

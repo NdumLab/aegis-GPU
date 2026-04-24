@@ -509,6 +509,7 @@ header h1 span { color: var(--green); }
 .study-focus-card { padding: 12px 13px; border-radius: 10px; border: 1px solid rgba(74,158,255,.18); background: rgba(74,158,255,.08); }
 .study-focus-card strong { display: block; margin-top: 6px; color: var(--white); font-size: 13px; }
 .study-focus-card p { margin: 8px 0 0; font-size: 11px; line-height: 1.6; color: var(--text); }
+.study-focus-rationale { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(10,16,26,.42); border: 1px solid rgba(255,255,255,.06); font-size: 10.5px; line-height: 1.5; color: var(--text-soft); }
 .study-focus-card-risk { border-color: rgba(244,162,97,.26); background: rgba(244,162,97,.08); }
 
 /* ── V3: CONSEQUENCE BRANCHING ── */

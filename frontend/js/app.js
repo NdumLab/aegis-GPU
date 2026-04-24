@@ -1611,6 +1611,9 @@ function renderReasoningProgressSummary() {
     action: recentRisk?.domainLabel
       ? `${recommendation.action} Start with the last compromised lab, then widen into the drills tied to the recent ${recentRisk.domainLabel} misses.`
       : recommendation.action,
+    rationale: recentRisk?.labName
+      ? `Picked because your last compromised run was ${recentRisk.labName}${recentRisk.domainLabel ? ` in ${recentRisk.domainLabel}` : ''}.`
+      : '',
     labs: getUniqueLabs([
       recentRisk?.labId || null,
       ...(recentRisk?.domain
@@ -1662,6 +1665,7 @@ function renderReasoningProgressSummary() {
               <div class="study-mini-title">Next training focus</div>
               <strong>${escHtml(effectiveRecommendation.title)}</strong>
               <p>${escHtml(effectiveRecommendation.action)}</p>
+              ${effectiveRecommendation.rationale ? `<div class="study-focus-rationale">${escHtml(effectiveRecommendation.rationale)}</div>` : ''}
               ${effectiveRecommendation.labs?.length ? `
                 <div class="study-lab-links">
                   ${effectiveRecommendation.labs.map(labId => `
