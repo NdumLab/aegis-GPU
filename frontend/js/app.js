@@ -1927,6 +1927,17 @@ function getBrowserSmokeScenarioName() {
   return match?.[1] || 'ecc';
 }
 
+function getBrowserSmokeResultPort() {
+  try {
+    const url = new URL(window.location.href);
+    const rawPort = String(url.searchParams.get('smokePort') || '').trim();
+    if (/^\d{2,5}$/.test(rawPort)) return rawPort;
+  } catch (_) {
+    // Fall back to the default callback port if the URL is unavailable.
+  }
+  return '18080';
+}
+
 function setBrowserSmokeResult(status, summary, details = []) {
   let node = document.getElementById('browser-smoke-result');
   if (!node) {
@@ -1942,7 +1953,7 @@ function setBrowserSmokeResult(status, summary, details = []) {
     summary,
     details: details.join(' || '),
   });
-  const url = `http://127.0.0.1:18080/result?${params.toString()}`;
+  const url = `http://127.0.0.1:${getBrowserSmokeResultPort()}/result?${params.toString()}`;
   if (window.fetch) {
     window.fetch(url, {
       method: 'GET',
@@ -1959,6 +1970,15 @@ function browserSmokeWait(ms) {
   return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
+async function browserSmokeWaitFor(predicate, timeout = 2000, interval = 50) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    if (predicate()) return true;
+    await browserSmokeWait(interval);
+  }
+  return false;
+}
+
 async function runBrowserSmokeScenario() {
   const scenario = getBrowserSmokeScenarioName();
   const details = [];
@@ -1967,6 +1987,84 @@ async function runBrowserSmokeScenario() {
     applyProvisioning();
     if (!isProvisioned) throw new Error('provisioning did not complete');
     details.push('provisioned');
+
+    if (scenario === 'study_progress_empty') {
+      openStudyGuide('nca_aiio');
+      await browserSmokeWait(80);
+      const studyText = String(document.getElementById('study-content')?.textContent || '');
+      if (!studyText.includes('Reasoning Progress')) throw new Error('reasoning progress did not render in study guide');
+      if (!studyText.includes('Start one lab or quiz')) throw new Error('fresh-user empty state did not render');
+      details.push('study-progress-visible');
+      details.push('empty-state-visible');
+      setBrowserSmokeResult('pass', 'study progress empty state verified', details);
+      return;
+    }
+
+    if (scenario === 'ask_aegis_main') {
+      setLabCoachOpen(true);
+      loadLab('nvlink');
+      runStep('nvlink', 0);
+      renderLabStepCoach();
+      await browserSmokeWait(80);
+      const coach = document.getElementById('lab-step-coach-content');
+      if (!String(coach?.textContent || '').includes('Ask Aegis')) throw new Error('Ask Aegis did not render in main coach');
+      const askBtn = coach?.querySelector('[data-ask-aegis="owning_layer"]');
+      if (!askBtn) throw new Error('owning-layer Ask Aegis button missing');
+      askBtn.click();
+      await browserSmokeWait(80);
+      const coachText = String(coach?.textContent || '');
+      if (!coachText.includes('fabric and collective communication')) throw new Error('Ask Aegis main answer did not update');
+      details.push('askaegis-main-visible');
+      details.push('askaegis-main-updated');
+      setBrowserSmokeResult('pass', 'main coach Ask Aegis verified', details);
+      return;
+    }
+
+    if (scenario === 'ask_aegis_detached') {
+      setLabCoachOpen(true);
+      loadLab('nvlink');
+      runStep('nvlink', 0);
+      renderLabStepCoach();
+      const popoutBtn = document.getElementById('btn-popout-coach');
+      if (!popoutBtn) throw new Error('coach pop-out button missing');
+      popoutBtn.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      }));
+      const detachedReady = await browserSmokeWaitFor(() => {
+        const detached = detachedPanels.stepCoach;
+        return Boolean(detached && !detached.closed && detached.document?.body?.textContent?.includes('Ask Aegis'));
+      }, 3000, 75);
+      if (!detachedReady) {
+        const detached = detachedPanels.stepCoach;
+        const detachedState = !detached
+          ? 'missing'
+          : detached.closed
+            ? 'closed'
+            : String(detached.document?.body?.textContent || '').trim().slice(0, 80) || 'blank';
+        throw new Error(`detached step coach did not finish rendering (${detachedState})`);
+      }
+      const detached = detachedPanels.stepCoach;
+      if (!detached || detached.closed) throw new Error('detached step coach did not open');
+      const detachedDoc = detached.document;
+      const detachedText = String(detachedDoc.body?.textContent || '');
+      if (!detachedText.includes('Ask Aegis')) throw new Error('Ask Aegis did not render in detached coach');
+      const askBtn = detachedDoc.querySelector('[data-ask-aegis="next_check"]');
+      if (!askBtn) throw new Error('detached Ask Aegis button missing');
+      askBtn.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      }));
+      const updated = await browserSmokeWaitFor(() => String(detachedDoc.body?.textContent || '').includes('Notice which GPU pairs should be direct NVLink neighbors.'), 3000, 75);
+      if (!updated) throw new Error('detached Ask Aegis answer did not update');
+      const updatedText = String(detachedDoc.body?.textContent || '');
+      details.push('askaegis-detached-visible');
+      details.push('askaegis-detached-updated');
+      detached.close();
+      setBrowserSmokeResult('pass', 'detached coach Ask Aegis verified', details);
+      return;
+    }
 
     const scenarios = {
       ecc_best: {
@@ -2849,6 +2947,28 @@ function syncDetachedPanels() {
   renderDetachedPanel('quizOverlay');
 }
 
+function createDetachedPanelShim(kind) {
+  const doc = document.implementation.createHTMLDocument(`Aegis ${kind}`);
+  doc.body.className = 'detached-panel-window';
+  const root = doc.createElement('div');
+  root.id = 'detached-panel-root';
+  root.className = 'detached-panel-frame';
+  doc.body.appendChild(root);
+  let beforeUnloadHandler = null;
+  return {
+    document: doc,
+    closed: false,
+    focus() {},
+    close() {
+      this.closed = true;
+      if (typeof beforeUnloadHandler === 'function') beforeUnloadHandler();
+    },
+    addEventListener(type, handler) {
+      if (type === 'beforeunload') beforeUnloadHandler = handler;
+    },
+  };
+}
+
 function openDetachedPanel(kind) {
   const existing = detachedPanels[kind];
   if (existing && !existing.closed) {
@@ -2866,8 +2986,11 @@ function openDetachedPanel(kind) {
   const height = kind === 'liveExplainer' ? 860 : 980;
   const left = window.screenX + 80;
   const top = window.screenY + 60;
-  const win = window.open('', `aegis_${kind}`, `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`);
-  if (!win) return;
+  let win = window.open('', `aegis_${kind}`, `popup=yes,resizable=yes,scrollbars=yes,width=${width},height=${height},left=${left},top=${top}`);
+  if (!win) {
+    if (!isBrowserSmokeMode()) return;
+    win = createDetachedPanelShim(kind);
+  }
   detachedPanels[kind] = win;
   syncDetachedPanelButtons();
   renderDetachedPanel(kind);

@@ -1,0 +1,21 @@
+V3 Phase 2 Build Log
+
+Entry 1
+- Phase opened from the frozen v3 phase 1 state at local commit e3c9089
+- Focus selected: proof and validation rather than additional broad feature expansion
+- First target component: browser-level coverage for Ask Aegis and reasoning-progress recommendation surfaces
+- Added browser-smoke scenarios for:
+  - fresh-user study-guide Reasoning Progress visibility
+  - in-page Ask Aegis interaction
+  - detached coach Ask Aegis interaction
+- Split those proof scenarios into a dedicated browser proof file so phase-2 iterations can validate the new surfaces without rerunning the full long branch matrix
+- Root cause found during validation: the browser-smoke callback path was hardcoded to port 18080, and detached pop-outs are blocked in headless Firefox when opened by the proof harness
+- Fixes applied:
+  - browser-smoke callback port is now configurable through the page URL
+  - targeted proof file runs on its own isolated result/app ports with readiness checks
+  - detached coach proof uses a browser-smoke-only detached document shim when `window.open` is blocked in headless mode
+- Final validation for component 1:
+  - `python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
+  - `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
+  - `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
+- Component 1 status: complete

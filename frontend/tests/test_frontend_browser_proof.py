@@ -1,4 +1,5 @@
 import http.server
+import http.client
 import shutil
 import socketserver
 import subprocess
@@ -11,8 +12,8 @@ from urllib.parse import parse_qs, urlparse
 
 
 FRONTEND_ROOT = Path(__file__).resolve().parents[1]
-RESULT_PORT = 18080
-APP_PORT = 18081
+RESULT_PORT = 18082
+APP_PORT = 18084
 
 
 class _ResultHandler(http.server.BaseHTTPRequestHandler):
@@ -34,7 +35,7 @@ class _ResultHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
         if _ResultHandler.event:
-          _ResultHandler.event.set()
+            _ResultHandler.event.set()
 
     def log_message(self, format, *args):
         return
@@ -45,28 +46,32 @@ class _ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
 
 
-class FrontendBrowserSmokeTest(unittest.TestCase):
-    def test_browser_branch_flow_reports_success(self):
+def _wait_for_http_ready(port, path='/', timeout=5.0):
+    deadline = time.time() + timeout
+    last_error = None
+    while time.time() < deadline:
+      conn = None
+      try:
+          conn = http.client.HTTPConnection('127.0.0.1', port, timeout=1.0)
+          conn.request('GET', path)
+          response = conn.getresponse()
+          response.read()
+          return
+      except OSError as exc:
+          last_error = exc
+          time.sleep(0.1)
+      finally:
+          if conn is not None:
+              conn.close()
+    raise AssertionError(f'HTTP server on port {port} did not become ready: {last_error}')
+
+
+class FrontendBrowserProofTest(unittest.TestCase):
+    def test_browser_proof_surfaces_report_success(self):
         scenarios = [
             'study_progress_empty',
             'ask_aegis_main',
             'ask_aegis_detached',
-            'ecc_best',
-            'ecc_warn',
-            'ecc_bad',
-            'nvlink_best',
-            'nvlink_warn',
-            'nvlink_bad',
-            'nccl_fallback_best',
-            'nccl_fallback',
-            'storage_best',
-            'storage_warn',
-            'storage_bad',
-            'cuda_stack_bad',
-            'k8s_bad',
-            'slurm_bad',
-            'allreduce_bad',
-            'ib_fabric_bad',
         ]
         result_server = _ThreadedTCPServer(('127.0.0.1', RESULT_PORT), _ResultHandler)
         result_thread = threading.Thread(target=result_server.serve_forever, daemon=True)
@@ -80,14 +85,15 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
         )
 
         try:
-            time.sleep(1.0)
+            _wait_for_http_ready(RESULT_PORT, '/result?status=ready&summary=probe&details=probe')
+            _wait_for_http_ready(APP_PORT, '/index.html')
             for scenario in scenarios:
                 with self.subTest(scenario=scenario):
                     result_event = threading.Event()
                     _ResultHandler.result = {}
                     _ResultHandler.event = result_event
                     firefox = None
-                    profile_dir = tempfile.mkdtemp(prefix='aegis-ff-profile-')
+                    profile_dir = tempfile.mkdtemp(prefix='aegis-proof-profile-')
                     try:
                         firefox = subprocess.Popen(
                             [
@@ -96,37 +102,23 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
                                 '--new-instance',
                                 '--profile',
                                 profile_dir,
-                                f'http://127.0.0.1:{APP_PORT}/index.html#browser-smoke:{scenario}',
+                                f'http://127.0.0.1:{APP_PORT}/index.html?smokePort={RESULT_PORT}#browser-smoke:{scenario}',
                             ],
                             stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL,
                         )
-                        self.assertTrue(result_event.wait(timeout=35), f'browser smoke result was not reported in time for {scenario}')
+                        self.assertTrue(result_event.wait(timeout=35), f'browser proof result was not reported in time for {scenario}')
                         result = dict(_ResultHandler.result)
                         self.assertEqual(result.get('status'), 'pass', result)
                         if scenario == 'study_progress_empty':
                             self.assertIn('study-progress-visible', result.get('details', ''))
                             self.assertIn('empty-state-visible', result.get('details', ''))
-                            continue
-                        if scenario == 'ask_aegis_main':
+                        elif scenario == 'ask_aegis_main':
                             self.assertIn('askaegis-main-visible', result.get('details', ''))
                             self.assertIn('askaegis-main-updated', result.get('details', ''))
-                            continue
-                        if scenario == 'ask_aegis_detached':
+                        elif scenario == 'ask_aegis_detached':
                             self.assertIn('askaegis-detached-visible', result.get('details', ''))
                             self.assertIn('askaegis-detached-updated', result.get('details', ''))
-                            continue
-                        if scenario.endswith('_best'):
-                            self.assertIn('normal-advance', result.get('details', ''))
-                            self.assertIn('no-detour', result.get('details', ''))
-                        else:
-                            self.assertIn('redirected-main-step', result.get('details', ''))
-                        if scenario.endswith('_warn'):
-                            self.assertIn('effect-warn', result.get('details', ''))
-                        if scenario.endswith('_bad') or scenario == 'nccl_fallback':
-                            self.assertIn('effect-bad', result.get('details', ''))
-                        if scenario.endswith('_best'):
-                            self.assertIn('effect-best', result.get('details', ''))
                     finally:
                         if firefox is not None:
                             firefox.terminate()

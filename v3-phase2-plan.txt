@@ -1,0 +1,26 @@
+V3 Phase 2 Plan
+
+Phase Goal
+- Strengthen proof that Aegis is reliable, state-aware, and measurably different from static courseware by expanding browser-level verification and product-facing evidence surfaces.
+
+Execution Loop
+- Define one bounded component
+- Implement it locally
+- Validate it
+- Deploy it to local live
+- Update the phase-2 build log
+- Commit locally
+- Move to the next component
+
+Initial Component Order
+1. Browser proof for Ask Aegis and reasoning-progress recommendations
+2. Browser proof for detached coach behavior
+3. Machine-readable proof artifact for browser runs
+4. Expanded scenario proof across more lab families
+5. Optional evaluation/reporting artifact for pilot or grant use
+
+Success Criteria For Phase 2
+- Core v3 teaching and branching surfaces have browser-level proof, not just string-based smoke checks
+- Local-live deployment remains aligned with workspace after each loop
+- Aegis can demonstrate its differentiators clearly: branching, reasoning feedback, adaptive drill guidance, and state-aware Ask Aegis behavior
+
