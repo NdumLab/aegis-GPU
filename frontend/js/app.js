@@ -1476,19 +1476,23 @@ function getReasoningFocusRecommendation(summary) {
     layer: {
       title: 'Layer ownership needs work',
       action: 'Drill CUDA stack, Kubernetes, or Slurm until the owning layer is explicit before any fix is attempted.',
+      labs: ['cuda_stack', 'k8s', 'slurm'],
     },
     evidence: {
       title: 'Evidence control needs work',
       action: 'Re-run ECC, NVLink, or storage labs and justify the diagnosis from on-screen signals before touching remediation.',
+      labs: ['ecc', 'nvlink', 'storage'],
     },
     safety: {
       title: 'Action safety needs work',
       action: 'Use incident mode and aim for clean finishes: contain first, keep the change set narrow, and avoid broad resets.',
+      labs: ['ecc', 'nccl_fallback', 'storage'],
     },
   };
   return recommendations[weakest.key] || {
     title: `${weakest.label} needs work`,
     action: 'Repeat the incident path and focus on the weakest reasoning category before optimizing for speed.',
+    labs: [],
   };
 }
 
@@ -1615,6 +1619,16 @@ function renderReasoningProgressSummary() {
               <div class="study-mini-title">Next training focus</div>
               <strong>${escHtml(recommendation.title)}</strong>
               <p>${escHtml(recommendation.action)}</p>
+              ${recommendation.labs?.length ? `
+                <div class="study-lab-links">
+                  ${recommendation.labs.map(labId => `
+                    <button class="study-lab-link" type="button" data-study-lab="${escHtml(labId)}">
+                      <span>${escHtml(LABS[labId]?.name || labId)}</span>
+                      <small>recommended drill</small>
+                    </button>
+                  `).join('')}
+                </div>
+              ` : ''}
             </article>
           ` : ''}
           ${recentRisk ? `

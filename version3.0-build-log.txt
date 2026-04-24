@@ -108,9 +108,10 @@ Entry 6
   - Expanded redirected main-path coverage into additional families including CUDA stack, Kubernetes GPU placement, Slurm scheduling, collective performance, and InfiniBand fabric so more labs now have truly divergent authored recovery flow
   - Expanded the browser matrix onto the newly added redirected-main-step families so CUDA stack, Kubernetes, Slurm, collective, and InfiniBand redirected paths are now exercised in real browser scenarios too
   - Upgraded the reasoning analytics panel so it now names the weakest reasoning category, recommends the next training focus, and surfaces the most recent compromised incident pattern instead of only showing percentages
+  - Made the analytics recommendation actionable by attaching direct drill buttons to the suggested labs, so users can jump straight from a weak category into the right practice path
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260423v3u
-    - js/app.js?v=20260423v3u
+    - css/styles.css?v=20260423v3v
+    - js/app.js?v=20260423v3v
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
