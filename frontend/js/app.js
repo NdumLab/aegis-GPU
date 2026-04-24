@@ -1686,6 +1686,89 @@ function markMainPathRedirectDone(labId, stepIdx) {
   persistBranchingState();
 }
 
+function isBrowserSmokeMode() {
+  return window.location.hash.includes('browser-smoke');
+}
+
+function setBrowserSmokeResult(status, summary, details = []) {
+  let node = document.getElementById('browser-smoke-result');
+  if (!node) {
+    node = document.createElement('pre');
+    node.id = 'browser-smoke-result';
+    node.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:20000;background:#06111b;color:#d7e3f4;border:1px solid #29405c;padding:10px;max-width:720px;white-space:pre-wrap;font:12px/1.4 monospace;';
+    document.body.appendChild(node);
+  }
+  node.dataset.status = status;
+  node.textContent = [`status=${status}`, `summary=${summary}`, ...details.map(item => `detail=${item}`)].join('\n');
+  const beacon = new Image();
+  const params = new URLSearchParams({
+    status,
+    summary,
+    details: details.join(' || '),
+  });
+  beacon.src = `http://127.0.0.1:18080/result?${params.toString()}`;
+}
+
+function browserSmokeWait(ms) {
+  return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+async function runBrowserSmokeScenario() {
+  const details = [];
+  try {
+    resetAll();
+    applyProvisioning();
+    if (!isProvisioned) throw new Error('provisioning did not complete');
+    details.push('provisioned');
+
+    loadLab('ecc');
+    runStep('ecc', 3);
+    if (currentLab !== 'ecc' || currentStep !== 3) throw new Error('failed to enter ECC fault step');
+    details.push('entered-ecc-fault-step');
+
+    chooseIncidentBranch('ecc', 3, 'broad_fix');
+    if (getSelectedBranchChoice('ecc', 3)?.id !== 'broad_fix') throw new Error('failed to persist bad branch choice');
+    details.push('selected-bad-branch');
+
+    runCurrentStep();
+    await browserSmokeWait(50);
+    if (!String(document.getElementById('scen-step')?.textContent || '').includes('Recovery detour')) {
+      throw new Error('detour step did not render');
+    }
+    details.push('detour-rendered');
+
+    runCurrentStep();
+    await browserSmokeWait(50);
+    if (!String(document.getElementById('scen-step')?.textContent || '').includes('Recovery chain step 1/2')) {
+      throw new Error('first recovery-chain step did not render');
+    }
+    details.push('chain-step-1');
+
+    runCurrentStep();
+    await browserSmokeWait(50);
+    if (!String(document.getElementById('scen-step')?.textContent || '').includes('Recovery chain step 2/2')) {
+      throw new Error('second recovery-chain step did not render');
+    }
+    details.push('chain-step-2');
+
+    runCurrentStep();
+    await browserSmokeWait(700);
+    if (currentStep !== 4) throw new Error(`redirected main step did not advance to step 5, currentStep=${currentStep}`);
+    if (!activeMainRedirectStep || activeMainRedirectStep.label !== 'ECC Containment Decision') {
+      throw new Error('redirected main step state is missing');
+    }
+    if (!String(document.getElementById('scen-desc')?.textContent || '').includes('Redirected recovery-aware main path')) {
+      throw new Error('redirected main step description missing');
+    }
+    details.push('redirected-main-step');
+
+    setBrowserSmokeResult('pass', 'ecc branch chain and redirected main step verified', details);
+  } catch (err) {
+    details.push(`error=${err.message}`);
+    setBrowserSmokeResult('fail', err.message, details);
+  }
+}
+
 function getBranchDetourMessage(labId, stepIdx) {
   const choice = getSelectedBranchChoice(labId, stepIdx);
   const domain = getBranchConsequenceContext(labId, stepIdx).dominantDomain;
@@ -4452,6 +4535,12 @@ function initApp() {
 
 window.addEventListener('load', async ()=>{
   bindUIHandlers();
+  if (isBrowserSmokeMode()) {
+    hideLoginOverlay();
+    initApp();
+    browserSmokeWait(120).then(runBrowserSmokeScenario);
+    return;
+  }
   // Sprint 16: Verify existing JWT or show login overlay
   if (JWT_TOKEN) {
     try {

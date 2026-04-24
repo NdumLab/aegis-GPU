@@ -101,9 +101,10 @@ Entry 6
   - Added a branch-aware Incident Outcome summary to the end-of-lab coach and the study progress surface so clean versus compromised finishes explain the reasoning debt that created them
   - Extended alternate authored recovery steps into short two-stage recovery chains so branch mistakes now insert more than one authored recovery checkpoint before the main path resumes
   - Added redirected main-path steps for core families so branch mistakes can replace the next authored main step instead of only inserting detours around it
+  - Added a browser-driven smoke harness that runs a real ECC branch failure path in Firefox headless and verifies the detour, two-step recovery chain, and redirected main-step flow end to end
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260423v3n
-    - js/app.js?v=20260423v3n
+    - css/styles.css?v=20260423v3o
+    - js/app.js?v=20260423v3o
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
