@@ -1,5 +1,7 @@
-import http.server
 import http.client
+import http.server
+import json
+import os
 import shutil
 import socketserver
 import subprocess
@@ -14,6 +16,7 @@ from urllib.parse import parse_qs, urlparse
 FRONTEND_ROOT = Path(__file__).resolve().parents[1]
 RESULT_PORT = 18082
 APP_PORT = 18084
+REPORT_PATH = os.environ.get('AEGIS_BROWSER_PROOF_REPORT', '')
 
 
 class _ResultHandler(http.server.BaseHTTPRequestHandler):
@@ -50,19 +53,19 @@ def _wait_for_http_ready(port, path='/', timeout=5.0):
     deadline = time.time() + timeout
     last_error = None
     while time.time() < deadline:
-      conn = None
-      try:
-          conn = http.client.HTTPConnection('127.0.0.1', port, timeout=1.0)
-          conn.request('GET', path)
-          response = conn.getresponse()
-          response.read()
-          return
-      except OSError as exc:
-          last_error = exc
-          time.sleep(0.1)
-      finally:
-          if conn is not None:
-              conn.close()
+        conn = None
+        try:
+            conn = http.client.HTTPConnection('127.0.0.1', port, timeout=1.0)
+            conn.request('GET', path)
+            response = conn.getresponse()
+            response.read()
+            return
+        except OSError as exc:
+            last_error = exc
+            time.sleep(0.1)
+        finally:
+            if conn is not None:
+                conn.close()
     raise AssertionError(f'HTTP server on port {port} did not become ready: {last_error}')
 
 
@@ -73,6 +76,7 @@ class FrontendBrowserProofTest(unittest.TestCase):
             'ask_aegis_main',
             'ask_aegis_detached',
         ]
+        report_rows = []
         result_server = _ThreadedTCPServer(('127.0.0.1', RESULT_PORT), _ResultHandler)
         result_thread = threading.Thread(target=result_server.serve_forever, daemon=True)
         result_thread.start()
@@ -119,6 +123,20 @@ class FrontendBrowserProofTest(unittest.TestCase):
                         elif scenario == 'ask_aegis_detached':
                             self.assertIn('askaegis-detached-visible', result.get('details', ''))
                             self.assertIn('askaegis-detached-updated', result.get('details', ''))
+                        report_rows.append({
+                            'scenario': scenario,
+                            'status': result.get('status', ''),
+                            'summary': result.get('summary', ''),
+                            'details': result.get('details', ''),
+                        })
+                    except Exception as exc:
+                        report_rows.append({
+                            'scenario': scenario,
+                            'status': 'fail',
+                            'summary': str(exc),
+                            'details': dict(_ResultHandler.result).get('details', ''),
+                        })
+                        raise
                     finally:
                         if firefox is not None:
                             firefox.terminate()
@@ -135,6 +153,14 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 app_server.kill()
             result_server.shutdown()
             result_server.server_close()
+            if REPORT_PATH:
+                Path(REPORT_PATH).parent.mkdir(parents=True, exist_ok=True)
+                Path(REPORT_PATH).write_text(json.dumps({
+                    'suite': 'frontend_browser_proof',
+                    'result_port': RESULT_PORT,
+                    'app_port': APP_PORT,
+                    'scenarios': report_rows,
+                }, indent=2), encoding='utf-8')
 
 
 if __name__ == '__main__':
