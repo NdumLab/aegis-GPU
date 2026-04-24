@@ -104,9 +104,10 @@ Entry 6
   - Added a browser-driven smoke harness that runs a real ECC branch failure path in Firefox headless and verifies the detour, two-step recovery chain, and redirected main-step flow end to end
   - Expanded the browser-driven smoke harness into a scenario matrix that now exercises ECC, NVLink, NCCL fallback, and storage branch paths end to end in Firefox headless
   - Deepened the browser-driven smoke matrix so it now distinguishes weak versus bad branch choices within ECC, NVLink, and storage families instead of testing only one failure path per family
+  - Added best-path browser variants so the matrix now proves the opposite side of the contract too: correct operator choices stay on the normal route without detours or redirected main steps
   - Bumped local-live asset versions to:
-    - css/styles.css?v=20260423v3q
-    - js/app.js?v=20260423v3q
+    - css/styles.css?v=20260423v3r
+    - js/app.js?v=20260423v3r
   - Validation passed:
     - node --check frontend/js/app.js
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'

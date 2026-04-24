@@ -48,11 +48,15 @@ class _ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 class FrontendBrowserSmokeTest(unittest.TestCase):
     def test_browser_branch_flow_reports_success(self):
         scenarios = [
+            'ecc_best',
             'ecc_warn',
             'ecc_bad',
+            'nvlink_best',
             'nvlink_warn',
             'nvlink_bad',
+            'nccl_fallback_best',
             'nccl_fallback',
+            'storage_best',
             'storage_warn',
             'storage_bad',
         ]
@@ -92,11 +96,17 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
                         self.assertTrue(result_event.wait(timeout=35), f'browser smoke result was not reported in time for {scenario}')
                         result = dict(_ResultHandler.result)
                         self.assertEqual(result.get('status'), 'pass', result)
-                        self.assertIn('redirected-main-step', result.get('details', ''))
+                        if scenario.endswith('_best'):
+                            self.assertIn('normal-advance', result.get('details', ''))
+                            self.assertIn('no-detour', result.get('details', ''))
+                        else:
+                            self.assertIn('redirected-main-step', result.get('details', ''))
                         if scenario.endswith('_warn'):
                             self.assertIn('effect-warn', result.get('details', ''))
                         if scenario.endswith('_bad') or scenario == 'nccl_fallback':
                             self.assertIn('effect-bad', result.get('details', ''))
+                        if scenario.endswith('_best'):
+                            self.assertIn('effect-best', result.get('details', ''))
                     finally:
                         if firefox is not None:
                             firefox.terminate()

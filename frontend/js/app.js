@@ -1729,6 +1729,13 @@ async function runBrowserSmokeScenario() {
     details.push('provisioned');
 
     const scenarios = {
+      ecc_best: {
+        labId: 'ecc',
+        stepIdx: 3,
+        choiceId: 'contain',
+        expectedEffect: 'best',
+        expectDetour: false,
+      },
       ecc_warn: {
         labId: 'ecc',
         stepIdx: 3,
@@ -1736,6 +1743,7 @@ async function runBrowserSmokeScenario() {
         expectedRedirect: 'ECC Containment Decision',
         expectedChainLength: 2,
         expectedEffect: 'warn',
+        expectDetour: true,
       },
       ecc_bad: {
         labId: 'ecc',
@@ -1744,6 +1752,14 @@ async function runBrowserSmokeScenario() {
         expectedRedirect: 'ECC Containment Decision',
         expectedChainLength: 2,
         expectedEffect: 'bad',
+        expectDetour: true,
+      },
+      nvlink_best: {
+        labId: 'nvlink',
+        stepIdx: 3,
+        choiceId: 'verify_path',
+        expectedEffect: 'best',
+        expectDetour: false,
       },
       nvlink_warn: {
         labId: 'nvlink',
@@ -1752,6 +1768,7 @@ async function runBrowserSmokeScenario() {
         expectedRedirect: 'Fabric Rejoin Decision',
         expectedChainLength: 2,
         expectedEffect: 'warn',
+        expectDetour: true,
       },
       nvlink_bad: {
         labId: 'nvlink',
@@ -1760,6 +1777,14 @@ async function runBrowserSmokeScenario() {
         expectedRedirect: 'Fabric Rejoin Decision',
         expectedChainLength: 2,
         expectedEffect: 'bad',
+        expectDetour: true,
+      },
+      nccl_fallback_best: {
+        labId: 'nccl_fallback',
+        stepIdx: 0,
+        choiceId: 'verify_path',
+        expectedEffect: 'best',
+        expectDetour: false,
       },
       nccl_fallback: {
         labId: 'nccl_fallback',
@@ -1768,6 +1793,14 @@ async function runBrowserSmokeScenario() {
         expectedRedirect: 'Transport Rejoin Decision',
         expectedChainLength: 1,
         expectedEffect: 'bad',
+        expectDetour: true,
+      },
+      storage_best: {
+        labId: 'storage',
+        stepIdx: 0,
+        choiceId: 'trace_upstream',
+        expectedEffect: 'best',
+        expectDetour: false,
       },
       storage_warn: {
         labId: 'storage',
@@ -1776,6 +1809,7 @@ async function runBrowserSmokeScenario() {
         expectedRedirect: 'Feed Path Rejoin Decision',
         expectedChainLength: 1,
         expectedEffect: 'warn',
+        expectDetour: true,
       },
       storage_bad: {
         labId: 'storage',
@@ -1784,6 +1818,7 @@ async function runBrowserSmokeScenario() {
         expectedRedirect: 'Feed Path Rejoin Decision',
         expectedChainLength: 1,
         expectedEffect: 'bad',
+        expectDetour: true,
       },
     };
     const config = scenarios[scenario];
@@ -1808,7 +1843,19 @@ async function runBrowserSmokeScenario() {
     details.push(`context-bad-${branchContext.badCount}`);
 
     runCurrentStep();
-    await browserSmokeWait(50);
+    await browserSmokeWait(80);
+    if (!config.expectDetour) {
+      if (currentStep !== config.stepIdx + 1) throw new Error(`best-path step did not advance normally, currentStep=${currentStep}`);
+      if (activeMainRedirectStep) throw new Error('best-path unexpectedly created redirected main step');
+      if (String(document.getElementById('scen-step')?.textContent || '').includes('Recovery detour')) {
+        throw new Error('best-path unexpectedly rendered recovery detour');
+      }
+      details.push('normal-advance');
+      details.push('no-detour');
+      setBrowserSmokeResult('pass', `${scenario} best-path stayed on normal route`, details);
+      return;
+    }
+
     if (!String(document.getElementById('scen-step')?.textContent || '').includes('Recovery detour')) {
       throw new Error('detour step did not render');
     }
