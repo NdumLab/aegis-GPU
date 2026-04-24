@@ -2568,8 +2568,13 @@ function renderAskAegisBlock(labId, step, stepIdx) {
   const answer = getAskAegisResponse(activeIntent, labId, step, stepIdx);
   return `
     <section class="lab-step-coach-section ask-aegis">
-      <div class="lab-step-coach-section-title">Ask Aegis</div>
-      <div class="ask-aegis-subtitle">Bounded to the current lab state, visible evidence, and branch history.</div>
+      <div class="ask-aegis-head">
+        <div>
+          <div class="lab-step-coach-section-title ask-aegis-title">Ask Aegis</div>
+          <div class="ask-aegis-subtitle">Grounded in the current lab state, visible evidence, and branch history.</div>
+        </div>
+        <div class="ask-aegis-badge">State-aware</div>
+      </div>
       <div class="ask-aegis-actions">
         ${intents.map(intent => `
           <button
@@ -2808,6 +2813,16 @@ function renderDetachedPanel(kind) {
       win.close();
     };
   }
+  if (kind === 'stepCoach') {
+    const detachedCoachRoot = doc.querySelector('.lab-step-coach-shell');
+    if (detachedCoachRoot) detachedCoachRoot.onclick = event => {
+      const askBtn = event.target.closest('[data-ask-aegis]');
+      if (!askBtn) return;
+      askAegisIntent = askBtn.dataset.askAegis;
+      renderLabStepCoach();
+      renderDetachedPanel('stepCoach');
+    };
+  }
   if (kind === 'quizOverlay') {
     const detachedQuizRoot = doc.querySelector('.detached-overlay-panel');
     if (detachedQuizRoot) detachedQuizRoot.onclick = event => {
@@ -2976,6 +2991,7 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
   const scorecard = renderReasoningScorecard(getReasoningScorecardContext(currentLab, step), {
     subtitle: 'This rubric shows whether the user is identifying the right layer, grounding the diagnosis, and choosing a safe action.',
   });
+  const askAegis = renderAskAegisBlock(currentLab, step, currentStep);
   const diagnosis = renderDifferentialDiagnosis(currentLab, step, {
     subtitle: 'Use the nearby wrong paths to keep the screenshot evidence in the right fault family.',
   });
@@ -2985,6 +3001,7 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
       <p><strong>What you’re doing:</strong> ${escHtml(tightenDisplayCopy(step.whatsHappening || describeStepCommand(step)))}</p>
       <p><strong>Why it matters:</strong> ${escHtml(tightenDisplayCopy(whyItMatters))}</p>
     </div>
+    ${askAegis}
     <div class="lab-step-coach-section">
       <div class="lab-step-coach-section-title">Command</div>
       <code class="lab-step-coach-code">${escHtml(step.cmd || '# simulated stage')}</code>
@@ -3418,10 +3435,10 @@ function renderLabStepCoach() {
         <p><strong>Incident goal:</strong> ${escHtml(describeStepCommand(step))}</p>
         <p>${escHtml(tightenDisplayCopy('Use only the evidence on screen, keep the layer call narrow, and avoid any fix you cannot justify yet.'))}</p>
       </div>
+      ${renderAskAegisBlock(currentLab, step, currentStep)}
       ${renderReasoningScorecard(scorecard, {
         subtitle: 'Incident mode scores the diagnosis on evidence control, layer ownership, and safe movement under uncertainty.',
       })}
-      ${renderAskAegisBlock(currentLab, step, currentStep)}
       ${incidentBrief}
       ${consequenceBranch}
       ${routeStatus}
@@ -3467,8 +3484,8 @@ function renderLabStepCoach() {
       <p><strong>What this step is for:</strong> ${escHtml(stepPurpose)}</p>
       <p>${escHtml(tightenDisplayCopy(useTip))}</p>
     </div>
-    ${renderReasoningScorecard(scorecard)}
     ${renderAskAegisBlock(currentLab, step, currentStep)}
+    ${renderReasoningScorecard(scorecard)}
     ${(step.fault || incidentMode) ? consequenceBranch : ''}
     ${routeStatus}
     ${outcomeSummary}

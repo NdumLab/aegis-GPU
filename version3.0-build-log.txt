@@ -115,6 +115,7 @@ Entry 6
   - Made the wording adaptive to improvement inside the same domain, so once the user has at least one clean finish there Aegis switches from pure recovery language to a consolidation prompt
   - Fixed the study overlay so Reasoning Progress always renders, even for a fresh user with no stored quiz or lab history yet
   - Added the first bounded Ask Aegis panel inside the lab coach so users can ask grounded step questions like what changed, which layer owns the clue, what to check next, and why a branch was scored the way it was
+  - Fixed Ask Aegis visibility by moving it to the top of the coach, adding a higher-contrast state-aware treatment, and wiring the same prompt actions inside the detached pop-out coach window
   - Bumped local-live asset versions to:
     - css/styles.css?v=20260424v3ab
     - js/app.js?v=20260424v3ab
