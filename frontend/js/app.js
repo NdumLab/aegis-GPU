@@ -1537,6 +1537,23 @@ function getRecentRiskPattern() {
   };
 }
 
+function getRecoveryProgressSignal(domain) {
+  if (!domain) return null;
+  const matching = Object.entries(reasoningProgress.completion || {})
+    .map(([labId, entry]) => ({ labId, entry }))
+    .filter(({ entry }) => entry.dominantDomain === domain);
+  const cleanMatches = matching
+    .filter(({ entry }) => entry.clean)
+    .sort((a, b) => (b.entry.ts || 0) - (a.entry.ts || 0));
+  if (!cleanMatches.length) return null;
+  return {
+    domain,
+    cleanCount: cleanMatches.length,
+    latestCleanLabId: cleanMatches[0].labId,
+    latestCleanLabName: LABS[cleanMatches[0].labId]?.name || cleanMatches[0].labId,
+  };
+}
+
 function updateReasoningProgressUI() {
   const summary = getReasoningProgressSummary();
   const el = document.getElementById('h-judgment');
@@ -1605,17 +1622,23 @@ function renderReasoningProgressSummary() {
   if (summary.judgmentPct === null && summary.lastQuizPct === null) return '';
   const recommendation = getReasoningFocusRecommendation(summary);
   const recentRisk = getRecentRiskPattern();
+  const recoverySignal = getRecoveryProgressSignal(recentRisk?.domain || null);
   const effectiveRecommendation = recommendation ? {
     ...recommendation,
     title: recentRisk?.domainLabel ? `${recommendation.title} in ${recentRisk.domainLabel}` : recommendation.title,
     action: recentRisk?.domainLabel
-      ? `${recommendation.action} Start with the last compromised lab, then widen into the drills tied to the recent ${recentRisk.domainLabel} misses.`
+      ? recoverySignal
+        ? `${recommendation.action} You already have clean finishes in ${recentRisk.domainLabel}, so re-test the last miss first and then widen into nearby drills to make that improvement repeatable.`
+        : `${recommendation.action} Start with the last compromised lab, then widen into the drills tied to the recent ${recentRisk.domainLabel} misses.`
       : recommendation.action,
     rationale: recentRisk?.labName
-      ? `Picked because your last compromised run was ${recentRisk.labName}${recentRisk.domainLabel ? ` in ${recentRisk.domainLabel}` : ''}.`
+      ? recoverySignal
+        ? `Picked because your last compromised run was ${recentRisk.labName}${recentRisk.domainLabel ? ` in ${recentRisk.domainLabel}` : ''}, but you already cleaned up ${recoverySignal.latestCleanLabName} in that same domain.`
+        : `Picked because your last compromised run was ${recentRisk.labName}${recentRisk.domainLabel ? ` in ${recentRisk.domainLabel}` : ''}.`
       : '',
     labs: getUniqueLabs([
       recentRisk?.labId || null,
+      recoverySignal?.latestCleanLabId || null,
       ...(recentRisk?.domain
         ? getRecommendedLabsForDomain(recentRisk.domain, recommendation.labs || [])
         : (recommendation.labs || [])),
