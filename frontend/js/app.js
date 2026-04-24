@@ -1729,19 +1729,37 @@ async function runBrowserSmokeScenario() {
     details.push('provisioned');
 
     const scenarios = {
-      ecc: {
+      ecc_warn: {
+        labId: 'ecc',
+        stepIdx: 3,
+        choiceId: 'retry',
+        expectedRedirect: 'ECC Containment Decision',
+        expectedChainLength: 2,
+        expectedEffect: 'warn',
+      },
+      ecc_bad: {
         labId: 'ecc',
         stepIdx: 3,
         choiceId: 'broad_fix',
         expectedRedirect: 'ECC Containment Decision',
         expectedChainLength: 2,
+        expectedEffect: 'bad',
       },
-      nvlink: {
+      nvlink_warn: {
+        labId: 'nvlink',
+        stepIdx: 3,
+        choiceId: 'tune_model',
+        expectedRedirect: 'Fabric Rejoin Decision',
+        expectedChainLength: 2,
+        expectedEffect: 'warn',
+      },
+      nvlink_bad: {
         labId: 'nvlink',
         stepIdx: 3,
         choiceId: 'reboot_cluster',
         expectedRedirect: 'Fabric Rejoin Decision',
         expectedChainLength: 2,
+        expectedEffect: 'bad',
       },
       nccl_fallback: {
         labId: 'nccl_fallback',
@@ -1749,13 +1767,23 @@ async function runBrowserSmokeScenario() {
         choiceId: 'reboot_cluster',
         expectedRedirect: 'Transport Rejoin Decision',
         expectedChainLength: 1,
+        expectedEffect: 'bad',
       },
-      storage: {
+      storage_warn: {
+        labId: 'storage',
+        stepIdx: 0,
+        choiceId: 'lower_expectations',
+        expectedRedirect: 'Feed Path Rejoin Decision',
+        expectedChainLength: 1,
+        expectedEffect: 'warn',
+      },
+      storage_bad: {
         labId: 'storage',
         stepIdx: 0,
         choiceId: 'swap_gpu_settings',
         expectedRedirect: 'Feed Path Rejoin Decision',
         expectedChainLength: 1,
+        expectedEffect: 'bad',
       },
     };
     const config = scenarios[scenario];
@@ -1767,8 +1795,17 @@ async function runBrowserSmokeScenario() {
     details.push(`entered-${config.labId}-step-${config.stepIdx + 1}`);
 
     chooseIncidentBranch(config.labId, config.stepIdx, config.choiceId);
-    if (getSelectedBranchChoice(config.labId, config.stepIdx)?.id !== config.choiceId) throw new Error('failed to persist bad branch choice');
+    const selectedChoice = getSelectedBranchChoice(config.labId, config.stepIdx);
+    if (selectedChoice?.id !== config.choiceId) throw new Error('failed to persist branch choice');
+    if (selectedChoice?.effect !== config.expectedEffect) throw new Error(`branch effect mismatch: expected ${config.expectedEffect}, got ${selectedChoice?.effect || 'none'}`);
     details.push(`selected-${config.choiceId}`);
+    details.push(`effect-${selectedChoice.effect}`);
+
+    const branchContext = getBranchConsequenceContext(config.labId, config.stepIdx + 1);
+    if (config.expectedEffect === 'warn' && branchContext.warnCount < 1) throw new Error('warn branch context was not recorded');
+    if (config.expectedEffect === 'bad' && branchContext.badCount < 1) throw new Error('bad branch context was not recorded');
+    details.push(`context-warn-${branchContext.warnCount}`);
+    details.push(`context-bad-${branchContext.badCount}`);
 
     runCurrentStep();
     await browserSmokeWait(50);

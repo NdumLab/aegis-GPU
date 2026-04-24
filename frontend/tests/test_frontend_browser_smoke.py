@@ -47,7 +47,15 @@ class _ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 class FrontendBrowserSmokeTest(unittest.TestCase):
     def test_browser_branch_flow_reports_success(self):
-        scenarios = ['ecc', 'nvlink', 'nccl_fallback', 'storage']
+        scenarios = [
+            'ecc_warn',
+            'ecc_bad',
+            'nvlink_warn',
+            'nvlink_bad',
+            'nccl_fallback',
+            'storage_warn',
+            'storage_bad',
+        ]
         result_server = _ThreadedTCPServer(('127.0.0.1', RESULT_PORT), _ResultHandler)
         result_thread = threading.Thread(target=result_server.serve_forever, daemon=True)
         result_thread.start()
@@ -85,6 +93,10 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
                         result = dict(_ResultHandler.result)
                         self.assertEqual(result.get('status'), 'pass', result)
                         self.assertIn('redirected-main-step', result.get('details', ''))
+                        if scenario.endswith('_warn'):
+                            self.assertIn('effect-warn', result.get('details', ''))
+                        if scenario.endswith('_bad') or scenario == 'nccl_fallback':
+                            self.assertIn('effect-bad', result.get('details', ''))
                     finally:
                         if firefox is not None:
                             firefox.terminate()
