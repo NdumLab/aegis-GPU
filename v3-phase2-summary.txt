@@ -1,0 +1,39 @@
+V3 Phase 2 Summary
+
+Status
+- Phase 2 is complete and frozen at local commit 6786f95.
+
+What Phase 2 Added
+- A dedicated browser proof harness for high-value v3 surfaces
+- Configurable browser-smoke callback routing for isolated proof runs
+- Headless-safe detached coach proof coverage
+- Machine-readable JSON proof artifacts
+- Expanded targeted cross-family branch proof coverage
+- Reusable evidence-summary generator for pilot and grant packaging
+
+Verified Coverage
+- Adaptive guidance:
+  - fresh-user Reasoning Progress empty state
+- State-aware Ask Aegis:
+  - in-page coach interaction
+- Detached coach behavior:
+  - Ask Aegis interaction in detached proof mode
+- Branch consequence flow:
+  - ECC degraded path
+  - NVLink degraded path
+  - storage warning path
+
+Current Evidence Artifacts
+- v3-phase2-evidence-summary.json
+- v3-phase2-evidence-summary.txt
+- /var/www/html/tests/v3-phase2-evidence-summary.json
+- /var/www/html/tests/v3-phase2-evidence-summary.txt
+- /var/www/html/tests/v3-phase2-live-evidence-summary.json
+- /var/www/html/tests/v3-phase2-live-evidence-summary.txt
+
+Current Limits
+- This phase proves selected high-value browser paths, not every lab and not every branch permutation.
+- The evidence summary supports pilot/grant packaging, but it is not market-ranking proof.
+
+Recommended Next Phase
+- Either broaden proof to more lab families and best-path variants, or shift to pilot packaging and buyer-facing material.
