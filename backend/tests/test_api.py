@@ -77,6 +77,29 @@ def test_diagnose_returns_grounded_plan(monkeypatch):
     assert payload['grounding_status'] in {'grounded', 'partial', 'kb_only', 'unreachable'}
 
 
+def test_ask_aegis_returns_grounded_answer_and_references(monkeypatch):
+    module = load_module(monkeypatch)
+    client = TestClient(module.app)
+
+    res = client.post(
+        '/api/v1/ask-aegis',
+        headers=auth_header(client),
+        json={
+            'question': 'What should I do first for XID 48 on this node?',
+            'lab_id': 'ecc',
+            'step_title': 'ECC Recovery',
+            'visible_evidence': ['NVRM: Xid (PCI:0000:83:00): 48', 'DCGM DBE count is non-zero'],
+            'fault_code': '48',
+            'allow_llm': False,
+        },
+    )
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload['answer_source'] in {'deterministic-grounded', 'deterministic-grounded-timeout'}
+    assert payload['official_references']
+    assert payload['fault_code'] == '48'
+
+
 def test_admin_role_required_for_remediation(monkeypatch):
     module = load_module(monkeypatch)
     client = TestClient(module.app)

@@ -73,6 +73,25 @@ class BackendSmokeTest(unittest.TestCase):
         self.assertIn('XID 48', payload['remediation_plan'])
         self.assertIn(payload['grounding_status'], ('grounded', 'partial', 'kb_only', 'unreachable'))
 
+    def test_ask_aegis_returns_grounded_answer_and_references(self):
+        res = self.client.post(
+            '/api/v1/ask-aegis',
+            headers=self.auth_header(),
+            json={
+                'question': 'What should I do first for XID 48 on this node?',
+                'lab_id': 'ecc',
+                'step_title': 'ECC Recovery',
+                'visible_evidence': ['NVRM: Xid (PCI:0000:83:00): 48', 'DCGM DBE count is non-zero'],
+                'fault_code': '48',
+                'allow_llm': False,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        payload = res.json()
+        self.assertIn(payload['answer_source'], ('deterministic-grounded', 'deterministic-grounded-timeout'))
+        self.assertTrue(payload['official_references'])
+        self.assertEqual(payload['fault_code'], '48')
+
     def test_admin_role_required_for_remediation(self):
         res = self.client.post('/api/v1/remediate/79', headers=self.auth_header(username='analyst', password='unit-test-analyst'))
         self.assertEqual(res.status_code, 403)

@@ -1,5 +1,6 @@
 import http.server
 import shutil
+import socket
 import socketserver
 import subprocess
 import tempfile
@@ -11,8 +12,6 @@ from urllib.parse import parse_qs, urlparse
 
 
 FRONTEND_ROOT = Path(__file__).resolve().parents[1]
-RESULT_PORT = 18080
-APP_PORT = 18081
 
 
 class _ResultHandler(http.server.BaseHTTPRequestHandler):
@@ -45,8 +44,16 @@ class _ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
 
 
+def _get_free_loopback_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(('127.0.0.1', 0))
+        return sock.getsockname()[1]
+
+
 class FrontendBrowserSmokeTest(unittest.TestCase):
     def test_browser_branch_flow_reports_success(self):
+        result_port = _get_free_loopback_port()
+        app_port = _get_free_loopback_port()
         scenarios = [
             'study_progress_empty',
             'ask_aegis_main',
@@ -68,12 +75,12 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
             'allreduce_bad',
             'ib_fabric_bad',
         ]
-        result_server = _ThreadedTCPServer(('127.0.0.1', RESULT_PORT), _ResultHandler)
+        result_server = _ThreadedTCPServer(('127.0.0.1', result_port), _ResultHandler)
         result_thread = threading.Thread(target=result_server.serve_forever, daemon=True)
         result_thread.start()
 
         app_server = subprocess.Popen(
-            ['python3', '-m', 'http.server', str(APP_PORT), '--bind', '127.0.0.1'],
+            ['python3', '-m', 'http.server', str(app_port), '--bind', '127.0.0.1'],
             cwd=str(FRONTEND_ROOT),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -96,7 +103,7 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
                                 '--new-instance',
                                 '--profile',
                                 profile_dir,
-                                f'http://127.0.0.1:{APP_PORT}/index.html#browser-smoke:{scenario}',
+                                f'http://127.0.0.1:{app_port}/index.html?smokePort={result_port}#browser-smoke:{scenario}',
                             ],
                             stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL,

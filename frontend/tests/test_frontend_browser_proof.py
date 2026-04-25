@@ -3,6 +3,7 @@ import http.server
 import json
 import os
 import shutil
+import socket
 import socketserver
 import subprocess
 import tempfile
@@ -14,8 +15,6 @@ from urllib.parse import parse_qs, urlparse
 
 
 FRONTEND_ROOT = Path(__file__).resolve().parents[1]
-RESULT_PORT = 18082
-APP_PORT = 18084
 REPORT_PATH = os.environ.get('AEGIS_BROWSER_PROOF_REPORT', '')
 SCENARIO_FILTER = {item.strip() for item in os.environ.get('AEGIS_BROWSER_PROOF_SCENARIOS', '').split(',') if item.strip()}
 SCENARIO_TIMEOUT = float(os.environ.get('AEGIS_BROWSER_PROOF_TIMEOUT', '50'))
@@ -51,6 +50,12 @@ class _ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
 
 
+def _get_free_loopback_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(('127.0.0.1', 0))
+        return sock.getsockname()[1]
+
+
 def _wait_for_http_ready(port, path='/', timeout=5.0):
     deadline = time.time() + timeout
     last_error = None
@@ -73,6 +78,8 @@ def _wait_for_http_ready(port, path='/', timeout=5.0):
 
 class FrontendBrowserProofTest(unittest.TestCase):
     def test_browser_proof_surfaces_report_success(self):
+        result_port = _get_free_loopback_port()
+        app_port = _get_free_loopback_port()
         scenarios = [
             {
                 'name': 'study_progress_empty',
@@ -138,20 +145,20 @@ class FrontendBrowserProofTest(unittest.TestCase):
         if SCENARIO_FILTER:
             scenarios = [scenario for scenario in scenarios if scenario['name'] in SCENARIO_FILTER]
         report_rows = []
-        result_server = _ThreadedTCPServer(('127.0.0.1', RESULT_PORT), _ResultHandler)
+        result_server = _ThreadedTCPServer(('127.0.0.1', result_port), _ResultHandler)
         result_thread = threading.Thread(target=result_server.serve_forever, daemon=True)
         result_thread.start()
 
         app_server = subprocess.Popen(
-            ['python3', '-m', 'http.server', str(APP_PORT), '--bind', '127.0.0.1'],
+            ['python3', '-m', 'http.server', str(app_port), '--bind', '127.0.0.1'],
             cwd=str(FRONTEND_ROOT),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
 
         try:
-            _wait_for_http_ready(RESULT_PORT, '/result?status=ready&summary=probe&details=probe')
-            _wait_for_http_ready(APP_PORT, '/index.html')
+            _wait_for_http_ready(result_port, '/result?status=ready&summary=probe&details=probe')
+            _wait_for_http_ready(app_port, '/index.html')
             for scenario in scenarios:
                 scenario_name = scenario['name']
                 expected_details = scenario['expected_details']
@@ -172,7 +179,7 @@ class FrontendBrowserProofTest(unittest.TestCase):
                                     '--new-instance',
                                     '--profile',
                                     profile_dir,
-                                    f'http://127.0.0.1:{APP_PORT}/index.html?smokePort={RESULT_PORT}#browser-smoke:{scenario_name}',
+                                    f'http://127.0.0.1:{app_port}/index.html?smokePort={result_port}#browser-smoke:{scenario_name}',
                                 ],
                                 stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL,
@@ -221,8 +228,8 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 Path(REPORT_PATH).parent.mkdir(parents=True, exist_ok=True)
                 Path(REPORT_PATH).write_text(json.dumps({
                     'suite': 'frontend_browser_proof',
-                    'result_port': RESULT_PORT,
-                    'app_port': APP_PORT,
+                    'result_port': result_port,
+                    'app_port': app_port,
                     'scenarios': report_rows,
                 }, indent=2), encoding='utf-8')
 

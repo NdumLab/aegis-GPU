@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 try:
     from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
@@ -90,6 +90,7 @@ ALLOWED_ORIGINS = [item.strip() for item in os.getenv('ALLOWED_ORIGINS', '*').sp
 AEGIS_NODE_HOST = os.getenv('AEGIS_NODE_HOST', '127.0.0.1').strip() or '127.0.0.1'
 AEGIS_NODE_USERNAME = os.getenv('AEGIS_NODE_USERNAME', 'aegis').strip() or 'aegis'
 KB_PATH = Path(os.getenv('AEGIS_KB_PATH', str(APP_ROOT / 'nvidia_kb' / 'xid_reference.json')))
+MAINTENANCE_GUIDE_PATH = APP_ROOT / 'nvidia_kb' / 'gb200_maintenance.txt'
 AUDIT_LOG_PATH = os.getenv('AEGIS_AUDIT_LOG_PATH', '/var/log/aegis-gpu/audit.log')
 INCIDENTS_DB_PATH = Path(os.getenv('AEGIS_INCIDENTS_DB', '/var/lib/aegis-gpu/incidents.db'))
 FRONTEND_DIR = Path(os.getenv('AEGIS_FRONTEND_DIR', '/var/www/html'))
@@ -256,6 +257,15 @@ class DiagnoseRequest(BaseModel):
     allow_llm: Optional[bool] = None
 
 
+class AskAegisRequest(BaseModel):
+    question: str
+    lab_id: Optional[str] = None
+    step_title: Optional[str] = None
+    visible_evidence: List[str] = Field(default_factory=list)
+    fault_code: Optional[str] = None
+    allow_llm: Optional[bool] = None
+
+
 class RemediateRequest(BaseModel):
     node_id: int = 0
 
@@ -292,6 +302,49 @@ def load_kb_entry(fault_code: str) -> Dict[str, str]:
         'last_updated': str(payload.get('last_updated', 'unknown')),
         'entry': str(payload.get('errors', {}).get(str(fault_code), '')),
     }
+
+
+def normalize_query_terms(text: str) -> List[str]:
+    stop_words = {
+        'the', 'and', 'for', 'with', 'that', 'this', 'from', 'what', 'which', 'why',
+        'does', 'into', 'have', 'your', 'about', 'then', 'than', 'when', 'where',
+        'should', 'next', 'check', 'step', 'current', 'visible', 'state', 'safe',
+    }
+    ordered: List[str] = []
+    for match in re.findall(r'[a-z0-9_.:/-]+', (text or '').lower()):
+        if len(match) < 3 or match in stop_words or match in ordered:
+            continue
+        ordered.append(match)
+    return ordered
+
+
+def load_official_references(question: str, fault_code: str = '', kb_entry: Optional[Dict[str, str]] = None) -> List[Dict[str, str]]:
+    references: List[Dict[str, str]] = []
+    kb_payload = kb_entry or (load_kb_entry(fault_code) if fault_code else None)
+    if fault_code and kb_payload and kb_payload.get('entry'):
+        references.append({
+            'title': kb_payload.get('title', 'NVIDIA XID Error Codes Reference'),
+            'excerpt': f'XID {fault_code}: {kb_payload["entry"]}',
+        })
+
+    if MAINTENANCE_GUIDE_PATH.exists():
+        lines = [
+            line.strip()
+            for line in MAINTENANCE_GUIDE_PATH.read_text(encoding='utf-8').splitlines()
+            if line.strip() and not set(line.strip()) <= {'=', '-'}
+        ]
+        if lines:
+            title = lines[0]
+            body_lines = lines[1:]
+            query_terms = normalize_query_terms(question + ' ' + fault_code)
+            matched = [line for line in body_lines if any(term in line.lower() for term in query_terms)]
+            excerpt = ' '.join((matched or body_lines)[:2])[:500]
+            if excerpt:
+                references.append({
+                    'title': title,
+                    'excerpt': excerpt,
+                })
+    return references
 
 
 def extract_xid_codes(text: str) -> List[str]:
@@ -406,6 +459,11 @@ def build_context_summary(context: Dict[str, Any]) -> str:
     return '\n\n'.join(sections)[:6000]
 
 
+def build_visible_evidence_summary(visible_evidence: List[str]) -> str:
+    cleaned = [item.strip() for item in (visible_evidence or []) if item and item.strip()]
+    return '\n'.join(f'- {item[:300]}' for item in cleaned[:6])
+
+
 def llm_available() -> bool:
     if ACTIVE_LLM == 'claude':
         return bool(configured_secret('CLAUDE_API_KEY'))
@@ -437,6 +495,13 @@ _CLAUDE_SYSTEM_PROMPT = (
     'Write a concise, numbered remediation plan. '
     'Stay strictly within the provided evidence. '
     'If evidence is missing, say so plainly.'
+)
+
+_ASK_AEGIS_SYSTEM_PROMPT = (
+    'You are Aegis, a grounded GPU infrastructure assistant. '
+    'Answer the operator question using only the supplied lab evidence, diagnosis-path summary, '
+    'and NVIDIA reference excerpts. '
+    'Be concise. State uncertainty plainly. End with one next safe check.'
 )
 
 
@@ -494,6 +559,112 @@ def maybe_llm_diagnosis(fault_code: str, kb_entry: Dict[str, str], context: Dict
             return future.result(timeout=30)
         except concurrent.futures.TimeoutError:
             return {'error': 'LLM call timed out after 30 seconds. Try again.'}
+
+
+def build_deterministic_ask_aegis_answer(question: str, visible_evidence: List[str], diagnosis_summary: str,
+                                         official_references: List[Dict[str, str]], grounding_note: str) -> str:
+    lines = [f'Grounded answer: {question.strip()}']
+    if visible_evidence:
+        lines.append('Visible evidence:')
+        lines.extend(f'- {item[:220]}' for item in visible_evidence[:3])
+    if diagnosis_summary:
+        lines.append('Diagnosis-path summary:')
+        lines.append(diagnosis_summary[:700])
+    if official_references:
+        lines.append('NVIDIA references:')
+        for ref in official_references[:2]:
+            lines.append(f'- {ref["title"]}: {ref["excerpt"][:240]}')
+    lines.append(f'Grounding note: {grounding_note}')
+    lines.append('Next safe check: compare the visible evidence against the owning layer before making a broader change.')
+    return '\n'.join(lines)
+
+
+def maybe_llm_ask_aegis(question: str, visible_evidence: List[str], diagnosis_summary: str,
+                        official_references: List[Dict[str, str]], grounding_note: str,
+                        allow_llm: bool = True) -> Tuple[str, str]:
+    evidence_summary = build_visible_evidence_summary(visible_evidence) or 'No explicit visible evidence was provided by the client.'
+    official_summary = '\n'.join(
+        f'[{ref["title"]}]\n{ref["excerpt"][:600]}'
+        for ref in official_references[:3]
+    ) or 'No NVIDIA reference excerpt was available.'
+    user_content = (
+        f'Operator question:\n{question.strip()}\n\n'
+        f'Visible lab evidence:\n{evidence_summary}\n\n'
+        f'Existing diagnosis-path summary:\n{diagnosis_summary or "No XID-specific diagnosis summary was available."}\n\n'
+        f'NVIDIA official references:\n{official_summary}\n\n'
+        f'Grounding note:\n{grounding_note}'
+    )
+
+    if not allow_llm or not llm_available():
+        return (
+            build_deterministic_ask_aegis_answer(
+                question,
+                visible_evidence,
+                diagnosis_summary,
+                official_references,
+                grounding_note,
+            ),
+            'deterministic-grounded',
+        )
+
+    def _call_llm():
+        if ACTIVE_LLM == 'claude':
+            api_key = configured_secret('CLAUDE_API_KEY')
+            if api_key:
+                import anthropic
+                client = anthropic.Anthropic(api_key=api_key)
+                response = client.messages.create(
+                    model=os.getenv('CLAUDE_MODEL', 'claude-sonnet-4-6'),
+                    max_tokens=900,
+                    system=[{
+                        'type': 'text',
+                        'text': _ASK_AEGIS_SYSTEM_PROMPT,
+                        'cache_control': {'type': 'ephemeral'},
+                    }],
+                    messages=[{'role': 'user', 'content': user_content}],
+                )
+                return response.content[0].text, 'anthropic-grounded-assistant'
+
+        if ACTIVE_LLM == 'openai':
+            api_key = configured_secret('OPENAI_API_KEY')
+            if api_key:
+                from openai import OpenAI
+                client = OpenAI(api_key=api_key)
+                response = client.chat.completions.create(
+                    model=os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
+                    messages=[
+                        {'role': 'system', 'content': _ASK_AEGIS_SYSTEM_PROMPT},
+                        {'role': 'user', 'content': user_content},
+                    ],
+                )
+                return response.choices[0].message.content, 'openai-grounded-assistant'
+
+        return (
+            build_deterministic_ask_aegis_answer(
+                question,
+                visible_evidence,
+                diagnosis_summary,
+                official_references,
+                grounding_note,
+            ),
+            'deterministic-grounded',
+        )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_call_llm)
+        try:
+            return future.result(timeout=30)
+        except concurrent.futures.TimeoutError:
+            return (
+                build_deterministic_ask_aegis_answer(
+                    question,
+                    visible_evidence,
+                    diagnosis_summary,
+                    official_references,
+                    grounding_note + ' LLM synthesis timed out, so Aegis fell back to deterministic grounding.',
+                ),
+                'deterministic-grounded-timeout',
+            )
 
 
 def update_live_metric_gauges(metrics: Dict[str, Any]) -> None:
@@ -590,6 +761,50 @@ def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(ve
         'fault_alignment': alignment['status'],
         'fault_alignment_note': alignment['note'],
         'observed_fault_codes': alignment['observed_fault_codes'],
+        'llm_requested': use_llm,
+        'llm_available': llm_available(),
+    }
+
+
+@app.post('/api/v1/ask-aegis')
+def ask_aegis(request: Request, body: AskAegisRequest, payload: dict = Depends(verify_token)):
+    request.state.user = payload['sub']
+    question = (body.question or '').strip()
+    if not question:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Question is required.')
+
+    inferred_faults = extract_xid_codes('\n'.join([question, *body.visible_evidence]))
+    fault_code = (body.fault_code or '').strip() or (inferred_faults[0] if inferred_faults else '')
+    if fault_code and not re.match(r'^\d{1,4}$', fault_code):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid fault code.')
+
+    kb_entry = load_kb_entry(fault_code) if fault_code else {'title': '', 'last_updated': 'unknown', 'entry': ''}
+    context = get_engine().collect_fault_context(fault_code) if fault_code else {'commands': {}, 'command_status': {}}
+    grounding = summarize_grounding(context)
+    diagnosis_summary = build_deterministic_diagnosis(fault_code, kb_entry, context) if fault_code else ''
+    official_references = load_official_references(
+        '\n'.join([question, body.lab_id or '', body.step_title or '', *body.visible_evidence]),
+        fault_code=fault_code,
+        kb_entry=kb_entry if fault_code else None,
+    )
+    use_llm = body.allow_llm if body.allow_llm is not None else True
+    answer, source = maybe_llm_ask_aegis(
+        question,
+        body.visible_evidence,
+        diagnosis_summary,
+        official_references,
+        grounding['note'] if fault_code else 'Grounded against the visible lab evidence supplied by the client and the checked-in NVIDIA reference excerpts.',
+        allow_llm=use_llm,
+    )
+    audit(request, 'ask_aegis_completed', f'fault={fault_code or "none"} source={source} question={question[:120]}', user=payload['sub'])
+    save_incident('ask_aegis', fault_code or 'none', payload['sub'], source=source, summary=question[:500])
+    return {
+        'answer': answer,
+        'answer_source': source,
+        'fault_code': fault_code or None,
+        'official_references': official_references,
+        'grounding_status': grounding.get('status', 'client_evidence_only') if fault_code else 'client_evidence_only',
+        'grounding_note': grounding['note'] if fault_code else 'Grounded against the visible lab evidence supplied by the client and the checked-in NVIDIA reference excerpts.',
         'llm_requested': use_llm,
         'llm_available': llm_available(),
     }

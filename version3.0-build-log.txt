@@ -124,3 +124,109 @@ Entry 6
     - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
     - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
     - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+
+Entry 7
+- Status: completed
+- Scope: add exportable reasoning analytics reporting for pilot evidence
+- Notes:
+  - Added a shared reasoning-progress report builder that packages judgment summary, recent risk pattern, recovery signal, recent outcomes, recent quiz attempts, and recent step breakdown into JSON
+  - Added an Export reasoning report action to the study-guide analytics surface and mirrored the action in the detached study panel
+  - Persisted the last export timestamp so the analytics surface shows when a pilot-ready snapshot was last generated
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+  - Validation blocked by environment:
+    - python3 -m unittest discover -s /home/henry/aegis-gpu/frontend/tests -p 'test_*.py' -v currently fails in browser-proof suites because ports 18080, 18081, 18082, and 18084 were already occupied by pre-existing test/server processes
+
+Entry 8
+- Status: completed
+- Scope: stabilize browser-proof harness port allocation
+- Notes:
+  - Replaced fixed loopback ports in frontend browser smoke and proof tests with runtime-selected free loopback ports
+  - Passed the selected result port through the browser URL explicitly so app-side callback routing stays deterministic
+  - Updated proof-report output to record the actual runtime ports used instead of old fixed values
+  - Validation passed:
+    - python3 -m py_compile /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_smoke.py /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=study_progress_empty python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 9
+- Status: completed
+- Scope: begin frontend refactor by extracting analytics out of app.js
+- Notes:
+  - Added frontend/js/analytics.js and moved the reasoning scorecard, reasoning progress, export-report, and incident-outcome rendering logic into it
+  - Updated frontend/index.html to load analytics.js before app.js in the current no-bundler script order
+  - Updated frontend smoke coverage so split frontend modules are treated as one surface instead of assuming all logic must stay in app.js
+  - Validation passed:
+    - node --check /home/henry/aegis-gpu/frontend/js/analytics.js
+    - node --check /home/henry/aegis-gpu/frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+
+Entry 10
+- Status: completed
+- Scope: continue frontend refactor by extracting branch logic and browser-smoke helpers out of app.js
+- Notes:
+  - Added frontend/js/branching.js and moved branching state helpers, detour routing, alternate recovery-chain execution, and browser-smoke helper functions into it
+  - Updated frontend/index.html to load branching.js before app.js in the current script chain
+  - Extended frontend smoke coverage so split modules continue to be validated as one frontend surface
+  - Validation passed:
+    - node --check /home/henry/aegis-gpu/frontend/js/branching.js
+    - node --check /home/henry/aegis-gpu/frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+
+Entry 11
+- Status: completed
+- Scope: continue frontend refactor by extracting coach and detached-panel logic out of app.js
+- Notes:
+  - Added frontend/js/coach.js and moved Ask Aegis helpers, lab-step coach rendering, detached-panel rendering, and related click helpers into it
+  - Updated frontend/index.html to load coach.js before app.js in the current script chain
+  - Extended frontend smoke coverage so coach-surface checks work across the split module layout
+  - Validation passed:
+    - node --check /home/henry/aegis-gpu/frontend/js/coach.js
+    - node --check /home/henry/aegis-gpu/frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+
+Entry 12
+- Status: completed
+- Scope: continue frontend refactor by extracting study-guide and quiz logic out of app.js
+- Notes:
+  - Added frontend/js/study-quiz.js and moved the exam guide data, study-guide rendering, quiz dataset, and quiz interaction helpers into it
+  - Updated frontend/index.html to load study-quiz.js before app.js in the current script chain
+  - Extended frontend smoke coverage so study and quiz checks work across the split module layout
+  - Validation passed:
+    - node --check /home/henry/aegis-gpu/frontend/js/study-quiz.js
+    - node --check /home/henry/aegis-gpu/frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+
+Entry 13
+- Status: completed
+- Scope: continue frontend refactor by extracting runtime, live telemetry, and incident history orchestration out of app.js
+- Notes:
+  - Added frontend/js/runtime.js and moved lab execution, terminal/tabs, provisioning, parser, live-mode, remediation, and incident-history controller logic into it
+  - Updated frontend/index.html to load runtime.js before app.js in the current script chain
+  - Extended frontend smoke coverage so runtime-surface checks work across the split module layout
+  - Validation passed:
+    - node --check /home/henry/aegis-gpu/frontend/js/runtime.js
+    - node --check /home/henry/aegis-gpu/frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+
+Entry 14
+- Status: completed
+- Scope: harden the live host and release path for production use
+- Notes:
+  - Restricted Prometheus, Alertmanager, node_exporter, and Grafana to loopback-only exposure
+  - Removed NFS service exposure and cleaned disk pressure, compiled bytecode clutter, and stale browser-proof artifacts
+  - Fixed nginx security-header inheritance on the critical HTML and app.js responses
+  - Added fail2ban coverage for sshd, repeated login abuse, and obvious exploit-path probes
+  - Moved Alertmanager SMTP secret handling from alertmanager.yml into smtp_auth_password_file
+  - Added explicit backup, restore, deploy, rollback, and operations documentation under scripts/ and deploy/OPERATIONS.md
+  - Validated representative browser-proof coverage after the hardening changes
+
+Entry 15
+- Status: completed
+- Scope: upgrade Ask Aegis from canned coach copy into a grounded assistant
+- Notes:
+  - Added authenticated backend endpoint /api/v1/ask-aegis in backend/log-analizer.py
+  - Grounded Ask Aegis against the existing diagnosis path, live XID context when available, and checked-in NVIDIA reference material under backend/nvidia_kb/
+  - Reworked frontend/js/coach.js from fixed intent-only output into real question submission with deterministic fallback when unauthenticated or unreachable
+  - Added backend API coverage for the new endpoint and kept frontend smoke/browser proof green
+  - Deployed the updated assistant path to the live host and recorded a fresh rollback snapshot before release
