@@ -676,6 +676,36 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'lab_terminal_storage') {
+      loadLab('storage');
+      selectStep('storage', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'storage' || currentStep !== 0) throw new Error('failed to enter storage terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('storage terminal help missing accepted probes');
+      if (!helpText.includes('nvidia-smi dmon -s u')) throw new Error('storage terminal help missing gpu-util example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('iostat -x 1');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('this checkpoint starts with the visible starvation symptom on the GPU side')) throw new Error('storage weak-command guidance missing');
+      if (!weakText.includes('Try instead: nvidia-smi dmon -s u')) throw new Error('storage weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('nvidia-smi dmon -s u');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('GPU util: 94%')) throw new Error('storage accepted command did not replay sawtooth evidence');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal storage flow verified', details);
+      return;
+    }
+
     const scenarios = {
       ecc_best: { labId: 'ecc', stepIdx: 3, choiceId: 'contain', expectedEffect: 'best', expectDetour: false },
       ecc_warn: { labId: 'ecc', stepIdx: 3, choiceId: 'retry', expectedRedirect: 'ECC Containment Decision', expectedChainLength: 2, expectedEffect: 'warn', expectDetour: true },

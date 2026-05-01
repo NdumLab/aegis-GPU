@@ -910,6 +910,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Watch GPU Util",
         cmd:"nvidia-smi dmon -s u",
         type:"stor_gpu",
+        terminal:{
+          examples:["nvidia-smi dmon -s u","nvidia-smi dmon -s u -d 1"],
+          accepted:["nvidia-smi dmon -s u","nvidia-smi dmon -s u -d 1"],
+          weak:[
+            {
+              match:["iostat -x 1","lfs getstripe"],
+              feedback:"Those probes matter later, but this checkpoint starts with the visible starvation symptom on the GPU side."
+            }
+          ],
+          success:"GPU-utilization probe accepted. Replaying the authored storage evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the GPU-utilization snapshot as the symptom view, not the root cause. The key clue is the sawtooth pattern, because it tells you the GPUs are starving for input from somewhere upstream.",
         screenshots:[
@@ -949,6 +960,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Check I/O",
         cmd:"iostat -x 1",
         type:"stor_io",
+        terminal:{
+          examples:["iostat -x 1","iostat -x 1 | head"],
+          accepted:["iostat -x 1","iostat -x 1 | head"],
+          weak:[
+            {
+              match:["nvidia-smi dmon -s u","nvidia-smi dmon -s u -d 1"],
+              feedback:"The GPU symptom is already visible. This checkpoint asks whether storage pressure matches that starvation pattern."
+            }
+          ],
+          success:"I/O probe accepted. Replaying the authored storage evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the I/O snapshot to see whether storage pressure matches the GPU starvation pattern. The important thing is the timing match between saturated storage and bursty GPUs.",
         screenshots:[
@@ -986,6 +1008,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Check Stripe",
         cmd:"lfs getstripe",
         type:"stor_lustre",
+        terminal:{
+          examples:["lfs getstripe","lfs getstripe /datasets/train"],
+          accepted:["lfs getstripe","lfs getstripe /datasets/train"],
+          weak:[
+            {
+              match:["iostat -x 1","iostat -x 1 | head"],
+              feedback:"Storage pressure is already visible. This checkpoint asks whether the data layout itself is narrowing the feed path."
+            }
+          ],
+          success:"Striping probe accepted. Replaying the authored storage evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the stripe snapshot to move from vague storage pressure into a mechanical explanation. The key clue is a stripe count that is too narrow for the workload's read pattern.",
         screenshots:[
@@ -1023,6 +1056,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Fix: Stripe",
         cmd:"lfs setstripe -c 8",
         type:"stor_fix",
+        terminal:{
+          examples:["lfs setstripe -c 8","lfs setstripe -c 8 /datasets/train"],
+          accepted:["lfs setstripe -c 8","lfs setstripe -c 8 /datasets/train"],
+          weak:[
+            {
+              match:["num_workers=16","set dataloader workers 16"],
+              feedback:"Loader tuning matters too, but this checkpoint first fixes the narrow data-layout bottleneck you just confirmed."
+            }
+          ],
+          success:"Stripe-fix probe accepted. Replaying the authored storage evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Treat the stripe-fix snapshot as one controlled intervention. The important thing is that it directly addresses the layout issue you just identified rather than changing the whole pipeline at once.",
         screenshots:[
@@ -1060,6 +1104,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Tune Workers",
         cmd:"# num_workers=16",
         type:"stor_dl",
+        terminal:{
+          examples:["num_workers=16","set dataloader workers 16"],
+          accepted:["num_workers=16","set dataloader workers 16"],
+          weak:[
+            {
+              match:["lfs setstripe -c 8","lfs setstripe -c 8 /datasets/train"],
+              feedback:"The layout fix already happened. This checkpoint is about removing feeder-side stalls in the loader path too."
+            }
+          ],
+          success:"DataLoader tuning probe accepted. Replaying the authored storage evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the loader snapshot to separate feeder throughput from storage throughput. The key clue is that the input pipeline can still underfeed the GPUs even after storage layout improves.",
         screenshots:[
@@ -1097,6 +1152,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Verify Fix",
         cmd:"nvidia-smi dmon",
         type:"stor_verify",
+        terminal:{
+          examples:["nvidia-smi dmon","watch nvidia-smi dmon"],
+          accepted:["nvidia-smi dmon","watch nvidia-smi dmon"],
+          weak:[
+            {
+              match:["num_workers=16","set dataloader workers 16"],
+              feedback:"The tuning step is already done. This checkpoint is about proving the sawtooth pattern really disappeared."
+            }
+          ],
+          success:"Verification probe accepted. Replaying the authored storage evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the verification snapshot to prove the user-visible symptom improved. The important thing is that utilization now looks smoother and higher, not just that storage settings changed.",
         screenshots:[
