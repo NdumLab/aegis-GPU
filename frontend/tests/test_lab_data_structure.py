@@ -45,6 +45,9 @@ def load_frontend_data():
               steps: lab.steps.length,
               missingScreenshotReference: lab.steps.filter(step => !step.screenshotReference).map(step => step.label),
               missingScreenshots: lab.steps.filter(step => !Array.isArray(step.screenshots) || step.screenshots.length === 0).map(step => step.label),
+              missingTerminalMetadata: ['nvlink', 'nccl_fallback', 'k8s', 'slurm'].includes(id)
+                ? lab.steps.filter(step => !step.terminal || !Array.isArray(step.terminal.examples) || step.terminal.examples.length === 0).map(step => step.label)
+                : [],
             }}])
           ),
           learning: Object.fromEntries(
@@ -86,6 +89,7 @@ class FrontendDataStructureTest(unittest.TestCase):
         for lab_id, info in self.summary['labs'].items():
             self.assertFalse(info['missingScreenshotReference'], f'{lab_id} missing screenshotReference: {info["missingScreenshotReference"]}')
             self.assertFalse(info['missingScreenshots'], f'{lab_id} missing screenshots: {info["missingScreenshots"]}')
+            self.assertFalse(info['missingTerminalMetadata'], f'{lab_id} missing terminal metadata: {info["missingTerminalMetadata"]}')
 
     def test_learning_guides_have_required_sections(self):
         for guide_id, info in self.summary['learning'].items():

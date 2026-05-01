@@ -443,6 +443,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Submit Job",
         cmd:"sbatch train.sh",
         type:"slurm_submit",
+        terminal:{
+          examples:["sbatch train.sh","sbatch pretrain.sbatch"],
+          accepted:[/^sbatch [a-z0-9._/-]+$/],
+          weak:[
+            {
+              match:["squeue -u $USER","scontrol show job"],
+              feedback:"Those are scheduler inspection probes, but this checkpoint starts with handing the job into Slurm control."
+            }
+          ],
+          success:"Submission probe accepted. Replaying the authored scheduler evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the submission snapshot as the first scheduler state transition. The key clue is the job ID, because that marks the point where user intent enters scheduler control.",
         screenshots:[
@@ -467,6 +478,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Check Queue",
         cmd:"squeue -u $USER",
         type:"slurm_queue",
+        terminal:{
+          examples:["squeue -u $USER","squeue -u alice"],
+          accepted:[/^squeue -u( \$user| [a-z0-9._-]+)$/],
+          weak:[
+            {
+              match:["sbatch train.sh","sbatch pretrain.sbatch"],
+              feedback:"Submission already happened. This checkpoint asks where the job sits in the scheduler right now."
+            }
+          ],
+          success:"Queue probe accepted. Replaying the authored scheduler evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the queue snapshot to separate waiting from failure. The important thing is the current scheduler state, not an assumption that a delay means the cluster is broken.",
         screenshots:[
@@ -492,6 +514,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Debug PENDING",
         cmd:"scontrol show job",
         type:"slurm_pend",
+        terminal:{
+          examples:["scontrol show job","scontrol show job 99234"],
+          accepted:[/^scontrol show job( [0-9]+)?$/],
+          weak:[
+            {
+              match:["squeue -u $USER","squeue -u alice"],
+              feedback:"Queue state is already visible. This checkpoint asks for Slurm's own reason field behind the wait."
+            }
+          ],
+          success:"Pending-reason probe accepted. Replaying the authored scheduler evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the pending-reason snapshot as the scheduler's own diagnosis. The key clue is the explicit reason field, because it turns vague waiting into an explainable state.",
         screenshots:[
@@ -518,6 +551,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Check Fairshare",
         cmd:"sshare -u alice",
         type:"slurm_fair",
+        terminal:{
+          examples:["sshare -u alice","sshare -u $USER"],
+          accepted:[/^sshare -u( \$user| [a-z0-9._-]+)$/],
+          weak:[
+            {
+              match:["scontrol show job","scontrol show job 99234"],
+              feedback:"The pending reason is only part of the story. This checkpoint asks whether policy is driving that queue position."
+            }
+          ],
+          success:"Fairshare probe accepted. Replaying the authored scheduler evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the fairshare snapshot to distinguish policy delay from platform failure. The important thing is that a low fairshare can explain a long wait even on a healthy cluster.",
         screenshots:[
@@ -543,6 +587,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Drain Node",
         cmd:"scontrol update state=drain",
         type:"slurm_drain",
+        terminal:{
+          examples:["scontrol update state=drain","scontrol update NodeName=gpu-node-05 State=DRAIN"],
+          accepted:["scontrol update state=drain","scontrol update NodeName=gpu-node-05 State=DRAIN"],
+          weak:[
+            {
+              match:["scancel 99234","scontrol requeue 99234"],
+              feedback:"That changes job state, but this checkpoint is about scheduler-level containment on the suspect node."
+            }
+          ],
+          success:"Drain command accepted. Replaying the authored containment evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the drain snapshot as the containment step for scheduler risk. The key clue is the node state change, because that stops fresh jobs from landing on questionable hardware.",
         screenshots:[
@@ -568,6 +623,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Resume Node",
         cmd:"scontrol update state=resume",
         type:"slurm_resume",
+        terminal:{
+          examples:["scontrol update state=resume","scontrol update NodeName=gpu-node-05 State=RESUME"],
+          accepted:["scontrol update state=resume","scontrol update NodeName=gpu-node-05 State=RESUME"],
+          weak:[
+            {
+              match:["scontrol update state=drain","scontrol update NodeName=gpu-node-05 State=DRAIN"],
+              feedback:"Containment was the previous step. This checkpoint is about evidence-backed return to service."
+            }
+          ],
+          success:"Resume command accepted. Replaying the authored recovery evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Treat the resume snapshot as evidence-based recovery, not queue pressure relief. The key thing is the node returning to service only after the reason for drain is resolved.",
         screenshots:[
@@ -602,6 +668,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Check Operator",
         cmd:"kubectl get pods -n gpu-operator",
         type:"k8s_operator",
+        terminal:{
+          examples:["kubectl get pods -n gpu-operator","kubectl get ds -n gpu-operator"],
+          accepted:["kubectl get pods -n gpu-operator","kubectl get ds -n gpu-operator"],
+          weak:[
+            {
+              match:["kubectl get nodes","kubectl describe node gpu-node-01"],
+              feedback:"Node state matters, but this lab starts by proving the GPU enablement layer is healthy."
+            }
+          ],
+          success:"Operator probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the operator snapshot as the first Kubernetes GPU health gate. The key clue is whether the control components are healthy, because a broken operator can make good nodes look empty.",
         screenshots:[
@@ -628,6 +705,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Verify Resource",
         cmd:"kubectl describe node",
         type:"k8s_resources",
+        terminal:{
+          examples:["kubectl describe node gpu-node-01","kubectl describe node gpu-w-01"],
+          accepted:[/^kubectl describe node( [a-z0-9.-]+)?$/],
+          weak:[
+            {
+              match:["kubectl get pods -n gpu-operator"],
+              feedback:"The operator view is already useful. This checkpoint asks whether the scheduler can actually see GPU capacity on a node."
+            }
+          ],
+          success:"Node resource probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the node-resource snapshot to compare physical GPU reality with scheduler-visible reality. The key thing is whether Kubernetes is actually advertising the GPUs you expect.",
         screenshots:[
@@ -655,6 +743,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Debug Pending",
         cmd:"kubectl describe pod",
         type:"k8s_pending",
+        terminal:{
+          examples:["kubectl describe pod training-pod","kubectl describe pod trainer-0"],
+          accepted:[/^kubectl describe pod( [a-z0-9.-]+)?$/],
+          weak:[
+            {
+              match:["kubectl get pods -A -o wide","kubectl get pods"],
+              feedback:"Pod lists are useful orientation, but this checkpoint needs Kubernetes' own reason for the Pending state."
+            }
+          ],
+          success:"Pending-pod probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the pending-pod snapshot as Kubernetes' own explanation before guessing. The key clue is the explicit event reason, because Pending is only a category until the platform explains it.",
         screenshots:[
@@ -681,6 +780,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Check NetPol",
         cmd:"kubectl get netpol",
         type:"k8s_netpol",
+        terminal:{
+          examples:["kubectl get netpol","kubectl get networkpolicy -A"],
+          accepted:["kubectl get netpol","kubectl get networkpolicy -A"],
+          weak:[
+            {
+              match:["kubectl describe pod training-pod","kubectl describe node gpu-node-01"],
+              feedback:"Those checks are still relevant context, but this checkpoint is specifically about policy-layer communication blockers."
+            }
+          ],
+          success:"Network-policy probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the network-policy snapshot when resource checks look healthy but behavior still fails. The key thing is whether a policy is silently blocking control or workload traffic.",
         screenshots:[
@@ -707,6 +817,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Drain Node",
         cmd:"kubectl drain node-03",
         type:"k8s_drain",
+        terminal:{
+          examples:["kubectl drain gpu-node-03","kubectl cordon gpu-node-03"],
+          accepted:["kubectl drain gpu-node-03","kubectl cordon gpu-node-03"],
+          weak:[
+            {
+              match:["kubectl delete pod","kubectl rollout restart"],
+              feedback:"That changes workload state, but this checkpoint is about cluster containment by reducing scheduler trust in the node."
+            }
+          ],
+          success:"Containment command accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the node-drain snapshot as the Kubernetes containment step. The key clue is scheduler removal language, because that protects future pods while the node is investigated.",
         screenshots:[
@@ -733,6 +854,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Gang Schedule",
         cmd:"kubectl get podgroup",
         type:"k8s_gang",
+        terminal:{
+          examples:["kubectl get podgroup","kubectl get podgroup -A"],
+          accepted:["kubectl get podgroup","kubectl get podgroup -A"],
+          weak:[
+            {
+              match:["kubectl get pods","kubectl get pods -A -o wide"],
+              feedback:"Pod counts are not enough here. This checkpoint is about proving the workload is being coordinated as one scheduling group."
+            }
+          ],
+          success:"Gang-scheduling probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the podgroup snapshot to judge coordinated placement for distributed work. The key thing is whether the job is treated as a group rather than a set of half-started individual pods.",
         screenshots:[
