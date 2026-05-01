@@ -14,6 +14,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Check Driver",
         cmd:"cat /proc/driver/nvidia/version",
         type:"driver_ver",
+        terminal:{
+          examples:["cat /proc/driver/nvidia/version","modinfo nvidia | head"],
+          accepted:["cat /proc/driver/nvidia/version","modinfo nvidia | head"],
+          weak:[
+            {
+              match:["nvcc --version","python3 -c \"import torch\""],
+              feedback:"Those checks matter later, but this checkpoint starts at the base driver layer of the stack."
+            }
+          ],
+          success:"Driver-layer probe accepted. Replaying the authored stack evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the driver snapshot as the bottom anchor of the stack. The key clue is the exact NVIDIA driver version, because every later compatibility judgment depends on it.",
         screenshots:[
@@ -51,6 +62,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Check CUDA",
         cmd:"nvcc --version",
         type:"cuda_ver",
+        terminal:{
+          examples:["nvcc --version","nvidia-smi | grep CUDA"],
+          accepted:["nvcc --version","nvidia-smi | grep CUDA"],
+          weak:[
+            {
+              match:["cat /proc/driver/nvidia/version","modinfo nvidia | head"],
+              feedback:"The driver anchor is already useful. This checkpoint asks for the CUDA layer sitting on top of it."
+            }
+          ],
+          success:"CUDA-layer probe accepted. Replaying the authored stack evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Read the CUDA snapshot against the driver snapshot, not in isolation. The important thing is whether the CUDA toolkit version looks plausible on top of the driver you already saw.",
         screenshots:[
@@ -88,6 +110,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Check PyTorch",
         cmd:"python3 -c \"import torch\"",
         type:"torch_check",
+        terminal:{
+          examples:["python3 -c \"import torch\"","python3 -c \"import torch; print(torch.cuda.is_available())\""],
+          accepted:["python3 -c \"import torch\"","python3 -c \"import torch; print(torch.cuda.is_available())\""],
+          weak:[
+            {
+              match:["nvcc --version","nvidia-smi | grep CUDA"],
+              feedback:"CUDA version is only the lower-layer context. This checkpoint asks whether the user-facing framework can actually use it."
+            }
+          ],
+          success:"Framework probe accepted. Replaying the authored stack evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the framework snapshot as the user-facing proof step. The important move is checking whether PyTorch both imports and reports CUDA visibility instead of assuming the lower layers guarantee that automatically.",
         screenshots:[
@@ -130,6 +163,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         cmd:"# Simulating version mismatch",
         type:"cuda_mismatch",
         fault:true,
+        terminal:{
+          examples:["simulate cuda mismatch","trigger framework mismatch"],
+          accepted:["simulate cuda mismatch","trigger framework mismatch"],
+          weak:[
+            {
+              match:["reboot","dnf update -y"],
+              feedback:"Too broad. This checkpoint is about recognizing a software-contract break before changing layers blindly."
+            }
+          ],
+          success:"Mismatch simulation accepted. Replaying the authored stack failure evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Treat the mismatch snapshot as a software-contract failure, not a hardware failure. The visual cue is the explicit unsupported-version language, because that tells you the stack layers disagree even if the GPU is healthy.",
         screenshots:[
@@ -167,6 +211,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Fix with NGC",
         cmd:"docker pull nvcr.io/nvidia/pytorch",
         type:"ngc_fix",
+        terminal:{
+          examples:["docker pull nvcr.io/nvidia/pytorch","docker pull nvcr.io/nvidia/pytorch:24.03-py3"],
+          accepted:["docker pull nvcr.io/nvidia/pytorch","docker pull nvcr.io/nvidia/pytorch:24.03-py3"],
+          weak:[
+            {
+              match:["pip install torch","dnf install cuda-toolkit"],
+              feedback:"Those are broader stack edits. This checkpoint is about collapsing the search space onto a validated image baseline."
+            }
+          ],
+          success:"Validated-image probe accepted. Replaying the authored stack recovery evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the NGC snapshot as proof that you moved onto a validated software baseline. The important thing is not just that an image pulled, but that the source and tag now give you a known-good compatibility contract.",
         screenshots:[

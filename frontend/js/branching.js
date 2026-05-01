@@ -496,6 +496,36 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'lab_terminal_cuda_stack') {
+      loadLab('cuda_stack');
+      selectStep('cuda_stack', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'cuda_stack' || currentStep !== 0) throw new Error('failed to enter cuda stack terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('cuda stack terminal help missing accepted probes');
+      if (!helpText.includes('cat /proc/driver/nvidia/version')) throw new Error('cuda stack terminal help missing driver example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('nvcc --version');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('this checkpoint starts at the base driver layer of the stack')) throw new Error('cuda stack weak-command guidance missing');
+      if (!weakText.includes('Try instead: cat /proc/driver/nvidia/version')) throw new Error('cuda stack weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('cat /proc/driver/nvidia/version');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('NVRM version: 545.23.08')) throw new Error('cuda stack accepted command did not replay driver evidence');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal cuda stack flow verified', details);
+      return;
+    }
+
     const scenarios = {
       ecc_best: { labId: 'ecc', stepIdx: 3, choiceId: 'contain', expectedEffect: 'best', expectDetour: false },
       ecc_warn: { labId: 'ecc', stepIdx: 3, choiceId: 'retry', expectedRedirect: 'ECC Containment Decision', expectedChainLength: 2, expectedEffect: 'warn', expectDetour: true },
