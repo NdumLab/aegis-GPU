@@ -521,6 +521,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Launch DDP",
         cmd:"torchrun train.py",
         type:"ddp_launch",
+        terminal:{
+          examples:["torchrun train.py","torchrun --nproc_per_node=8 train.py"],
+          accepted:["torchrun train.py","torchrun --nproc_per_node=8 train.py"],
+          weak:[
+            {
+              match:["iostat -x 1","NCCL_DEBUG=INFO torchrun train.py"],
+              feedback:"Those probes matter later, but this checkpoint starts with whether the distributed job can form its rank group at all."
+            }
+          ],
+          success:"DDP launch probe accepted. Replaying the authored training evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the launch snapshot to confirm that all expected ranks joined the same world. The key clue is the repeated rank/world-size language, because that tells you the distributed job formed correctly before any math begins.",
         screenshots:[
@@ -559,6 +570,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Forward Pass",
         cmd:"# Sharding batch",
         type:"ddp_fwd",
+        terminal:{
+          examples:["simulate forward pass","step forward ranks"],
+          accepted:["simulate forward pass","step forward ranks"],
+          weak:[
+            {
+              match:["torchrun train.py","torchrun --nproc_per_node=8 train.py"],
+              feedback:"Launch already proved the rank group formed. This checkpoint is about the local compute phase on each rank."
+            }
+          ],
+          success:"Forward-pass probe accepted. Replaying the authored training evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Read the forward-pass snapshot as local compute evidence, not full distributed proof. The important thing is that each rank is processing its own shard cleanly before synchronization pressure arrives.",
         screenshots:[
@@ -596,6 +618,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Backward Pass",
         cmd:"# Computing local grads",
         type:"ddp_bwd",
+        terminal:{
+          examples:["simulate backward pass","compute local grads"],
+          accepted:["simulate backward pass","compute local grads"],
+          weak:[
+            {
+              match:["simulate forward pass","step forward ranks"],
+              feedback:"Local compute already happened. This checkpoint is about preparing gradients before the shared collective."
+            }
+          ],
+          success:"Backward-pass probe accepted. Replaying the authored training evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the backward snapshot to mark the boundary between local work and shared work. The key move is seeing gradients finish locally while remembering they are not useful cluster-wide until the next collective step completes.",
         screenshots:[
@@ -633,6 +666,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"AllReduce Sync",
         cmd:"# Averaging grads",
         type:"ddp_allreduce",
+        terminal:{
+          examples:["simulate allreduce","average gradients"],
+          accepted:["simulate allreduce","average gradients"],
+          weak:[
+            {
+              match:["compute local grads","simulate backward pass"],
+              feedback:"Local gradients are only the handoff. This checkpoint is where the shared communication path becomes visible."
+            }
+          ],
+          success:"AllReduce probe accepted. Replaying the authored training evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the AllReduce snapshot to judge whether the shared communication phase looks healthy. The important cue is that the collective finishes quickly enough that it does not dominate the whole iteration.",
         screenshots:[
@@ -671,6 +715,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Weight Update",
         cmd:"optimizer.step()",
         type:"ddp_update",
+        terminal:{
+          examples:["optimizer.step()","apply synchronized update"],
+          accepted:["optimizer.step()","apply synchronized update"],
+          weak:[
+            {
+              match:["simulate allreduce","average gradients"],
+              feedback:"Collective sync is already the previous step. This checkpoint is about the coordinated model update that follows it."
+            }
+          ],
+          success:"Update probe accepted. Replaying the authored training evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Treat the update snapshot as proof that the full distributed loop completed coherently. The key thing is that every rank can move to the next step from the same synchronized model state.",
         screenshots:[
@@ -709,6 +764,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         cmd:"iostat -x 1",
         type:"ddp_storage",
         fault:true,
+        terminal:{
+          examples:["iostat -x 1","iostat -x 1 | head"],
+          accepted:["iostat -x 1","iostat -x 1 | head"],
+          weak:[
+            {
+              match:["optimizer.step()","apply synchronized update"],
+              feedback:"The training loop looked healthy earlier. This checkpoint is about proving the slowdown now lives in the input path instead."
+            }
+          ],
+          success:"Storage probe accepted. Replaying the authored training evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the storage-bottleneck snapshot to recognize that a distributed job can stall outside the GPU and fabric path. The key clue is storage pressure lining up with the training slowdown, because that means the loop is starving for input rather than failing inside pure compute or collectives.",
         screenshots:[

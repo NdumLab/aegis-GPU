@@ -556,6 +556,36 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'lab_terminal_training') {
+      loadLab('training');
+      selectStep('training', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'training' || currentStep !== 0) throw new Error('failed to enter training terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('training terminal help missing accepted probes');
+      if (!helpText.includes('torchrun train.py')) throw new Error('training terminal help missing launch example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('iostat -x 1');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('this checkpoint starts with whether the distributed job can form its rank group at all')) throw new Error('training weak-command guidance missing');
+      if (!weakText.includes('Try instead: torchrun train.py')) throw new Error('training weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('torchrun train.py');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('All 16 ranks connected')) throw new Error('training accepted command did not replay DDP launch evidence');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal training flow verified', details);
+      return;
+    }
+
     const scenarios = {
       ecc_best: { labId: 'ecc', stepIdx: 3, choiceId: 'contain', expectedEffect: 'best', expectDetour: false },
       ecc_warn: { labId: 'ecc', stepIdx: 3, choiceId: 'retry', expectedRedirect: 'ECC Containment Decision', expectedChainLength: 2, expectedEffect: 'warn', expectDetour: true },

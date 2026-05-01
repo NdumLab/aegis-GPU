@@ -358,3 +358,16 @@ Entry 26
     - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
     - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
     - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_container python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 27
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the Distributed Training (DDP) lab
+- Notes:
+  - Added per-step limited-terminal metadata for all DDP checkpoints: launch, forward pass, backward pass, AllReduce synchronization, weight update, and storage bottleneck
+  - Extended frontend/tests/test_lab_data_structure.py so the DDP lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the DDP limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-2.js and /var/www/html/js/branching.js contain the new DDP limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_training python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v

@@ -45,7 +45,7 @@ def load_frontend_data():
               steps: lab.steps.length,
               missingScreenshotReference: lab.steps.filter(step => !step.screenshotReference).map(step => step.label),
               missingScreenshots: lab.steps.filter(step => !Array.isArray(step.screenshots) || step.screenshots.length === 0).map(step => step.label),
-              missingTerminalMetadata: ['nvlink', 'nccl_fallback', 'k8s', 'slurm', 'monitoring', 'cuda_stack', 'container'].includes(id)
+              missingTerminalMetadata: ['nvlink', 'nccl_fallback', 'k8s', 'slurm', 'monitoring', 'cuda_stack', 'container', 'training'].includes(id)
                 ? lab.steps.filter(step => !step.terminal || !Array.isArray(step.terminal.examples) || step.terminal.examples.length === 0).map(step => step.label)
                 : [],
             }}])
