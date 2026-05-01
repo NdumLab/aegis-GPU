@@ -319,3 +319,16 @@ Entry 23
     - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
     - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
     - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_slurm python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 24
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the DCGM Monitoring lab
+- Notes:
+  - Added per-step limited-terminal metadata for all DCGM Monitoring checkpoints: exporter startup, metrics verification, Prometheus scrape validation, dashboard import, alert-rule creation, and alert-path testing
+  - Extended frontend/tests/test_lab_data_structure.py so Monitoring now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the Monitoring limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-4.js and /var/www/html/js/branching.js contain the new Monitoring limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_monitoring python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v

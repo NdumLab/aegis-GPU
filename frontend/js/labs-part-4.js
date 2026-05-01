@@ -208,6 +208,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Deploy Exporter",
         cmd:"docker run dcgm-exporter",
         type:"mon_deploy",
+        terminal:{
+          examples:["docker run dcgm-exporter","docker run --rm dcgm-exporter"],
+          accepted:["docker run dcgm-exporter","docker run --rm dcgm-exporter"],
+          weak:[
+            {
+              match:["curl localhost:9400/metrics","curl 127.0.0.1:9400/metrics"],
+              feedback:"Endpoint inspection matters, but this checkpoint starts by proving the exporter service itself is up."
+            }
+          ],
+          success:"Exporter start probe accepted. Replaying the authored monitoring evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the exporter snapshot as the first monitoring health gate. The important thing is that the metric source is actually running, because every later graph and alert depends on this service.",
         screenshots:[
@@ -245,6 +256,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Verify Metrics",
         cmd:"curl localhost:9400/metrics",
         type:"mon_verify",
+        terminal:{
+          examples:["curl localhost:9400/metrics","curl 127.0.0.1:9400/metrics"],
+          accepted:["curl localhost:9400/metrics","curl 127.0.0.1:9400/metrics"],
+          weak:[
+            {
+              match:["docker run dcgm-exporter","docker run --rm dcgm-exporter"],
+              feedback:"The exporter process is only the first gate. This checkpoint asks whether it is actually serving usable metrics."
+            }
+          ],
+          success:"Metrics endpoint probe accepted. Replaying the authored monitoring evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the metrics-endpoint snapshot as proof that telemetry is not just running, but actually publishing data. The key thing is seeing real metric lines at the expected endpoint.",
         screenshots:[
@@ -282,6 +304,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Prom Scrape",
         cmd:"# Scraping config",
         type:"mon_prom",
+        terminal:{
+          examples:["promtool check config prometheus.yml","curl http://prometheus:9090/api/v1/targets"],
+          accepted:["promtool check config prometheus.yml","curl http://prometheus:9090/api/v1/targets"],
+          weak:[
+            {
+              match:["curl localhost:9400/metrics","curl 127.0.0.1:9400/metrics"],
+              feedback:"The endpoint exists, but this checkpoint is about whether Prometheus is continuously collecting from it."
+            }
+          ],
+          success:"Prometheus scrape probe accepted. Replaying the authored monitoring evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the scrape snapshot to distinguish live endpoint visibility from historical observability. The key clue is Prometheus seeing the target as up and collecting samples over time.",
         screenshots:[
@@ -320,6 +353,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Grafana ID 12239",
         cmd:"# Import dashboard",
         type:"mon_grafana",
+        terminal:{
+          examples:["grafana-cli dashboards import 12239","import dashboard 12239"],
+          accepted:["grafana-cli dashboards import 12239","import dashboard 12239"],
+          weak:[
+            {
+              match:["curl http://prometheus:9090/api/v1/targets","promtool check config prometheus.yml"],
+              feedback:"Scrape health is already useful context. This checkpoint is about whether operators can read the metric story quickly in Grafana."
+            }
+          ],
+          success:"Dashboard import probe accepted. Replaying the authored monitoring evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the dashboard snapshot to see whether the metrics tell an operator-friendly story. The important thing is recognizable health patterns, not a wall of decorative charts.",
         screenshots:[
@@ -358,6 +402,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Create Alert",
         cmd:"# Prometheus rule",
         type:"mon_alert",
+        terminal:{
+          examples:["vi gpu-alerts.yml","promtool check rules gpu-alerts.yml"],
+          accepted:["vi gpu-alerts.yml","promtool check rules gpu-alerts.yml"],
+          weak:[
+            {
+              match:["grafana-cli dashboards import 12239","import dashboard 12239"],
+              feedback:"Dashboards improve visibility, but this checkpoint is about encoding a metric pattern into an actionable alert rule."
+            }
+          ],
+          success:"Alert-rule probe accepted. Replaying the authored monitoring evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the alert-rule snapshot as the action boundary between monitoring and response. The key thing is that the rule maps to a real operator decision instead of just another noisy metric.",
         screenshots:[
@@ -397,6 +452,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         cmd:"# Simulating DBE",
         type:"mon_test",
         fault:true,
+        terminal:{
+          examples:["simulate dbe","trigger gpu dbe test"],
+          accepted:["simulate dbe","trigger gpu dbe test"],
+          weak:[
+            {
+              match:["promtool check rules gpu-alerts.yml","vi gpu-alerts.yml"],
+              feedback:"Rule syntax is already in place. This checkpoint is about proving the alert path actually fires on a simulated fault."
+            }
+          ],
+          success:"Alert test probe accepted. Replaying the authored monitoring evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the alert-test snapshot as the end-to-end proof step. The key clue is the alert actually firing on the simulated fault, because untested monitoring is only paperwork.",
         screenshots:[
