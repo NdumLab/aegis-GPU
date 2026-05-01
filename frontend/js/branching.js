@@ -706,6 +706,36 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'lab_terminal_gds') {
+      loadLab('gds');
+      selectStep('gds', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'gds' || currentStep !== 0) throw new Error('failed to enter gds terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('gds terminal help missing accepted probes');
+      if (!helpText.includes('cat /opt/aegis/gds-path.txt')) throw new Error('gds terminal help missing baseline-path example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('python3 -c "import cufile"');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('this checkpoint starts by reading the longer baseline path')) throw new Error('gds weak-command guidance missing');
+      if (!weakText.includes('Try instead: cat /opt/aegis/gds-path.txt')) throw new Error('gds weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('cat /opt/aegis/gds-path.txt');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('NVMe → CPU → PCIe → GPU')) throw new Error('gds accepted command did not replay traditional-path evidence');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal gds flow verified', details);
+      return;
+    }
+
     const scenarios = {
       ecc_best: { labId: 'ecc', stepIdx: 3, choiceId: 'contain', expectedEffect: 'best', expectDetour: false },
       ecc_warn: { labId: 'ecc', stepIdx: 3, choiceId: 'retry', expectedRedirect: 'ECC Containment Decision', expectedChainLength: 2, expectedEffect: 'warn', expectDetour: true },

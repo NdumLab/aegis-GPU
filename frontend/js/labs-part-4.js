@@ -14,6 +14,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Traditional Path",
         cmd:"# NVMe->CPU->GPU",
         type:"gds_old",
+        terminal:{
+          examples:["cat /opt/aegis/gds-path.txt","less /opt/aegis/gds-path.txt"],
+          accepted:["cat /opt/aegis/gds-path.txt","less /opt/aegis/gds-path.txt"],
+          weak:[
+            {
+              match:["python3 -c \"import cufile\"","gdscheck -p"],
+              feedback:"Runtime verification matters later, but this checkpoint starts by reading the longer baseline path before you test feature availability."
+            }
+          ],
+          success:"Traditional storage path probe accepted. Replaying the authored baseline evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the traditional-path snapshot as the baseline route map. The key thing is seeing the extra CPU-mediated handoff that the optimized path later tries to remove.",
         screenshots:[
@@ -51,6 +62,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"GDS Path",
         cmd:"# NVMe->GPU DMA",
         type:"gds_new",
+        terminal:{
+          examples:["cat /opt/aegis/gds-direct-path.txt","less /opt/aegis/gds-direct-path.txt"],
+          accepted:["cat /opt/aegis/gds-direct-path.txt","less /opt/aegis/gds-direct-path.txt"],
+          weak:[
+            {
+              match:["cat /opt/aegis/gds-path.txt","less /opt/aegis/gds-path.txt"],
+              feedback:"That is still the traditional route. This checkpoint is about the shorter direct-path design you compare against it."
+            }
+          ],
+          success:"Direct storage path probe accepted. Replaying the authored direct-path evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the GDS-path snapshot to understand what the optimization is trying to remove. The important thing is the shorter route with less CPU mediation, not the acronym by itself.",
         screenshots:[
@@ -88,6 +110,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Verify GDS",
         cmd:"python3 -c \"import cufile\"",
         type:"gds_verify",
+        terminal:{
+          examples:["python3 -c \"import cufile\"","gdscheck -p"],
+          accepted:["python3 -c \"import cufile\"","gdscheck -p"],
+          weak:[
+            {
+              match:["fio","dd if=/dev/nvme0n1"],
+              feedback:"Benchmarking is too early here. This checkpoint is the capability gate that proves the GDS runtime is actually present."
+            }
+          ],
+          success:"GDS runtime probe accepted. Replaying the authored capability evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the verification snapshot as the gate before benchmarking. The key clue is the runtime actually exposing cuFile support instead of only having a direct-path diagram on paper.",
         screenshots:[
@@ -126,6 +159,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Measure Trad",
         cmd:"# 890 MB/s",
         type:"gds_bench_old",
+        terminal:{
+          examples:["fio --name=trad-path-bench","python3 /opt/aegis/gds_bench.py --mode=traditional"],
+          accepted:["fio --name=trad-path-bench","python3 /opt/aegis/gds_bench.py --mode=traditional"],
+          weak:[
+            {
+              match:["python3 -c \"import cufile\"","gdscheck -p"],
+              feedback:"Capability is already useful, but this checkpoint needs the traditional-path throughput baseline before you compare the optimized route."
+            }
+          ],
+          success:"Traditional throughput probe accepted. Replaying the authored baseline benchmark evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the traditional-path benchmark snapshot as the baseline throughput anchor. The important thing is that later gains only matter because this number exists first.",
         screenshots:[
@@ -162,6 +206,17 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
         label:"Measure GDS",
         cmd:"# 2.4 GB/s",
         type:"gds_bench_new",
+        terminal:{
+          examples:["fio --name=gds-path-bench","python3 /opt/aegis/gds_bench.py --mode=gds"],
+          accepted:["fio --name=gds-path-bench","python3 /opt/aegis/gds_bench.py --mode=gds"],
+          weak:[
+            {
+              match:["fio --name=trad-path-bench","python3 /opt/aegis/gds_bench.py --mode=traditional"],
+              feedback:"That is still the baseline path. This checkpoint is where you prove the direct path beats it."
+            }
+          ],
+          success:"GDS throughput probe accepted. Replaying the authored optimized benchmark evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the direct-path benchmark snapshot to judge whether the shorter route produced a meaningful real-world gain. The key thing is the before/after comparison, not just a bigger number alone.",
         screenshots:[
