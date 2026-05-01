@@ -646,6 +646,36 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'lab_terminal_roce') {
+      loadLab('roce');
+      selectStep('roce', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'roce' || currentStep !== 0) throw new Error('failed to enter roce terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('roce terminal help missing accepted probes');
+      if (!helpText.includes('ip link show eth0')) throw new Error('roce terminal help missing mtu example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('ethtool -A eth0');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('this checkpoint starts with the basic path-alignment signal from MTU')) throw new Error('roce weak-command guidance missing');
+      if (!weakText.includes('Try instead: ip link show eth0')) throw new Error('roce weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('ip link show eth0');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('mtu 9000')) throw new Error('roce accepted command did not replay mtu evidence');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal roce flow verified', details);
+      return;
+    }
+
     const scenarios = {
       ecc_best: { labId: 'ecc', stepIdx: 3, choiceId: 'contain', expectedEffect: 'best', expectDetour: false },
       ecc_warn: { labId: 'ecc', stepIdx: 3, choiceId: 'retry', expectedRedirect: 'ECC Containment Decision', expectedChainLength: 2, expectedEffect: 'warn', expectDetour: true },

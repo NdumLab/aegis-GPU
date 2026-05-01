@@ -315,6 +315,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Check MTU",
         cmd:"ip link show eth0",
         type:"roce_mtu",
+        terminal:{
+          examples:["ip link show eth0","ip link show dev eth0"],
+          accepted:["ip link show eth0","ip link show dev eth0"],
+          weak:[
+            {
+              match:["ethtool -A eth0","tc qdisc show"],
+              feedback:"Those checks matter later, but this checkpoint starts with the basic path-alignment signal from MTU."
+            }
+          ],
+          success:"MTU probe accepted. Replaying the authored RoCE evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the MTU snapshot as the first RoCE path-consistency check. The key clue is the explicit MTU value, because a mismatched packet size can poison the path before congestion tuning even matters.",
         screenshots:[
@@ -351,6 +362,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Verify PFC",
         cmd:"ethtool -A eth0",
         type:"roce_pfc",
+        terminal:{
+          examples:["ethtool -A eth0","ethtool --show-pause eth0"],
+          accepted:["ethtool -A eth0","ethtool --show-pause eth0"],
+          weak:[
+            {
+              match:["ip link show eth0","ip link show dev eth0"],
+              feedback:"MTU already established the baseline. This checkpoint asks whether the host-side lossless policy is actually enabled."
+            }
+          ],
+          success:"PFC probe accepted. Replaying the authored RoCE evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the PFC snapshot to confirm the host-side lossless policy is actually enabled where the design expects it. The important cue is the pause-control state, not just that Ethernet is up.",
         screenshots:[
@@ -389,6 +411,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Check ECN",
         cmd:"tc qdisc show",
         type:"roce_ecn",
+        terminal:{
+          examples:["tc qdisc show","tc -s qdisc show dev eth0"],
+          accepted:["tc qdisc show","tc -s qdisc show dev eth0"],
+          weak:[
+            {
+              match:["ethtool -A eth0","ethtool --show-pause eth0"],
+              feedback:"PFC is only part of the path story. This checkpoint asks whether the fabric can signal congestion before collapse."
+            }
+          ],
+          success:"ECN probe accepted. Replaying the authored RoCE evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Read the ECN snapshot as proof that the path has a congestion signal before collapse. The key thing is seeing explicit qdisc/marking behavior instead of hoping the network handles pressure gracefully on its own.",
         screenshots:[
@@ -426,6 +459,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Measure BW",
         cmd:"ib_write_bw -d rxe0",
         type:"roce_bw",
+        terminal:{
+          examples:["ib_write_bw -d rxe0","ib_write_bw --report_gbits -d rxe0"],
+          accepted:["ib_write_bw -d rxe0","ib_write_bw --report_gbits -d rxe0"],
+          weak:[
+            {
+              match:["tc qdisc show","tc -s qdisc show dev eth0"],
+              feedback:"The congestion settings are only the setup. This checkpoint asks whether the RoCE path performs well in practice."
+            }
+          ],
+          success:"RoCE bandwidth probe accepted. Replaying the authored RoCE evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the RoCE bandwidth snapshot as the practical proof that the Ethernet RDMA path is healthy enough for work. The important cue is steady bandwidth in the expected range, not just a benchmark that ran.",
         screenshots:[
@@ -464,6 +508,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         cmd:"ethtool -S eth0",
         type:"roce_fault",
         fault:true,
+        terminal:{
+          examples:["ethtool -S eth0","simulate pfc storm"],
+          accepted:["ethtool -S eth0","simulate pfc storm"],
+          weak:[
+            {
+              match:["reboot","ifdown eth0"],
+              feedback:"Too broad. This checkpoint is about recognizing a soft congestion-control failure while the link still stays up."
+            }
+          ],
+          success:"RoCE fault probe accepted. Replaying the authored RoCE evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the pause-counter snapshot to recognize a soft network-control failure. The key clue is rapidly rising pause counters, because that explains slowdown without requiring a hard link-down event.",
         screenshots:[
@@ -501,6 +556,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Tune Buffers",
         cmd:"# Tuning switch",
         type:"roce_fix",
+        terminal:{
+          examples:["tune switch buffers","apply ecn threshold 48kb"],
+          accepted:["tune switch buffers","apply ecn threshold 48kb"],
+          weak:[
+            {
+              match:["ethtool -S eth0","simulate pfc storm"],
+              feedback:"The storm evidence is already visible. This checkpoint is about a narrow congestion-control fix tied to that signal."
+            }
+          ],
+          success:"RoCE remediation probe accepted. Replaying the authored RoCE evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Treat the remediation snapshot as a narrow congestion-control fix, not a magic reset. The key thing is that the change matches the earlier pause-storm evidence rather than blindly touching unrelated knobs.",
         screenshots:[
