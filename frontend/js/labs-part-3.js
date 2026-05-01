@@ -14,6 +14,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Check Ports",
         cmd:"ibstat",
         type:"ib_stat",
+        terminal:{
+          examples:["ibstat","ibstatus"],
+          accepted:["ibstat","ibstatus"],
+          weak:[
+            {
+              match:["perfquery","ib_write_bw"],
+              feedback:"Those probes matter later, but this checkpoint starts with whether the fabric path is actually up."
+            }
+          ],
+          success:"Port-state probe accepted. Replaying the authored fabric evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the port-state snapshot as the first fabric health gate. The key clue is the explicit Active state, because no higher-level tuning matters if the fast path is not even up.",
         screenshots:[
@@ -52,6 +63,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Check Errors",
         cmd:"perfquery",
         type:"ib_perfq",
+        terminal:{
+          examples:["perfquery","perfquery -x"],
+          accepted:["perfquery","perfquery -x"],
+          weak:[
+            {
+              match:["ibstat","ibstatus"],
+              feedback:"Link state is already useful context. This checkpoint asks whether the active path is actually clean under traffic."
+            }
+          ],
+          success:"Counter probe accepted. Replaying the authored fabric evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the counter snapshot to separate an available port from a clean port. The important thing is whether error counters stay flat instead of creeping upward under traffic.",
         screenshots:[
@@ -90,6 +112,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"RDMA BW Test",
         cmd:"ib_write_bw",
         type:"ib_bw",
+        terminal:{
+          examples:["ib_write_bw","ib_write_bw -d mlx5_0"],
+          accepted:["ib_write_bw","ib_write_bw -d mlx5_0"],
+          weak:[
+            {
+              match:["perfquery","perfquery -x"],
+              feedback:"Counters are only the setup. This checkpoint asks whether the fabric delivers real throughput in practice."
+            }
+          ],
+          success:"Bandwidth probe accepted. Replaying the authored fabric evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the RDMA bandwidth snapshot as the practical proof that the fabric can carry the kind of traffic the cluster expects. The key clue is throughput in the expected healthy range, not just benchmark completion.",
         screenshots:[
@@ -128,6 +161,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         cmd:"# Cable unplugged",
         type:"ib_fault",
         fault:true,
+        terminal:{
+          examples:["simulate port down","unplug ib cable"],
+          accepted:["simulate port down","unplug ib cable"],
+          weak:[
+            {
+              match:["reboot","systemctl restart opensm"],
+              feedback:"Too broad. This checkpoint is about recognizing a missing fabric path, not jumping to host-wide recovery."
+            }
+          ],
+          success:"Port-fault probe accepted. Replaying the authored fabric evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Treat the port-down snapshot as a topology break, not a cosmetic host issue. The key clue is the explicit Down state, because that means the fast network path itself is gone.",
         screenshots:[
@@ -166,6 +210,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"ibdiagnet",
         cmd:"ibdiagnet --pc",
         type:"ib_diag",
+        terminal:{
+          examples:["ibdiagnet --pc","ibdiagnet --pc --local"],
+          accepted:["ibdiagnet --pc","ibdiagnet --pc --local"],
+          weak:[
+            {
+              match:["ibstat","perfquery"],
+              feedback:"The host-local clues are already visible. This checkpoint widens scope to test whether the bad path shows up in broader fabric diagnostics."
+            }
+          ],
+          success:"Fabric-diagnostic probe accepted. Replaying the authored fabric evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the broader diagnostic snapshot to decide whether the fault story stays local or starts to look shared. The key thing is whether the wider fabric diagnostic echoes the same bad path you saw locally.",
         screenshots:[
@@ -203,6 +258,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Sweep Fabric",
         cmd:"ibdiagnet --pc --pm",
         type:"ib_sweep",
+        terminal:{
+          examples:["ibdiagnet --pc --pm","ibdiagnet --topology"],
+          accepted:["ibdiagnet --pc --pm","ibdiagnet --topology"],
+          weak:[
+            {
+              match:["ibdiagnet --pc","ibdiagnet --pc --local"],
+              feedback:"The local diagnostic already found the suspect path. This checkpoint asks for blast-radius proof across the wider fabric."
+            }
+          ],
+          success:"Fabric-sweep probe accepted. Replaying the authored fabric evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the sweep snapshot to define blast radius instead of guessing it. The key clue is whether the bad pattern repeats across multiple paths or stays isolated to one endpoint pair.",
         screenshots:[
@@ -481,6 +547,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Diagnose",
         cmd:"NCCL_DEBUG=INFO torchrun train.py",
         type:"fb_diag",
+        terminal:{
+          examples:["NCCL_DEBUG=INFO torchrun train.py","NCCL_DEBUG=INFO ./all_reduce_perf"],
+          accepted:["NCCL_DEBUG=INFO torchrun train.py","NCCL_DEBUG=INFO ./all_reduce_perf"],
+          weak:[
+            {
+              match:["nvidia-smi","nvidia-smi topo -m"],
+              feedback:"Useful context, but it does not tell you which transport NCCL actually selected. Start with the NCCL path evidence."
+            }
+          ],
+          success:"NCCL path probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the fallback-diagnosis snapshot to identify the wrong transport immediately. The key clue is NCCL naming Socket or TCP instead of IB, because that explains slow success before deeper debugging begins.",
         screenshots:[
@@ -518,6 +595,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Check Env",
         cmd:"env | grep NCCL",
         type:"fb_env",
+        terminal:{
+          examples:["env | grep NCCL","printenv | grep NCCL"],
+          accepted:["env | grep NCCL","printenv | grep NCCL"],
+          weak:[
+            {
+              match:["ibstat"],
+              feedback:"InfiniBand state matters, but this step first asks whether configuration alone is forcing the wrong path."
+            }
+          ],
+          success:"Environment probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Read the environment snapshot as the cheapest root-cause check first. The important thing is whether a single variable already explains the whole fallback story.",
         screenshots:[
@@ -554,6 +642,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Check ibstat",
         cmd:"ibstat",
         type:"fb_ib",
+        terminal:{
+          examples:["ibstat","ibstatus"],
+          accepted:["ibstat","ibstatus"],
+          weak:[
+            {
+              match:["env | grep NCCL","printenv | grep NCCL"],
+              feedback:"Environment is already part of the story. This checkpoint is narrower: verify whether the fast transport is actually available."
+            }
+          ],
+          success:"InfiniBand availability probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the ibstat snapshot to compare transport availability against NCCL's path choice. The key clue is that IB can be healthy while NCCL still ignores it due to selection problems.",
         screenshots:[
@@ -592,6 +691,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Set IB_HCA",
         cmd:"export NCCL_IB_HCA=mlx5_0",
         type:"fb_fix",
+        terminal:{
+          examples:["export NCCL_IB_HCA=mlx5_0","unset NCCL_IB_DISABLE"],
+          accepted:["export NCCL_IB_HCA=mlx5_0","unset NCCL_IB_DISABLE"],
+          weak:[
+            {
+              match:["export NCCL_IB_HCA=mlx5_1","export NCCL_SOCKET_IFNAME=eth0"],
+              feedback:"That changes transport selection, but not toward the evidence-backed device from the previous step. Keep the fix narrow and specific."
+            }
+          ],
+          success:"Targeted transport fix accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the HCA-fix snapshot as the narrowest evidence-backed correction. The important thing is matching NCCL to the actual active HCA you just verified.",
         screenshots:[
@@ -629,6 +739,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Verify Fixed",
         cmd:"NCCL_DEBUG=INFO torchrun",
         type:"fb_verify",
+        terminal:{
+          examples:["NCCL_DEBUG=INFO torchrun","NCCL_DEBUG=INFO ./all_reduce_perf"],
+          accepted:["NCCL_DEBUG=INFO torchrun","NCCL_DEBUG=INFO ./all_reduce_perf"],
+          weak:[
+            {
+              match:["export NCCL_IB_HCA=mlx5_0","unset NCCL_IB_DISABLE"],
+              feedback:"The fix is already the previous step. This checkpoint needs behavior proof that NCCL changed paths."
+            }
+          ],
+          success:"Post-fix verification probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the verify snapshot to prove the behavior changed, not just the settings. The key clue is NCCL naming IB again after the fix.",
         screenshots:[
@@ -666,6 +787,17 @@ window.AEGIS_LABS_PARTS.network_and_storage = {
         label:"Compare BW",
         cmd:"./perf",
         type:"fb_bench",
+        terminal:{
+          examples:["./perf","./all_reduce_perf -g 16"],
+          accepted:["./perf","./all_reduce_perf -g 16"],
+          weak:[
+            {
+              match:["NCCL_DEBUG=INFO torchrun","NCCL_DEBUG=INFO ./all_reduce_perf"],
+              feedback:"Cleaner logs are useful, but this checkpoint is about user-visible throughput recovery."
+            }
+          ],
+          success:"Bandwidth comparison accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the throughput-comparison snapshot as the final proof that the restored fast path matters to users. The important thing is seeing recovered bandwidth, not just cleaner logs.",
         screenshots:[

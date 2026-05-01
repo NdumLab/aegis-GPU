@@ -616,6 +616,36 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'lab_terminal_ib_fabric') {
+      loadLab('ib_fabric');
+      selectStep('ib_fabric', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'ib_fabric' || currentStep !== 0) throw new Error('failed to enter ib fabric terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('ib fabric terminal help missing accepted probes');
+      if (!helpText.includes('ibstat')) throw new Error('ib fabric terminal help missing port-state example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('perfquery');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('this checkpoint starts with whether the fabric path is actually up')) throw new Error('ib fabric weak-command guidance missing');
+      if (!weakText.includes('Try instead: ibstat')) throw new Error('ib fabric weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('ibstat');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('State: Active')) throw new Error('ib fabric accepted command did not replay active-port evidence');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal ib fabric flow verified', details);
+      return;
+    }
+
     const scenarios = {
       ecc_best: { labId: 'ecc', stepIdx: 3, choiceId: 'contain', expectedEffect: 'best', expectDetour: false },
       ecc_warn: { labId: 'ecc', stepIdx: 3, choiceId: 'retry', expectedRedirect: 'ECC Containment Decision', expectedChainLength: 2, expectedEffect: 'warn', expectDetour: true },

@@ -384,3 +384,16 @@ Entry 28
     - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
     - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
     - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_allreduce python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 29
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the InfiniBand Fabric lab
+- Notes:
+  - Added per-step limited-terminal metadata for all InfiniBand Fabric checkpoints: port state, error counters, RDMA bandwidth, port-down fault, focused fabric diagnostics, and blast-radius sweep
+  - Extended frontend/tests/test_lab_data_structure.py so the InfiniBand Fabric lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the InfiniBand Fabric limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-3.js and /var/www/html/js/branching.js contain the new InfiniBand limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_ib_fabric python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
