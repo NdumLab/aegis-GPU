@@ -269,6 +269,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Pull NGC",
         cmd:"docker pull nvcr.io/nvidia/pytorch",
         type:"ngc_pull",
+        terminal:{
+          examples:["docker pull nvcr.io/nvidia/pytorch","docker pull nvcr.io/nvidia/pytorch:24.03-py3"],
+          accepted:["docker pull nvcr.io/nvidia/pytorch","docker pull nvcr.io/nvidia/pytorch:24.03-py3"],
+          weak:[
+            {
+              match:["docker run --gpus all","docker run --rm --gpus all nvcr.io/nvidia/pytorch:24.03-py3 nvidia-smi -L"],
+              feedback:"Runtime wiring matters later, but this checkpoint starts by locking the image baseline itself."
+            }
+          ],
+          success:"Image-baseline probe accepted. Replaying the authored container evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the pull snapshot to anchor the environment around an exact image tag. The key clue is the explicit NGC tag and digest, because that is what makes the environment reproducible later.",
         screenshots:[
@@ -307,6 +318,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Run with GPU",
         cmd:"docker run --gpus all",
         type:"ngc_run",
+        terminal:{
+          examples:["docker run --gpus all","docker run --rm --gpus all nvcr.io/nvidia/pytorch:24.03-py3 nvidia-smi -L"],
+          accepted:["docker run --gpus all","docker run --rm --gpus all nvcr.io/nvidia/pytorch:24.03-py3 nvidia-smi -L"],
+          weak:[
+            {
+              match:["docker pull nvcr.io/nvidia/pytorch","docker pull nvcr.io/nvidia/pytorch:24.03-py3"],
+              feedback:"The image baseline is already set. This checkpoint asks whether the runtime is actually exposing GPUs inside the container."
+            }
+          ],
+          success:"Runtime probe accepted. Replaying the authored container evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Treat the runtime snapshot as a bridge check between the image and the hardware. The important thing is seeing explicit GPU exposure inside the container path, not just a container that happens to start.",
         screenshots:[
@@ -344,6 +366,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Verify Inside",
         cmd:"docker run --gpus all python3 -c \"import torch\"",
         type:"ngc_verify",
+        terminal:{
+          examples:["docker run --gpus all python3 -c \"import torch\"","docker run --gpus all python3 -c \"import torch; print(torch.cuda.device_count())\""],
+          accepted:["docker run --gpus all python3 -c \"import torch\"","docker run --gpus all python3 -c \"import torch; print(torch.cuda.device_count())\""],
+          weak:[
+            {
+              match:["docker run --gpus all","docker run --rm --gpus all nvcr.io/nvidia/pytorch:24.03-py3 nvidia-smi -L"],
+              feedback:"Runtime exposure is only the bridge. This checkpoint asks whether the framework inside the image can really use CUDA."
+            }
+          ],
+          success:"In-container framework probe accepted. Replaying the authored container evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the in-container framework snapshot as the first real proof point. The key move is confirming that PyTorch inside the image sees CUDA, not just that the host or runtime does.",
         screenshots:[
@@ -383,6 +416,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Start Training",
         cmd:"docker run --gpus all python3 train.py",
         type:"ngc_train",
+        terminal:{
+          examples:["docker run --gpus all python3 train.py","docker run --rm --gpus all nvcr.io/nvidia/pytorch:24.03-py3 python3 train.py"],
+          accepted:["docker run --gpus all python3 train.py","docker run --rm --gpus all nvcr.io/nvidia/pytorch:24.03-py3 python3 train.py"],
+          weak:[
+            {
+              match:["docker run --gpus all python3 -c \"import torch\"","docker run --gpus all python3 -c \"import torch; print(torch.cuda.device_count())\""],
+              feedback:"Smoke checks already proved basic visibility. This checkpoint is about end-to-end workload progress."
+            }
+          ],
+          success:"Training probe accepted. Replaying the authored container evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Read the training snapshot as the first end-to-end workload proof. The important thing is that the job progresses beyond startup into real iterations, because that separates a bootable image from a usable one.",
         screenshots:[
@@ -420,6 +464,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Monitor Inside",
         cmd:"docker exec nvidia-smi dmon",
         type:"ngc_monitor",
+        terminal:{
+          examples:["docker exec nvidia-smi dmon","docker exec trainer nvidia-smi dmon"],
+          accepted:["docker exec nvidia-smi dmon","docker exec trainer nvidia-smi dmon"],
+          weak:[
+            {
+              match:["docker run --gpus all python3 train.py","docker run --rm --gpus all nvcr.io/nvidia/pytorch:24.03-py3 python3 train.py"],
+              feedback:"The workload launch is already the previous step. This checkpoint asks whether live GPU activity matches the training story."
+            }
+          ],
+          success:"Live-monitoring probe accepted. Replaying the authored container evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the runtime-monitoring snapshot to confirm that the running workload is truly exercising the GPU. The important visual cue is sustained utilization and power draw rather than a container that merely stays alive.",
         screenshots:[

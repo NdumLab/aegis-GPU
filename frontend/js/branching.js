@@ -526,6 +526,36 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'lab_terminal_container') {
+      loadLab('container');
+      selectStep('container', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'container' || currentStep !== 0) throw new Error('failed to enter container terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('container terminal help missing accepted probes');
+      if (!helpText.includes('docker pull nvcr.io/nvidia/pytorch')) throw new Error('container terminal help missing image example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('docker run --gpus all');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('this checkpoint starts by locking the image baseline itself')) throw new Error('container weak-command guidance missing');
+      if (!weakText.includes('Try instead: docker pull nvcr.io/nvidia/pytorch')) throw new Error('container weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('docker pull nvcr.io/nvidia/pytorch');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('Status: Downloaded nvidia/pytorch:24.01-py3')) throw new Error('container accepted command did not replay image-baseline evidence');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal container flow verified', details);
+      return;
+    }
+
     const scenarios = {
       ecc_best: { labId: 'ecc', stepIdx: 3, choiceId: 'contain', expectedEffect: 'best', expectDetour: false },
       ecc_warn: { labId: 'ecc', stepIdx: 3, choiceId: 'retry', expectedRedirect: 'ECC Containment Decision', expectedChainLength: 2, expectedEffect: 'warn', expectDetour: true },
