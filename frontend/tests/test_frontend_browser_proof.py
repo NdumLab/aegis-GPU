@@ -150,6 +150,10 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 'expected_details': ['terminal-help-visible', 'terminal-weak-feedback', 'terminal-accepted-output'],
             },
             {
+                'name': 'lab_terminal_mig',
+                'expected_details': ['terminal-help-visible', 'terminal-weak-feedback', 'terminal-accepted-output'],
+            },
+            {
                 'name': 'ecc_bad',
                 'expected_details': ['effect-bad', 'detour-rendered', 'redirected-main-step'],
             },

@@ -436,3 +436,16 @@ Entry 32
     - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
     - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
     - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_gds python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 33
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the MIG Partitioning lab
+- Notes:
+  - Added per-step limited-terminal metadata for all MIG Partitioning checkpoints: enablement, instance creation, instance listing, tenant assignment, and cleanup back to full-GPU mode
+  - Extended frontend/tests/test_lab_data_structure.py so the MIG lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the MIG limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-1.js and /var/www/html/js/branching.js contain the new MIG limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_mig python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v

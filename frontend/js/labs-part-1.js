@@ -14,6 +14,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"View Topology",
         cmd:"nvidia-smi topo -m",
         type:"topo",
+        terminal:{
+          examples:["nvidia-smi topo -m","nvidia-smi topo --matrix"],
+          accepted:["nvidia-smi topo -m","nvidia-smi topo --matrix"],
+          weak:[
+            {
+              match:["nvidia-smi","nvidia-smi -L"],
+              feedback:"Useful inventory check, but it does not prove the GPU-to-GPU path shape. Start with the topology matrix."
+            }
+          ],
+          success:"Topology probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Start with the topology snapshot and verify that the matrix stays dominated by NV4 entries. If your eyes land on PHB or another weaker path in the screenshot, treat that as a topology problem before you even benchmark.",
         screenshots:[
@@ -57,6 +68,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Check NVLink Errors",
         cmd:"nvidia-smi nvlink -e",
         type:"nvlink_err",
+        terminal:{
+          examples:["nvidia-smi nvlink -e","nvidia-smi nvlink --error-counters"],
+          accepted:["nvidia-smi nvlink -e","nvidia-smi nvlink --error-counters"],
+          weak:[
+            {
+              match:["nvidia-smi topo -m"],
+              feedback:"Topology is already useful, but this step is narrower: you need the per-link error counters before trusting the path."
+            }
+          ],
+          success:"NVLink counter probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the snapshot to scan for the one thing that matters first: clean zeroed counters. If a row in the screenshot breaks that pattern, that is the link you should distrust before moving on.",
         screenshots:[
@@ -99,6 +121,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Benchmark AllReduce",
         cmd:"./nccl-tests/build/all_reduce_perf -b 1G -e 4G -f 2 -g 8",
         type:"benchmark",
+        terminal:{
+          examples:["./nccl-tests/build/all_reduce_perf -b 1G -e 4G -f 2 -g 8","./nccl-tests/all_reduce_perf -g 8"],
+          accepted:["./nccl-tests/build/all_reduce_perf -b 1G -e 4G -f 2 -g 8","./nccl-tests/all_reduce_perf -g 8"],
+          weak:[
+            {
+              match:["nvidia-smi dmon","nvidia-smi"],
+              feedback:"Useful GPU visibility check, but this step is about proving collective bandwidth on the fast path."
+            }
+          ],
+          success:"Collective benchmark accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Read the benchmark snapshot as the operational proof of the earlier healthy screenshots. The bandwidth line should look strong enough that it does not contradict the clean topology and clean counter story.",
         screenshots:[
@@ -140,6 +173,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         cmd:"# Simulating NVLink failure",
         type:"nvlink_fault",
         fault:true,
+        terminal:{
+          examples:["inject nvlink fault","simulate phb fallback"],
+          accepted:["inject nvlink fault","simulate phb fallback"],
+          weak:[
+            {
+              match:["reboot","systemctl restart"],
+              feedback:"Too broad. This fault step is about observing the degraded path, not trying a host-level reset first."
+            }
+          ],
+          success:"Fault injection accepted. Replaying the authored degraded evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Compare this degraded snapshot against the first topology screenshot. The important move is noticing that NV4 gave way to PHB, because that visual shift explains why the workload is about to slow down.",
         screenshots:[
@@ -183,6 +227,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Diagnose Fallback",
         cmd:"NCCL_DEBUG=INFO torchrun train.py",
         type:"nccl_diag",
+        terminal:{
+          examples:["NCCL_DEBUG=INFO torchrun train.py","NCCL_DEBUG=INFO ./all_reduce_perf"],
+          accepted:["NCCL_DEBUG=INFO torchrun train.py","NCCL_DEBUG=INFO ./all_reduce_perf"],
+          weak:[
+            {
+              match:["nvidia-smi topo -m","nvidia-smi nvlink -e"],
+              feedback:"Those probes were right earlier, but this step is asking for the software-layer confirmation of the fallback path."
+            }
+          ],
+          success:"NCCL fallback probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the NCCL snapshot to confirm what the degraded topology screenshot already suggested. When the log starts naming socket or fallback behavior, treat it as software evidence that matches the earlier hardware-path break.",
         screenshots:[
@@ -232,6 +287,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Enable MIG Mode",
         cmd:"sudo nvidia-smi -i 0 -mig 1",
         type:"mig_enable",
+        terminal:{
+          examples:["sudo nvidia-smi -i 0 -mig 1","nvidia-smi -i 0 -q | grep MIG"],
+          accepted:["sudo nvidia-smi -i 0 -mig 1","nvidia-smi -i 0 -q | grep MIG"],
+          weak:[
+            {
+              match:["nvidia-smi mig -lgi","nvidia-smi -L"],
+              feedback:"Inventory comes later. This checkpoint starts with the device-level mode change that makes partitioning possible at all."
+            }
+          ],
+          success:"MIG mode probe accepted. Replaying the authored enablement evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the snapshot to confirm that MIG mode actually flipped on at the device level. The key clue is the explicit enabled state, because everything else in this lab depends on that hardware transition happening first.",
         screenshots:[
@@ -270,6 +336,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Create 7 Instances",
         cmd:"sudo nvidia-smi mig -cgi 9,9,9,9,9,9,9 -C",
         type:"mig_create",
+        terminal:{
+          examples:["sudo nvidia-smi mig -cgi 9,9,9,9,9,9,9 -C","sudo nvidia-smi mig -cgi 9,9,9,9,9,9,9 --create-gpu-instances"],
+          accepted:["sudo nvidia-smi mig -cgi 9,9,9,9,9,9,9 -C","sudo nvidia-smi mig -cgi 9,9,9,9,9,9,9 --create-gpu-instances"],
+          weak:[
+            {
+              match:["nvidia-smi mig -lgi","nvidia-smi -L"],
+              feedback:"Verification is next. This checkpoint is where you actually carve the seven 1g.10gb slices into the GPU."
+            }
+          ],
+          success:"MIG instance-creation probe accepted. Replaying the authored partition evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Read the creation snapshot as proof of exactly what layout you asked the GPU to build. If the screenshot does not show seven created instances, do not mentally round it up and assume the layout is correct.",
         screenshots:[
@@ -310,6 +387,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"List Instances",
         cmd:"nvidia-smi mig -lgi",
         type:"mig_list",
+        terminal:{
+          examples:["nvidia-smi mig -lgi","nvidia-smi mig --list-gpu-instance"],
+          accepted:["nvidia-smi mig -lgi","nvidia-smi mig --list-gpu-instance"],
+          weak:[
+            {
+              match:["sudo nvidia-smi mig -cgi 9,9,9,9,9,9,9 -C"],
+              feedback:"Creation intent is already useful, but this checkpoint is about verifying the resulting hardware state."
+            }
+          ],
+          success:"MIG listing probe accepted. Replaying the authored verification evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the listing snapshot as your verification source of truth. The important move is matching the visible seven instances in the screenshot against the seven-instance plan you thought you created one step earlier.",
         screenshots:[
@@ -350,6 +438,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Assign Workloads",
         cmd:"# Assigning 3 teams",
         type:"mig_assign",
+        terminal:{
+          examples:["cat /opt/aegis/mig-assignments.txt","less /opt/aegis/mig-assignments.txt"],
+          accepted:["cat /opt/aegis/mig-assignments.txt","less /opt/aegis/mig-assignments.txt"],
+          weak:[
+            {
+              match:["nvidia-smi mig -lgi","nvidia-smi -L"],
+              feedback:"Slice inventory is already verified. This checkpoint is about showing how teams map onto those slices in practice."
+            }
+          ],
+          success:"MIG assignment probe accepted. Replaying the authored tenant-mapping evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Treat the assignment snapshot as an operating model, not a shell transcript. The value is seeing which teams consume which slices so you can reason about isolation and oversubscription at a glance.",
         screenshots:[
@@ -387,6 +486,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Disable MIG",
         cmd:"sudo nvidia-smi -i 0 -mig 0",
         type:"mig_disable",
+        terminal:{
+          examples:["sudo nvidia-smi -i 0 -mig 0","nvidia-smi -i 0 -q | grep MIG"],
+          accepted:["sudo nvidia-smi -i 0 -mig 0","nvidia-smi -i 0 -q | grep MIG"],
+          weak:[
+            {
+              match:["cat /opt/aegis/mig-assignments.txt","nvidia-smi mig -lgi"],
+              feedback:"That still describes the partitioned state. This checkpoint is about proving the GPU returned to full-device mode."
+            }
+          ],
+          success:"MIG cleanup probe accepted. Replaying the authored full-GPU restore evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the cleanup snapshot to verify that the hardware contract really changed back to full-device mode. If the screenshot still suggests MIG is enabled, do not assume cleanup happened just because you expected it to.",
         screenshots:[

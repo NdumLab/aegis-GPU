@@ -736,6 +736,36 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'lab_terminal_mig') {
+      loadLab('mig');
+      selectStep('mig', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'mig' || currentStep !== 0) throw new Error('failed to enter mig terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('mig terminal help missing accepted probes');
+      if (!helpText.includes('sudo nvidia-smi -i 0 -mig 1')) throw new Error('mig terminal help missing enablement example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('nvidia-smi mig -lgi');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('device-level mode change that makes partitioning possible at all')) throw new Error('mig weak-command guidance missing');
+      if (!weakText.includes('Try instead: sudo nvidia-smi -i 0 -mig 1')) throw new Error('mig weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('sudo nvidia-smi -i 0 -mig 1');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('Enabled MIG Mode for GPU 0')) throw new Error('mig accepted command did not replay enablement evidence');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal mig flow verified', details);
+      return;
+    }
+
     const scenarios = {
       ecc_best: { labId: 'ecc', stepIdx: 3, choiceId: 'contain', expectedEffect: 'best', expectDetour: false },
       ecc_warn: { labId: 'ecc', stepIdx: 3, choiceId: 'retry', expectedRedirect: 'ECC Containment Decision', expectedChainLength: 2, expectedEffect: 'warn', expectDetour: true },
