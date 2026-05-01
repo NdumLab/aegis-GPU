@@ -371,3 +371,16 @@ Entry 27
     - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
     - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
     - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_training python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 28
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the AllReduce Deep Dive lab
+- Notes:
+  - Added per-step limited-terminal metadata for all AllReduce Deep Dive checkpoints: path selection, ring reduce, ring gather, throughput benchmark, soft fallback fault, and IB-path restoration
+  - Extended frontend/tests/test_lab_data_structure.py so the AllReduce lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the AllReduce limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-2.js and /var/www/html/js/branching.js contain the new AllReduce limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_allreduce python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v

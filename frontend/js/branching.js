@@ -586,6 +586,36 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'lab_terminal_allreduce') {
+      loadLab('allreduce');
+      selectStep('allreduce', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'allreduce' || currentStep !== 0) throw new Error('failed to enter allreduce terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('allreduce terminal help missing accepted probes');
+      if (!helpText.includes('NCCL_DEBUG=INFO torchrun train.py')) throw new Error('allreduce terminal help missing path example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('./all_reduce_perf');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('this checkpoint starts with whether NCCL selected the intended collective transport at all')) throw new Error('allreduce weak-command guidance missing');
+      if (!weakText.includes('Try instead: NCCL_DEBUG=INFO torchrun train.py')) throw new Error('allreduce weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('NCCL_DEBUG=INFO torchrun train.py');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('NCCL INFO Using network IB')) throw new Error('allreduce accepted command did not replay path evidence');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal allreduce flow verified', details);
+      return;
+    }
+
     const scenarios = {
       ecc_best: { labId: 'ecc', stepIdx: 3, choiceId: 'contain', expectedEffect: 'best', expectDetour: false },
       ecc_warn: { labId: 'ecc', stepIdx: 3, choiceId: 'retry', expectedRedirect: 'ECC Containment Decision', expectedChainLength: 2, expectedEffect: 'warn', expectDetour: true },

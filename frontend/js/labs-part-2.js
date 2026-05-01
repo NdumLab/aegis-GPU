@@ -822,6 +822,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Check Path",
         cmd:"NCCL_DEBUG=INFO torchrun train.py",
         type:"nccl_path",
+        terminal:{
+          examples:["NCCL_DEBUG=INFO torchrun train.py","NCCL_DEBUG=INFO ./all_reduce_perf"],
+          accepted:["NCCL_DEBUG=INFO torchrun train.py","NCCL_DEBUG=INFO ./all_reduce_perf"],
+          weak:[
+            {
+              match:["./all_reduce_perf","export NCCL_IB_DISABLE=1"],
+              feedback:"Those probes matter later, but this checkpoint starts with whether NCCL selected the intended collective transport at all."
+            }
+          ],
+          success:"Collective-path probe accepted. Replaying the authored AllReduce evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the NCCL path snapshot to identify the selected transport before you trust any benchmark. The key clue is the explicit transport language, because that tells you whether the collective started on the intended fast path.",
         screenshots:[
@@ -859,6 +870,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Ring Reduce",
         cmd:"# Step 1/8",
         type:"ring1",
+        terminal:{
+          examples:["simulate ring reduce","step ring reduce"],
+          accepted:["simulate ring reduce","step ring reduce"],
+          weak:[
+            {
+              match:["NCCL_DEBUG=INFO torchrun train.py","NCCL_DEBUG=INFO ./all_reduce_perf"],
+              feedback:"Path selection is already established. This checkpoint is about the first coordinated handoff phase inside the ring."
+            }
+          ],
+          success:"Ring-reduce probe accepted. Replaying the authored AllReduce evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Read the ring-reduce snapshot as the first half of the collective relay. The important thing is that each hop progresses smoothly, because one slow handoff can drag the whole ring.",
         screenshots:[
@@ -896,6 +918,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Ring Gather",
         cmd:"# Step 8/8",
         type:"ring2",
+        terminal:{
+          examples:["simulate ring gather","step ring gather"],
+          accepted:["simulate ring gather","step ring gather"],
+          weak:[
+            {
+              match:["simulate ring reduce","step ring reduce"],
+              feedback:"The reduce side already progressed. This checkpoint is about the synchronized result coming back to every rank."
+            }
+          ],
+          success:"Ring-gather probe accepted. Replaying the authored AllReduce evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the ring-gather snapshot to confirm that the synchronized result returns to every rank, not just some of them. The key clue is completion across the full ring rather than partial progress.",
         screenshots:[
@@ -933,6 +966,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Benchmark",
         cmd:"./all_reduce_perf",
         type:"ar_bench",
+        terminal:{
+          examples:["./all_reduce_perf","./nccl-tests/build/all_reduce_perf -g 8"],
+          accepted:["./all_reduce_perf","./nccl-tests/build/all_reduce_perf -g 8"],
+          weak:[
+            {
+              match:["simulate ring gather","step ring gather"],
+              feedback:"The ring phases explain the mechanism. This checkpoint asks for the user-visible throughput proof."
+            }
+          ],
+          success:"Collective benchmark accepted. Replaying the authored AllReduce evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the benchmark snapshot as the operational proof that the collective path is healthy in practice. The important thing is that the bandwidth looks like a strong fast-path result, not just a successful command.",
         screenshots:[
@@ -971,6 +1015,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         cmd:"export NCCL_IB_DISABLE=1",
         type:"ar_fault",
         fault:true,
+        terminal:{
+          examples:["export NCCL_IB_DISABLE=1","simulate ib disable"],
+          accepted:["export NCCL_IB_DISABLE=1","simulate ib disable"],
+          weak:[
+            {
+              match:["reboot","ifdown ib0"],
+              feedback:"Too broad. This checkpoint is about a soft transport fallback, not a host-level outage drill."
+            }
+          ],
+          success:"Fallback fault probe accepted. Replaying the authored AllReduce evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the fault snapshot to see what a soft transport failure looks like. The key clue is the explicit fallback away from IB, because that explains why throughput can collapse even while the job stays up.",
         screenshots:[
@@ -1008,6 +1063,17 @@ window.AEGIS_LABS_PARTS.runtime_and_training = {
         label:"Fix IB Path",
         cmd:"unset NCCL_IB_DISABLE",
         type:"ar_fix",
+        terminal:{
+          examples:["unset NCCL_IB_DISABLE","restore ib path"],
+          accepted:["unset NCCL_IB_DISABLE","restore ib path"],
+          weak:[
+            {
+              match:["export NCCL_IB_DISABLE=1","simulate ib disable"],
+              feedback:"The fault was already introduced. This checkpoint is about restoring the fast path and proving it came back."
+            }
+          ],
+          success:"IB-restoration probe accepted. Replaying the authored AllReduce evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Read the fix snapshot as proof that the intended fast path came back, not just that a variable was unset. The important thing is seeing IB selected again after the change.",
         screenshots:[
