@@ -345,6 +345,97 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'lab_terminal_nvlink') {
+      loadLab('nvlink');
+      selectStep('nvlink', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'nvlink' || currentStep !== 0) throw new Error('failed to enter nvlink terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('terminal help output missing accepted probes');
+      if (!helpText.includes('nvidia-smi topo -m')) throw new Error('terminal help output missing topology example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('nvidia-smi -L');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('Useful inventory check')) throw new Error('terminal weak-command guidance missing');
+      if (!weakText.includes('Try instead: nvidia-smi topo -m')) throw new Error('terminal weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('nvidia-smi topo -m');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('GPU0     X    NV4')) throw new Error('terminal accepted command did not replay topology evidence');
+      if (!acceptedText.includes('NV4 = connected via NVLink (4 links)')) throw new Error('terminal accepted command missing authored topology conclusion');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal nvlink flow verified', details);
+      return;
+    }
+
+    if (scenario === 'lab_terminal_nccl_fallback') {
+      loadLab('nccl_fallback');
+      selectStep('nccl_fallback', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'nccl_fallback' || currentStep !== 0) throw new Error('failed to enter nccl fallback terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('nccl fallback terminal help missing accepted probes');
+      if (!helpText.includes('NCCL_DEBUG=INFO torchrun train.py')) throw new Error('nccl fallback terminal help missing diagnosis example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('nvidia-smi topo -m');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('it does not tell you which transport NCCL actually selected')) throw new Error('nccl fallback weak-command guidance missing');
+      if (!weakText.includes('Try instead: NCCL_DEBUG=INFO torchrun train.py')) throw new Error('nccl fallback weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('NCCL_DEBUG=INFO torchrun train.py');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('NCCL WARN Using network Socket')) throw new Error('nccl fallback accepted command did not replay transport warning');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal nccl fallback flow verified', details);
+      return;
+    }
+
+    if (scenario === 'lab_terminal_k8s') {
+      loadLab('k8s');
+      selectStep('k8s', 0);
+      await browserSmokeWait(80);
+      if (currentLab !== 'k8s' || currentStep !== 0) throw new Error('failed to enter k8s terminal step');
+
+      executeLabTerminalCommand('help');
+      await browserSmokeWait(80);
+      const helpText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!helpText.includes('Accepted probes for the current checkpoint')) throw new Error('k8s terminal help missing accepted probes');
+      if (!helpText.includes('kubectl get pods -n gpu-operator')) throw new Error('k8s terminal help missing operator example');
+      details.push('terminal-help-visible');
+
+      executeLabTerminalCommand('kubectl get nodes');
+      await browserSmokeWait(80);
+      const weakText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!weakText.includes('this lab starts by proving the GPU enablement layer is healthy')) throw new Error('k8s weak-command guidance missing');
+      if (!weakText.includes('Try instead: kubectl get pods -n gpu-operator')) throw new Error('k8s weak-command suggestion missing');
+      details.push('terminal-weak-feedback');
+
+      executeLabTerminalCommand('kubectl get pods -n gpu-operator');
+      await browserSmokeWait(900);
+      const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!acceptedText.includes('nvidia-device-plugin READY 1/1')) throw new Error('k8s accepted command did not replay operator evidence');
+      details.push('terminal-accepted-output');
+
+      setBrowserSmokeResult('pass', 'limited terminal k8s flow verified', details);
+      return;
+    }
+
     const scenarios = {
       ecc_best: { labId: 'ecc', stepIdx: 3, choiceId: 'contain', expectedEffect: 'best', expectDetour: false },
       ecc_warn: { labId: 'ecc', stepIdx: 3, choiceId: 'retry', expectedRedirect: 'ECC Containment Decision', expectedChainLength: 2, expectedEffect: 'warn', expectDetour: true },

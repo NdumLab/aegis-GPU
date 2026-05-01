@@ -98,6 +98,18 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 'expected_details': ['analytics-focus-visible', 'analytics-risk-visible', 'analytics-initial-rationale', 'analytics-domain-adapted', 'analytics-recovery-rationale'],
             },
             {
+                'name': 'lab_terminal_nvlink',
+                'expected_details': ['terminal-help-visible', 'terminal-weak-feedback', 'terminal-accepted-output'],
+            },
+            {
+                'name': 'lab_terminal_nccl_fallback',
+                'expected_details': ['terminal-help-visible', 'terminal-weak-feedback', 'terminal-accepted-output'],
+            },
+            {
+                'name': 'lab_terminal_k8s',
+                'expected_details': ['terminal-help-visible', 'terminal-weak-feedback', 'terminal-accepted-output'],
+            },
+            {
                 'name': 'ecc_bad',
                 'expected_details': ['effect-bad', 'detour-rendered', 'redirected-main-step'],
             },
