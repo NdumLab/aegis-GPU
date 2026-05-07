@@ -11,6 +11,7 @@ BRANCHING_JS = (ROOT / 'js' / 'branching.js').read_text(encoding='utf-8')
 COACH_JS = (ROOT / 'js' / 'coach.js').read_text(encoding='utf-8')
 STUDY_QUIZ_JS = (ROOT / 'js' / 'study-quiz.js').read_text(encoding='utf-8')
 RUNTIME_JS = (ROOT / 'js' / 'runtime.js').read_text(encoding='utf-8')
+LABS_PART1_JS = (ROOT / 'js' / 'labs-part-1.js').read_text(encoding='utf-8')
 FRONTEND_JS = APP_JS + '\n' + ANALYTICS_JS + '\n' + BRANCHING_JS + '\n' + COACH_JS + '\n' + STUDY_QUIZ_JS + '\n' + RUNTIME_JS
 
 
@@ -70,6 +71,8 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('function loadLab', FRONTEND_JS)
         self.assertIn('function runStep', FRONTEND_JS)
         self.assertIn('function runCurrentStep', FRONTEND_JS)
+        self.assertIn('function setTerminalModeEnabled', FRONTEND_JS)
+        self.assertIn('function updateTerminalModeUI', FRONTEND_JS)
         self.assertIn('function executeLabTerminalCommand', FRONTEND_JS)
         self.assertIn('function resolveLabTerminalCommand', FRONTEND_JS)
         self.assertIn('function initApp', FRONTEND_JS)
@@ -82,6 +85,15 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('Accepted probes for the current checkpoint', FRONTEND_JS)
         self.assertIn('LIVE DATACENTER VIEW', FRONTEND_JS)
         self.assertIn('AUTONOMOUS RUNBOOK', FRONTEND_JS)
+        self.assertIn('gpusim_terminal_mode', FRONTEND_JS)
+        self.assertIn('id="btn-terminal-mode"', INDEX)
+        self.assertIn('Turn on Terminal Mode', FRONTEND_JS)
+
+    def test_terminal_fixtures_cover_early_fault_labs(self):
+        self.assertIn('ECC baseline probe accepted', LABS_PART1_JS)
+        self.assertIn('simulate ecc degradation', LABS_PART1_JS)
+        self.assertIn('XID 48 alert probe accepted', LABS_PART1_JS)
+        self.assertIn('sudo nvidia-smi --gpu-reset -i 3', LABS_PART1_JS)
 
     def test_reasoning_scorecard_is_available(self):
         self.assertIn('getReasoningScorecardContext', FRONTEND_JS)

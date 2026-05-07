@@ -42,6 +42,7 @@ let backendLLMAvailable = false;
 let backendLLMMode = 'deterministic';
 let labCoachOpen = localStorage.getItem('gpusim_lab_coach_open');
 labCoachOpen = labCoachOpen === null ? true : labCoachOpen === 'true';
+let terminalModeEnabled = localStorage.getItem('gpusim_terminal_mode') === 'true';
 let detachedPanels = {
   liveExplainer: null,
   stepCoach: null,

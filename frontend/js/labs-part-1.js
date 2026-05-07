@@ -544,6 +544,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Healthy Baseline",
         cmd:"dcgmi dmon -e 156,157 -c 5",
         type:"ecc_healthy",
+        terminal:{
+          examples:["dcgmi dmon -e 156,157 -c 5","dcgmi dmon -e 156,157"],
+          accepted:["dcgmi dmon -e 156,157 -c 5","dcgmi dmon -e 156,157"],
+          weak:[
+            {
+              match:["nvidia-smi","dmesg | grep -i xid"],
+              feedback:"Useful later, but this baseline step is about clean ECC counters before any fault appears."
+            }
+          ],
+          success:"ECC baseline probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the baseline snapshot to lock in what healthy looks like before any fault appears. The important pattern is simple: SBE and DBE stay at zero across the whole visible polling window.",
         screenshots:[
@@ -585,6 +596,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         cmd:"# Simulating degradation",
         type:"ecc_sbe",
         fault:true,
+        terminal:{
+          examples:["simulate ecc degradation","inject sbe trend"],
+          accepted:["simulate ecc degradation","inject sbe trend"],
+          weak:[
+            {
+              match:["dcgmi dmon -e 156,157 -c 5"],
+              feedback:"That was the clean baseline. This step is about observing the warning-phase rise in corrected errors."
+            }
+          ],
+          success:"ECC warning phase injected. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Compare this warning snapshot to the baseline snapshot. The key visual change is that SBE started climbing while DBE stayed at zero, which means the memory story worsened without yet crossing into uncorrectable territory.",
         screenshots:[
@@ -625,6 +647,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Poll ECC Trend",
         cmd:"dcgmi dmon -e 156,157 -c 10",
         type:"ecc_trend",
+        terminal:{
+          examples:["dcgmi dmon -e 156,157 -c 10","dcgmi dmon -e 156,157 -c 8"],
+          accepted:["dcgmi dmon -e 156,157 -c 10","dcgmi dmon -e 156,157 -c 8"],
+          weak:[
+            {
+              match:["dmesg | grep -i xid","dcgmi dmon -e 157 -c 3"],
+              feedback:"Those are later escalation checks. This step is still about proving the corrected-error trend persists over time."
+            }
+          ],
+          success:"ECC trend poll accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the longer trend snapshot to answer a time-based question: is the SBE rise persisting? The screenshot should look worse than the prior warning snapshot in a way that proves the memory story is continuing, not resetting.",
         screenshots:[
@@ -668,6 +701,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         cmd:"dmesg | grep -i xid",
         type:"ecc_xid",
         fault:true,
+        terminal:{
+          examples:["dmesg | grep -i xid","journalctl -k | grep -i xid"],
+          accepted:["dmesg | grep -i xid","journalctl -k | grep -i xid"],
+          weak:[
+            {
+              match:["dcgmi dmon -e 156,157 -c 10","dcgmi dmon -e 156,157"],
+              feedback:"The counter trend set the context, but this step needs the hard fault event from the kernel log."
+            }
+          ],
+          success:"XID fault probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the XID snapshot to identify the moment the ECC story crosses into a hard fault. The visual clue is the explicit XID 48 line, because that line changes the operator response from watch closely to contain now.",
         screenshots:[
@@ -705,6 +749,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Drain Node",
         cmd:"kubectl drain gpu-node-03",
         type:"ecc_drain",
+        terminal:{
+          examples:["kubectl drain gpu-node-03","kubectl cordon gpu-node-03"],
+          accepted:["kubectl drain gpu-node-03","kubectl cordon gpu-node-03"],
+          weak:[
+            {
+              match:["dmesg | grep -i xid","dcgmi dmon -e 157 -c 3"],
+              feedback:"Those probes confirm the incident. This step is about containment so new work stops landing on the bad node."
+            }
+          ],
+          success:"Containment command accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the drain snapshot to distinguish containment from repair. The key thing to notice is scheduler removal language in the screenshot, because that tells you the cluster is being protected even though the GPU itself is not fixed yet.",
         screenshots:[
@@ -753,6 +808,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         cmd:"dmesg | tail -20 | grep xid",
         type:"xid48",
         fault:true,
+        terminal:{
+          examples:["dmesg | tail -20 | grep xid","journalctl -k | tail -20 | grep xid"],
+          accepted:["dmesg | tail -20 | grep xid","journalctl -k | tail -20 | grep xid"],
+          weak:[
+            {
+              match:["dcgmi dmon -e 157 -c 3","nvidia-smi nvlink -e"],
+              feedback:"Those belong to later branches. Start by identifying the fault family from the alert itself."
+            }
+          ],
+          success:"XID 48 alert probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the alert snapshot to identify the fault family before you start reacting. The important cue is the XID 48 line itself, because it tells you this drill is starting in the uncorrectable-memory branch rather than a bus or fabric branch.",
         screenshots:[
@@ -790,6 +856,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Confirm DBE",
         cmd:"dcgmi dmon -e 157 -c 3",
         type:"xid48_confirm",
+        terminal:{
+          examples:["dcgmi dmon -e 157 -c 3","dcgmi dmon -e 157"],
+          accepted:["dcgmi dmon -e 157 -c 3","dcgmi dmon -e 157"],
+          weak:[
+            {
+              match:["dmesg | tail -20 | grep xid","sudo nvidia-smi --gpu-reset -i 3"],
+              feedback:"The alert already pointed you here. This step is about confirming the uncorrectable ECC side with DBE evidence."
+            }
+          ],
+          success:"DBE confirmation probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the confirmation snapshot to check whether the DBE counter moved off zero. That screenshot matters because it upgrades the incident from a plausible XID story to a grounded uncorrectable-ECC diagnosis.",
         screenshots:[
@@ -829,6 +906,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         cmd:"# Simulating GPU hang",
         type:"xid79",
         fault:true,
+        terminal:{
+          examples:["simulate gpu hang","inject xid 79"],
+          accepted:["simulate gpu hang","inject xid 79"],
+          weak:[
+            {
+              match:["dcgmi dmon -e 157 -c 3","dmesg | tail -20 | grep xid"],
+              feedback:"Those belong to the earlier ECC branch. This step is about switching into the bus-reachability fault family."
+            }
+          ],
+          success:"XID 79 fault injected. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the XID 79 snapshot to recognize that the failure shape changed. The key clue is the bus-or-hang language in the screenshot, because that points you toward reset-style recovery instead of more ECC reasoning.",
         screenshots:[
@@ -866,6 +954,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         label:"Attempt GPU Reset",
         cmd:"sudo nvidia-smi --gpu-reset -i 3",
         type:"xid79_reset",
+        terminal:{
+          examples:["sudo nvidia-smi --gpu-reset -i 3","nvidia-smi --gpu-reset -i 3"],
+          accepted:["sudo nvidia-smi --gpu-reset -i 3","nvidia-smi --gpu-reset -i 3"],
+          weak:[
+            {
+              match:["reboot","systemctl reboot"],
+              feedback:"Too broad for the first recovery move. This step tests whether the incident can stay GPU-scoped before escalating to a node reboot."
+            }
+          ],
+          success:"GPU reset attempt accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Read the reset snapshot as a branch point, not as a victory screen. The important question is whether the screenshot shows clean reset success or continued unreachable-state language that forces the next escalation step.",
         screenshots:[
@@ -904,6 +1003,17 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         cmd:"nvidia-smi nvlink -e",
         type:"xid74",
         fault:true,
+        terminal:{
+          examples:["nvidia-smi nvlink -e","nvidia-smi nvlink --error-counters"],
+          accepted:["nvidia-smi nvlink -e","nvidia-smi nvlink --error-counters"],
+          weak:[
+            {
+              match:["sudo nvidia-smi --gpu-reset -i 3","dmesg | tail -20 | grep xid"],
+              feedback:"Those match different fault families. This step needs link-quality evidence for the NVLink branch."
+            }
+          ],
+          success:"NVLink fault probe accepted. Replaying the authored evidence for this checkpoint."
+        },
         explainerMode:"beginner_story",
         screenshotReference:"Use the XID 74 snapshot to distinguish fabric trouble from memory or bus trouble. The key move is spotting non-zero link-error counters in the screenshot and treating them as communication-path evidence.",
         screenshots:[

@@ -139,9 +139,11 @@ function stageSelectedStep(labId, stepIdx, options = {}) {
 }
 
 function logStepTypingHint(step) {
-  const hint = step?.terminal
-    ? '# Type the probe for this checkpoint, or type help to see accepted commands.'
-    : '# Select a checkpoint and type the command shown in the guide to replay the evidence.';
+  const hint = terminalModeEnabled
+    ? (step?.terminal
+      ? '# Type the probe for this checkpoint, or type help to see accepted commands.'
+      : '# Type the command shown in the guide to replay the evidence for this checkpoint.')
+    : '# Press Run Step to replay the authored evidence, or turn on Terminal Mode to type the probe yourself.';
   logTerm([{ t: 'dim', v: hint }]);
 }
 
@@ -222,7 +224,7 @@ function runCurrentStep() {
   const context = getStepExecutionContext(currentLab, currentStep);
   if (!context) return;
   const cmdInput = document.getElementById('cmd-input');
-  if (context.step?.terminal || (context.step?.cmd && !String(context.step.cmd).trim().startsWith('#'))) {
+  if (terminalModeEnabled && (context.step?.terminal || (context.step?.cmd && !String(context.step.cmd).trim().startsWith('#')))) {
     switchTab('term');
     if (cmdInput) cmdInput.focus();
     logTerm([{ t: 'dim', v: '# Type the command for this checkpoint and press Enter. Type help to see accepted probes.' }]);
@@ -432,6 +434,33 @@ function getLabTerminalConfig(step) {
   return step && step.terminal ? step.terminal : null;
 }
 
+function setTerminalModeEnabled(enabled) {
+  terminalModeEnabled = !!enabled;
+  localStorage.setItem('gpusim_terminal_mode', terminalModeEnabled ? 'true' : 'false');
+  updateTerminalModeUI();
+  updateTerminalInputHint();
+  if (currentLab) renderLabStepCoach();
+}
+
+function updateTerminalModeUI() {
+  const toggleBtn = document.getElementById('btn-terminal-mode');
+  if (toggleBtn) {
+    toggleBtn.classList.toggle('active', terminalModeEnabled);
+    toggleBtn.textContent = terminalModeEnabled ? '⌨ Terminal Mode On' : '⌨ Terminal Mode Off';
+    toggleBtn.title = terminalModeEnabled
+      ? 'Terminal Mode is on. Type authored probes for the current checkpoint.'
+      : 'Terminal Mode is off. Use Run Step to replay the authored checkpoint evidence.';
+  }
+  const runBtn = document.getElementById('run-btn');
+  if (runBtn) {
+    runBtn.textContent = terminalModeEnabled ? '⌨ Type' : '▶ Run Step';
+  }
+  const inputRow = document.getElementById('terminal-input-row');
+  if (inputRow) {
+    inputRow.style.display = terminalModeEnabled ? 'flex' : 'none';
+  }
+}
+
 function getLabTerminalCandidateSteps() {
   if (!currentLab || !LABS[currentLab]) return [];
   const lab = LABS[currentLab];
@@ -485,6 +514,10 @@ function resolveLabTerminalCommand(cmd) {
 function updateTerminalInputHint() {
   const cmdInput = document.getElementById('cmd-input');
   if (!cmdInput) return;
+  if (!terminalModeEnabled) {
+    cmdInput.placeholder = 'Turn on Terminal Mode to type authored probes for the current checkpoint...';
+    return;
+  }
   if (!currentLab) {
     cmdInput.placeholder = 'Select a checkpoint, then type the command you want to run...';
     return;
@@ -754,6 +787,7 @@ function bindUIHandlers() {
   on('btn-clear-term', 'click', clearTerminal);
   on('toggle-ai-btn',  'click', toggleAIDoc);
   on('run-btn',        'click', runCurrentStep);
+  on('btn-terminal-mode', 'click', () => setTerminalModeEnabled(!terminalModeEnabled));
   on('btn-analyze',    'click', analyzeLog);
 
   ['term','dmesg','dcgm','parser'].forEach(tab => {
@@ -897,6 +931,7 @@ function initApp() {
         if(typeof drawWelcome === 'function') drawWelcome(svg);
     }
   }, 100);
+  updateTerminalModeUI();
   updateTerminalInputHint();
 }
 
