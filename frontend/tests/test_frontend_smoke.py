@@ -13,7 +13,8 @@ STUDY_QUIZ_JS = (ROOT / 'js' / 'study-quiz.js').read_text(encoding='utf-8')
 RUNTIME_JS = (ROOT / 'js' / 'runtime.js').read_text(encoding='utf-8')
 LABS_PART1_JS = (ROOT / 'js' / 'labs-part-1.js').read_text(encoding='utf-8')
 CLUSTER_SIM_JS = (ROOT / 'js' / 'cluster-sim.js').read_text(encoding='utf-8')
-FRONTEND_JS = APP_JS + '\n' + ANALYTICS_JS + '\n' + BRANCHING_JS + '\n' + COACH_JS + '\n' + STUDY_QUIZ_JS + '\n' + RUNTIME_JS + '\n' + CLUSTER_SIM_JS
+CLUSTER_DASHBOARD_JS = (ROOT / 'js' / 'cluster-dashboard.js').read_text(encoding='utf-8')
+FRONTEND_JS = APP_JS + '\n' + ANALYTICS_JS + '\n' + BRANCHING_JS + '\n' + COACH_JS + '\n' + STUDY_QUIZ_JS + '\n' + RUNTIME_JS + '\n' + CLUSTER_SIM_JS + '\n' + CLUSTER_DASHBOARD_JS
 
 
 class FrontendSmokeTest(unittest.TestCase):
@@ -26,6 +27,7 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('js/coach.js', INDEX)
         self.assertIn('js/study-quiz.js', INDEX)
         self.assertIn('js/cluster-sim.js', INDEX)
+        self.assertIn('js/cluster-dashboard.js', INDEX)
         self.assertIn('js/runtime.js', INDEX)
         self.assertIn('js/app.js', INDEX)
         self.assertIn('js/learning-part-1.js', INDEX)
@@ -101,6 +103,17 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('describeClusterSimIdleView', APP_JS)
         self.assertIn('updateClusterSimFoundationUI', RUNTIME_JS)
         self.assertIn('startClusterSimFoundationLoop', RUNTIME_JS)
+
+    def test_cluster_fleet_dashboard_surface_is_available(self):
+        self.assertIn('id="nav-cluster_fleet"', INDEX)
+        self.assertIn('id="cluster-dashboard-pane"', INDEX)
+        self.assertIn('AEGIS_CLUSTER_DASHBOARD', CLUSTER_DASHBOARD_JS)
+        self.assertIn('renderFleetKpis', CLUSTER_DASHBOARD_JS)
+        self.assertIn('renderFleetGrid', CLUSTER_DASHBOARD_JS)
+        self.assertIn('renderFleetSidebar', CLUSTER_DASHBOARD_JS)
+        self.assertIn('openClusterDashboard', RUNTIME_JS)
+        self.assertIn('renderClusterDashboardView', RUNTIME_JS)
+        self.assertIn('Cluster Fleet Simulator', RUNTIME_JS)
 
     def test_terminal_fixtures_cover_early_fault_labs(self):
         self.assertIn('ECC baseline probe accepted', LABS_PART1_JS)

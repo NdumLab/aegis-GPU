@@ -21,6 +21,7 @@ let completedLabs = new Set();
 let activeTab = 'term';
 let termLines = { term:[], dmesg:[], dcgm:[] };
 let clusterSimStore = null;
+let clusterDashboardActive = false;
 
 let isProvisioned = false;
 let currentBlueprint = null;

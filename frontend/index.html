@@ -21,8 +21,9 @@
 <script src="js/coach.js?v=20260507a" defer></script>
 <script src="js/study-quiz.js?v=20260424ref4" defer></script>
 <script src="js/cluster-sim.js?v=20260507a" defer></script>
-<script src="js/runtime.js?v=20260507c" defer></script>
-<script src="js/app.js?v=20260507c" defer></script>
+<script src="js/cluster-dashboard.js?v=20260507a" defer></script>
+<script src="js/runtime.js?v=20260507d" defer></script>
+<script src="js/app.js?v=20260507d" defer></script>
 </head>
 <body>
 
@@ -139,6 +140,7 @@
       <div class="nav-item" id="nav-gds"><span class="icon">⚡</span> GPUDirect Storage <span class="badge" id="b-gds">IO</span></div>
 
       <div class="sidebar-section">Operations</div>
+      <div class="nav-item" id="nav-cluster_fleet"><span class="icon">🖥</span> Cluster Fleet <span class="badge" id="b-cluster_fleet">SIM</span></div>
       <div class="nav-item" id="nav-monitoring"><span class="icon">📊</span> DCGM Monitoring <span class="badge" id="b-monitoring">OPS</span></div>
       <div class="nav-item" id="nav-slurm"><span class="icon">📋</span> Slurm Scheduler <span class="badge" id="b-slurm">OPS</span></div>
       <div class="nav-item" id="nav-k8s"><span class="icon">☸️</span> Kubernetes GPU Ops <span class="badge" id="b-k8s">OPS</span></div>
@@ -163,6 +165,9 @@
     <div id="canvas-row" style="flex:1;display:flex;overflow:hidden;min-height:0">
       <div class="diagram-pane">
         <svg id="diagram-canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="cluster-dashboard-pane" class="cluster-dashboard-pane" style="display:none">
+          <div class="cluster-dashboard-grid" id="cluster-dashboard-grid"></div>
+        </div>
       </div>
       <div class="metrics-sidebar" id="metrics-sidebar">
         <div class="metric-group">

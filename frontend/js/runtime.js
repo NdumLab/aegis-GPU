@@ -10,6 +10,51 @@ let thermalMode = false;
 let liveInterval = null;
 let clusterSimInterval = null;
 
+function isClusterDashboardActive() {
+  return clusterDashboardActive === true;
+}
+
+function setClusterDashboardVisible(isVisible) {
+  clusterDashboardActive = Boolean(isVisible);
+  const pane = document.getElementById('cluster-dashboard-pane');
+  const svg = document.getElementById('diagram-canvas');
+  if (pane) pane.style.display = isVisible ? 'block' : 'none';
+  if (svg) svg.style.display = isVisible ? 'none' : 'block';
+}
+
+function renderClusterDashboardView() {
+  const summary = typeof getClusterSimSummary === 'function' ? getClusterSimSummary() : null;
+  const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
+  const api = window.AEGIS_CLUSTER_DASHBOARD || null;
+  if (!summary || !store || !api) return;
+  const kpiTarget = document.getElementById('step-controls');
+  const gridTarget = document.getElementById('cluster-dashboard-grid');
+  const sideTarget = document.getElementById('metrics-sidebar');
+  api.renderFleetKpis(summary, kpiTarget);
+  api.renderFleetGrid(store.state, gridTarget);
+  api.renderFleetSidebar(summary, store.state, sideTarget);
+}
+
+function openClusterDashboard() {
+  const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
+  if (!store) return;
+  currentLab = null;
+  currentStep = -1;
+  activeAlternateStep = null;
+  activeMainRedirectStep = null;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('nav-cluster_fleet')?.classList.add('active');
+  document.getElementById('scen-title').textContent = 'Cluster Fleet Simulator';
+  document.getElementById('scen-desc').textContent = 'Shared simulator state rendered as a multi-node AI datacenter view. Use this as the fleet baseline before diving into a lab.';
+  document.getElementById('scen-step').style.display = 'none';
+  clearTerminal();
+  logTerm([{ t: 'info', v: `[SIM] Cluster fleet view loaded for ${store.state.topology.clusterName}.` }]);
+  logTerm([{ t: 'dim', v: '# Loop 2 dashboard reads the shared simulator state: jobs, nodes, GPUs, and alerts stay aligned.' }]);
+  setClusterDashboardVisible(true);
+  renderClusterDashboardView();
+  switchTab('term');
+}
+
 function updateClusterSimFoundationUI() {
   const summary = typeof getClusterSimSummary === 'function' ? getClusterSimSummary() : null;
   const status = document.getElementById('sys-status');
@@ -19,9 +64,12 @@ function updateClusterSimFoundationUI() {
   if (!currentLab) {
     const title = document.getElementById('scen-title');
     const desc = document.getElementById('scen-desc');
-    if (title) title.textContent = 'GPU Infrastructure Simulator';
-    if (desc && typeof describeClusterSimIdleView === 'function') desc.textContent = describeClusterSimIdleView();
+    if (!isClusterDashboardActive()) {
+      if (title) title.textContent = 'GPU Infrastructure Simulator';
+      if (desc && typeof describeClusterSimIdleView === 'function') desc.textContent = describeClusterSimIdleView();
+    }
   }
+  if (isClusterDashboardActive()) renderClusterDashboardView();
 }
 
 function startClusterSimFoundationLoop() {
@@ -79,6 +127,8 @@ function applyProvisioning() {
 // --- ENGINE LOGIC ---
 function loadLab(id) {
   if (!isProvisioned) return;
+  setClusterDashboardVisible(false);
+  clusterDashboardActive = false;
   clearCanvas();
   clearTerminal();
   activeAlternateStep = null;
@@ -753,6 +803,8 @@ function resetAll() {
   activeAlternateStep = null;
   activeMainRedirectStep = null;
   currentLab=null; currentStep=-1;
+  setClusterDashboardVisible(false);
+  clusterDashboardActive = false;
   document.getElementById('scen-title').textContent='GPU Infrastructure Simulator';
   document.getElementById('scen-step').style.display='none';
   document.getElementById('step-controls').innerHTML='';
@@ -877,7 +929,14 @@ function bindUIHandlers() {
   const navList = document.querySelector('.sidebar-scroll');
   if(navList) navList.addEventListener('click', e => {
     const item = e.target.closest('[id^="nav-"]');
-    if(item) loadLab(item.id.replace('nav-', ''));
+    if(item) {
+      const target = item.id.replace('nav-', '');
+      if (target === 'cluster_fleet') {
+        openClusterDashboard();
+        return;
+      }
+      loadLab(target);
+    }
   });
 
   document.addEventListener('keydown', e => {
@@ -968,6 +1027,7 @@ function initApp() {
   updateTerminalModeUI();
   updateTerminalInputHint();
   startClusterSimFoundationLoop();
+  renderClusterDashboardView();
 }
 
 window.addEventListener('load', async ()=>{
