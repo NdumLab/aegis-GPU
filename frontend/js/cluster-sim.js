@@ -56,6 +56,77 @@
     },
   };
 
+  const DEFAULT_JOB_PRESETS = {
+    llm_train: {
+      id: 'llm_train',
+      label: 'LLM Train',
+      scriptFile: 'llm_train.sh',
+      type: 'llm_train',
+      requestedNodes: 2,
+      requestedGpusPerNode: 72,
+      walltimeSeconds: 24 * 60 * 60,
+      partition: 'gpu-nvl72',
+      namePrefix: 'gpt-train',
+      commandPreview: 'srun torchrun --nnodes=2 --nproc_per_node=72 train_gpt.py --model-size 70b',
+    },
+    cv_train: {
+      id: 'cv_train',
+      label: 'CV Train',
+      scriptFile: 'cv_train.sh',
+      type: 'cv_train',
+      requestedNodes: 1,
+      requestedGpusPerNode: 72,
+      walltimeSeconds: 8 * 60 * 60,
+      partition: 'gpu-nvl72',
+      namePrefix: 'vit-finetune',
+      commandPreview: 'srun torchrun --nnodes=1 --nproc_per_node=72 finetune_vit.py --dataset imagenet-22k',
+    },
+    hpc_sim: {
+      id: 'hpc_sim',
+      label: 'HPC Sim',
+      scriptFile: 'hpc_sim.sh',
+      type: 'hpc_sim',
+      requestedNodes: 1,
+      requestedGpusPerNode: 72,
+      walltimeSeconds: 12 * 60 * 60,
+      partition: 'gpu-nvl72',
+      namePrefix: 'fluid-sim',
+      commandPreview: 'srun mpirun -np 72 ./fluid_solver --mesh global_ocean_4km.h5',
+    },
+    inference: {
+      id: 'inference',
+      label: 'Inference',
+      scriptFile: 'serve.sh',
+      type: 'inference',
+      requestedNodes: 1,
+      requestedGpusPerNode: 36,
+      walltimeSeconds: null,
+      partition: 'gpu-nvl72',
+      namePrefix: 'llm-serve',
+      commandPreview: 'srun python -m vllm.entrypoints.openai.api_server --tensor-parallel-size 36',
+    },
+    benchmark: {
+      id: 'benchmark',
+      label: 'Benchmark',
+      scriptFile: 'benchmark.sh',
+      type: 'hpc_sim',
+      requestedNodes: 2,
+      requestedGpusPerNode: 72,
+      walltimeSeconds: 60 * 60,
+      partition: 'gpu-nvl72',
+      namePrefix: 'nccl-bench',
+      commandPreview: 'srun /opt/nccl-tests/build/all_reduce_perf -b 8 -e 8G -f 2 -g 1',
+      profileOverrides: {
+        targetUtil: 98,
+        targetMemFraction: 0.60,
+        targetPowerFraction: 0.99,
+        targetTempC: 81,
+        targetNvlinkGbps: 1650,
+        targetIbGbps: 350,
+      },
+    },
+  };
+
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
@@ -178,6 +249,7 @@
         walltimeSeconds: 3 * 60 * 60,
         submittedAt: Date.now() - (5 * 60 * 1000),
         rampProfile: 'hpc-burst',
+        user: 'sim',
       },
     ];
   }
@@ -229,9 +301,11 @@
         clusterName: config.clusterName,
         fabric: Object.assign({}, config.fabric),
       },
+      jobPresets: Object.values(DEFAULT_JOB_PRESETS).map((preset) => Object.assign({}, preset)),
       nodes,
       jobs,
       alerts,
+      nextJobId: 41025,
       lastTickMs: Date.now(),
       simClockSeconds: 0,
       version: 'v3.2-foundation',
@@ -240,6 +314,11 @@
 
   function getJobProfile(job) {
     return DEFAULT_WORKLOAD_PROFILES[job.type] || DEFAULT_WORKLOAD_PROFILES.llm_train;
+  }
+
+  function getEffectiveJobProfile(job) {
+    const base = getJobProfile(job);
+    return Object.assign({}, base, job.profileOverrides || {});
   }
 
   function getJobRampFactor(job, profile) {
@@ -277,7 +356,7 @@
   }
 
   function applyJobToNode(node, job) {
-    const profile = getJobProfile(job);
+    const profile = getEffectiveJobProfile(job);
     const rampFactor = getJobRampFactor(job, profile);
     node.healthState = 'healthy';
     node.allocationState = 'allocated';
@@ -300,6 +379,76 @@
       gpu.xid = null;
       gpu.allocationState = utilizationColor(gpu.utilizationPct);
     });
+  }
+
+  function getUsedNodeIds(state) {
+    return new Set(
+      state.jobs
+        .filter((job) => job.state === 'running')
+        .flatMap((job) => job.assignedNodes)
+    );
+  }
+
+  function findFreeNodeIds(state, requestedNodes) {
+    const used = getUsedNodeIds(state);
+    return state.nodes.filter((node) => !used.has(node.id)).slice(0, requestedNodes).map((node) => node.id);
+  }
+
+  function placePendingJobs(state) {
+    state.jobs
+      .filter((job) => job.state === 'pending')
+      .forEach((job) => {
+        const freeNodeIds = findFreeNodeIds(state, job.requestedNodes);
+        if (freeNodeIds.length >= job.requestedNodes) {
+          job.state = 'running';
+          job.assignedNodes = freeNodeIds;
+          job.elapsedSeconds = 0;
+          state.alerts.unshift({
+            id: `sim-alert-${job.id}-running`,
+            severity: 'info',
+            category: 'scheduler',
+            nodeId: freeNodeIds[0] || null,
+            gpuId: null,
+            jobId: job.id,
+            message: `Pending workload ${job.name} is now running on ${freeNodeIds.length} node(s).`,
+            remediationHint: 'Use the fleet dashboard to observe utilization ramp-up.',
+            timestamp: Date.now(),
+          });
+        }
+      });
+  }
+
+  function trimAlerts(state) {
+    state.alerts = state.alerts
+      .slice()
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 16);
+  }
+
+  function buildSubmittedJob(state, presetId, overrides) {
+    const preset = DEFAULT_JOB_PRESETS[presetId];
+    if (!preset) return null;
+    const custom = overrides || {};
+    const name = custom.name || `${preset.namePrefix}-${state.nextJobId}`;
+    const job = {
+      id: state.nextJobId++,
+      name,
+      user: 'sim',
+      type: preset.type,
+      state: 'pending',
+      partition: custom.partition || preset.partition,
+      requestedNodes: custom.requestedNodes || preset.requestedNodes,
+      requestedGpusPerNode: custom.requestedGpusPerNode || preset.requestedGpusPerNode,
+      assignedNodes: [],
+      elapsedSeconds: 0,
+      walltimeSeconds: preset.walltimeSeconds,
+      submittedAt: Date.now(),
+      rampProfile: preset.id,
+      scriptFile: preset.scriptFile,
+      commandPreview: preset.commandPreview,
+      profileOverrides: preset.profileOverrides ? Object.assign({}, preset.profileOverrides) : null,
+    };
+    return job;
   }
 
   function recomputeNodeTelemetry(node) {
@@ -328,6 +477,7 @@
       if (runningJob) applyJobToNode(node, runningJob);
       recomputeNodeTelemetry(node);
     });
+    trimAlerts(state);
   }
 
   function tickState(state, deltaSeconds) {
@@ -340,9 +490,21 @@
         if (job.walltimeSeconds && job.elapsedSeconds >= job.walltimeSeconds) {
           job.state = 'completed';
           job.assignedNodes = [];
+          state.alerts.unshift({
+            id: `sim-alert-${job.id}-complete`,
+            severity: 'info',
+            category: 'scheduler',
+            nodeId: null,
+            gpuId: null,
+            jobId: job.id,
+            message: `Workload ${job.name} completed and released ${job.requestedNodes} node(s).`,
+            remediationHint: 'Pending jobs can now be placed automatically on the next scheduler tick.',
+            timestamp: Date.now(),
+          });
         }
       }
     });
+    placePendingJobs(state);
     reconcileState(state);
     return state;
   }
@@ -387,6 +549,45 @@
       tick(deltaSeconds) {
         return tickState(state, deltaSeconds);
       },
+      submitPreset(presetId, overrides) {
+        const job = buildSubmittedJob(state, presetId, overrides);
+        if (!job) return null;
+        state.jobs.push(job);
+        state.alerts.unshift({
+          id: `sim-alert-${job.id}-submitted`,
+          severity: 'info',
+          category: 'scheduler',
+          nodeId: null,
+          gpuId: null,
+          jobId: job.id,
+          message: `Submitted ${job.name} requesting ${job.requestedNodes} node(s) and ${job.requestedGpusPerNode} GPUs per node.`,
+          remediationHint: 'Watch the queue and fleet dashboard to see whether placement happens immediately or remains pending.',
+          timestamp: Date.now(),
+        });
+        placePendingJobs(state);
+        reconcileState(state);
+        return job;
+      },
+      cancelJob(jobId) {
+        const job = state.jobs.find((item) => item.id === jobId);
+        if (!job || (job.state !== 'running' && job.state !== 'pending')) return null;
+        job.state = 'cancelled';
+        job.assignedNodes = [];
+        state.alerts.unshift({
+          id: `sim-alert-${job.id}-cancelled`,
+          severity: 'warn',
+          category: 'scheduler',
+          nodeId: null,
+          gpuId: null,
+          jobId: job.id,
+          message: `Cancelled workload ${job.name}. Reserved cluster capacity has been released.`,
+          remediationHint: 'Use the queue to confirm pending jobs can advance after cancellation.',
+          timestamp: Date.now(),
+        });
+        placePendingJobs(state);
+        reconcileState(state);
+        return job;
+      },
       reset(nextOptions) {
         const nextState = createInitialState(nextOptions || options);
         reconcileState(nextState);
@@ -409,6 +610,7 @@
   global.AEGIS_CLUSTER_SIM = {
     DEFAULT_CLUSTER_CONFIG,
     DEFAULT_WORKLOAD_PROFILES,
+    DEFAULT_JOB_PRESETS,
     createInitialState,
     createStore,
     tickState,

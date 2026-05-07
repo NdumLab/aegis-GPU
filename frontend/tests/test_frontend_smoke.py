@@ -111,8 +111,12 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('renderFleetKpis', CLUSTER_DASHBOARD_JS)
         self.assertIn('renderFleetGrid', CLUSTER_DASHBOARD_JS)
         self.assertIn('renderFleetSidebar', CLUSTER_DASHBOARD_JS)
+        self.assertIn('renderWorkloadControls', CLUSTER_DASHBOARD_JS)
+        self.assertIn('renderJobTable', CLUSTER_DASHBOARD_JS)
         self.assertIn('openClusterDashboard', RUNTIME_JS)
         self.assertIn('renderClusterDashboardView', RUNTIME_JS)
+        self.assertIn('submitClusterWorkload', RUNTIME_JS)
+        self.assertIn('cancelClusterWorkload', RUNTIME_JS)
         self.assertIn('Cluster Fleet Simulator', RUNTIME_JS)
 
     def test_terminal_fixtures_cover_early_fault_labs(self):

@@ -30,8 +30,12 @@ function renderClusterDashboardView() {
   const kpiTarget = document.getElementById('step-controls');
   const gridTarget = document.getElementById('cluster-dashboard-grid');
   const sideTarget = document.getElementById('metrics-sidebar');
+  const controlsTarget = document.getElementById('cluster-workload-controls');
+  const jobsTarget = document.getElementById('cluster-jobs-table');
   api.renderFleetKpis(summary, kpiTarget);
+  api.renderWorkloadControls(store.state, controlsTarget);
   api.renderFleetGrid(store.state, gridTarget);
+  api.renderJobTable(store.state, jobsTarget);
   api.renderFleetSidebar(summary, store.state, sideTarget);
 }
 
@@ -53,6 +57,29 @@ function openClusterDashboard() {
   setClusterDashboardVisible(true);
   renderClusterDashboardView();
   switchTab('term');
+}
+
+function submitClusterWorkload(presetId) {
+  const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
+  if (!store || typeof store.submitPreset !== 'function') return;
+  const job = store.submitPreset(presetId);
+  if (!job) return;
+  renderClusterDashboardView();
+  switchTab('term');
+  logTerm([{ t: 'good', v: `Submitted batch job ${job.id}` }]);
+  logTerm([{ t: 'dim', v: `# ${job.name} requested ${job.requestedNodes} node(s) and ${job.requestedGpusPerNode} GPU(s) per node on ${job.partition}.` }]);
+  logTerm([{ t: 'info', v: `[SIM] ${job.state === 'running' ? 'Scheduler placed the job immediately.' : 'Job is pending until capacity frees up.'}` }]);
+}
+
+function cancelClusterWorkload(jobId) {
+  const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
+  if (!store || typeof store.cancelJob !== 'function') return;
+  const job = store.cancelJob(Number(jobId));
+  if (!job) return;
+  renderClusterDashboardView();
+  switchTab('term');
+  logTerm([{ t: 'warn', v: `scancel: job ${job.id} signal sent` }]);
+  logTerm([{ t: 'dim', v: `# ${job.name} released its reserved simulator capacity.` }]);
 }
 
 function updateClusterSimFoundationUI() {
@@ -936,6 +963,19 @@ function bindUIHandlers() {
         return;
       }
       loadLab(target);
+    }
+  });
+
+  const clusterPane = document.getElementById('cluster-dashboard-pane');
+  if (clusterPane) clusterPane.addEventListener('click', e => {
+    const submitBtn = e.target.closest('[data-cluster-submit]');
+    if (submitBtn) {
+      submitClusterWorkload(submitBtn.getAttribute('data-cluster-submit'));
+      return;
+    }
+    const cancelBtn = e.target.closest('[data-cluster-cancel]');
+    if (cancelBtn) {
+      cancelClusterWorkload(cancelBtn.getAttribute('data-cluster-cancel'));
     }
   });
 

@@ -60,6 +60,34 @@ class ClusterSimStateTest(unittest.TestCase):
         self.assertGreater(after['avgUtilPct'], 0)
         self.assertIn('running', self.summary['jobStates'])
 
+    def test_store_can_submit_and_cancel_workloads(self):
+        script = textwrap.dedent(
+            f"""
+            const fs = require('fs');
+            globalThis.window = globalThis;
+            eval(fs.readFileSync({json.dumps(str(CLUSTER_SIM_JS))}, 'utf8'));
+            const store = globalThis.AEGIS_CLUSTER_SIM.createStore();
+            const submitted = store.submitPreset('llm_train');
+            const submittedState = submitted.state;
+            const postSubmit = store.getSummary();
+            const cancelled = store.cancelJob(submitted.id);
+            const postCancel = store.getSummary();
+            process.stdout.write(JSON.stringify({{
+              submittedState,
+              cancelState: cancelled.state,
+              postSubmitRunning: postSubmit.runningJobs,
+              postCancelPending: postCancel.pendingJobs,
+              totalJobs: store.state.jobs.length,
+            }}));
+            """
+        )
+        output = subprocess.check_output(['node', '-e', script], text=True)
+        payload = json.loads(output)
+        self.assertIn(payload['submittedState'], ('running', 'pending'))
+        self.assertEqual(payload['cancelState'], 'cancelled')
+        self.assertGreaterEqual(payload['postSubmitRunning'], 1)
+        self.assertGreaterEqual(payload['totalJobs'], 5)
+
 
 if __name__ == '__main__':
     unittest.main()

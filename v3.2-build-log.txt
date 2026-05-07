@@ -102,3 +102,57 @@ Exit Notes
 ----------
 - Loop 2 intentionally introduces the fleet dashboard as a read-only simulator surface.
 - Job submission, queue transitions, and scheduler interaction remain the focus of Loop 3.
+
+Loop 3 - Scheduler And Workload Simulation
+------------------------------------------
+- Status: completed
+- Goal: make the shared simulator state operational by allowing workloads to be submitted, queued, placed, and cancelled from the new fleet dashboard.
+- Extended `frontend/js/cluster-sim.js` to support:
+  - job preset catalog
+  - job id allocation
+  - pending-to-running placement when capacity is available
+  - running-to-completed progression during scheduler ticks
+  - cancellation and capacity release
+  - alert generation for submit, placement, completion, and cancellation events
+- Extended `frontend/js/cluster-dashboard.js` to render:
+  - workload preset submission buttons
+  - live job queue table
+  - `scancel` actions for running and pending jobs
+- Extended `frontend/js/runtime.js` to:
+  - submit simulator workloads from dashboard controls
+  - cancel workloads from the queue table
+  - log scheduler actions into the existing terminal surface
+- Added new fleet-pane placeholders in `frontend/index.html`:
+  - `cluster-workload-controls`
+  - `cluster-jobs-table`
+- Added scheduler UI styling in `frontend/css/styles.css` for:
+  - submit cards
+  - preset buttons
+  - job queue table
+  - cancel action buttons
+- Expanded test coverage:
+  - `frontend/tests/test_cluster_sim_state.py` now verifies submit/cancel state mutation
+  - `frontend/tests/test_frontend_smoke.py` now verifies workload-control and queue renderer hooks
+
+Validation
+----------
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-sim.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-dashboard.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Verified local-live HTML references:
+  - `cluster-workload-controls`
+  - `cluster-jobs-table`
+  - `js/cluster-dashboard.js?v=20260507a`
+- Verified deployed `cluster-sim.js` contains the scheduler preset and placement logic
+- Deploy script recorded local-live version metadata as `v3.2@0ec8c31` because Loop 3 changes were not yet committed at deploy time
+
+Exit Notes
+----------
+- Loop 3 adds dashboard-driven scheduler realism and workload lifecycle changes to shared state.
+- Terminal command-family expansion remains the focus of Loop 4.

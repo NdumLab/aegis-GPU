@@ -112,9 +112,88 @@
     `;
   }
 
+  function renderWorkloadControls(state, target) {
+    if (!target || !state) return;
+    const presets = state.jobPresets || [];
+    target.innerHTML = `
+      <div class="cluster-submit-card">
+        <div class="cluster-submit-head">
+          <div>
+            <div class="cluster-submit-title">Submit Simulated Workload</div>
+            <div class="cluster-submit-copy">Loop 3 adds scheduler-backed preset submission. Each preset allocates nodes from the shared simulator state and drives the same fleet cards you are viewing.</div>
+          </div>
+        </div>
+        <div class="cluster-submit-row">
+          ${presets.map((preset) => `
+            <button class="cluster-submit-btn" type="button" data-cluster-submit="${esc(preset.id)}" title="${esc(preset.commandPreview || '')}">
+              <span>${esc(preset.label)}</span>
+              <small>${esc(preset.requestedNodes)} node(s) • ${esc(preset.requestedGpusPerNode)} GPU/node</small>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderJobTable(state, target) {
+    if (!target || !state) return;
+    const rows = state.jobs
+      .slice()
+      .sort((a, b) => b.id - a.id)
+      .map((job) => {
+        const stateClass = job.state === 'running' ? 'healthy' : job.state === 'pending' ? 'warning' : job.state === 'cancelled' ? 'critical' : 'active';
+        const elapsedMinutes = Math.floor((job.elapsedSeconds || 0) / 60);
+        const elapsed = `${Math.floor(elapsedMinutes / 60)}h ${String(elapsedMinutes % 60).padStart(2, '0')}m`;
+        const assigned = job.assignedNodes.length ? job.assignedNodes.join(', ') : 'waiting for free nodes';
+        return `
+          <tr>
+            <td class="cluster-job-id">${esc(job.id)}</td>
+            <td>${esc(job.name)}</td>
+            <td>${esc(job.type)}</td>
+            <td><span class="cluster-node-state tone-${esc(stateClass)}">${esc(job.state)}</span></td>
+            <td>${esc(job.requestedNodes)}</td>
+            <td>${esc(job.requestedGpusPerNode)}</td>
+            <td>${esc(elapsed)}</td>
+            <td class="cluster-job-assigned">${esc(assigned)}</td>
+            <td>${job.state === 'running' || job.state === 'pending' ? `<button class="cluster-cancel-btn" type="button" data-cluster-cancel="${esc(job.id)}">scancel</button>` : ''}</td>
+          </tr>
+        `;
+      }).join('');
+    target.innerHTML = `
+      <div class="cluster-jobs-card">
+        <div class="cluster-submit-head">
+          <div>
+            <div class="cluster-submit-title">Job Queue</div>
+            <div class="cluster-submit-copy">Submitted presets become pending or running jobs depending on free node capacity. Completed and cancelled jobs release capacity for the next placement pass.</div>
+          </div>
+        </div>
+        <div class="cluster-jobs-shell">
+          <table class="cluster-jobs-table">
+            <thead>
+              <tr>
+                <th>Job ID</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>State</th>
+                <th>Nodes</th>
+                <th>GPU / Node</th>
+                <th>Elapsed</th>
+                <th>Assigned Nodes</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
   global.AEGIS_CLUSTER_DASHBOARD = {
     renderFleetKpis,
     renderFleetGrid,
     renderFleetSidebar,
+    renderWorkloadControls,
+    renderJobTable,
   };
 }(window));
