@@ -20,6 +20,7 @@ let askAegisState = {
 let completedLabs = new Set();
 let activeTab = 'term';
 let termLines = { term:[], dmesg:[], dcgm:[] };
+let clusterSimStore = null;
 
 let isProvisioned = false;
 let currentBlueprint = null;
@@ -53,6 +54,35 @@ let reasoningScoreState = {
 };
 let reasoningProgress = loadReasoningProgress();
 let branchingState = loadBranchingState();
+
+function getClusterSimApi() {
+  return window.AEGIS_CLUSTER_SIM || null;
+}
+
+function ensureClusterSimStore() {
+  if (clusterSimStore) return clusterSimStore;
+  const api = getClusterSimApi();
+  if (!api || typeof api.createStore !== 'function') return null;
+  clusterSimStore = api.createStore();
+  return clusterSimStore;
+}
+
+function getClusterSimSummary() {
+  const store = ensureClusterSimStore();
+  return store && typeof store.getSummary === 'function' ? store.getSummary() : null;
+}
+
+function describeClusterSimStatus() {
+  const summary = getClusterSimSummary();
+  if (!summary) return '';
+  return `SIM CLUSTER: ${summary.totalNodes} nodes | ${summary.totalGpus} GPUs | ${summary.runningJobs} running | ${summary.pendingJobs} pending`;
+}
+
+function describeClusterSimIdleView() {
+  const summary = getClusterSimSummary();
+  if (!summary) return 'Select a lab from the sidebar to begin';
+  return `${summary.clusterName} ready. ${summary.totalNodes} simulated nodes, ${summary.totalGpus} GPUs, ${summary.runningJobs} running workloads, ${summary.pendingJobs} pending workloads.`;
+}
 const DIFFERENTIAL_DIAGNOSIS = {
   ecc: [
     {

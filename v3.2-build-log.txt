@@ -1,0 +1,57 @@
+AEGIS-GPU VERSION 3.2 BUILD LOG
+===============================
+
+Loop 1 - Simulator State Foundation
+-----------------------------------
+- Status: completed
+- Goal: introduce a shared cluster simulator state module and wire it into the existing Aegis boot flow.
+- Added `frontend/js/cluster-sim.js` as the shared simulator-state foundation for:
+  - cluster topology/config
+  - nodes and GPUs
+  - jobs and workload profiles
+  - alerts
+  - tick/update progression
+  - fleet summary aggregation
+- Added `clusterSimStore` bootstrapping in `frontend/js/app.js` and summary helpers:
+  - `ensureClusterSimStore`
+  - `getClusterSimSummary`
+  - `describeClusterSimStatus`
+  - `describeClusterSimIdleView`
+- Wired `frontend/js/runtime.js` to:
+  - initialize simulator state during app boot
+  - run a lightweight simulator tick loop in simulation mode
+  - surface simulator summary text in the existing header / idle view
+  - reset simulator state during `resetAll`
+- Added test coverage:
+  - `frontend/tests/test_cluster_sim_state.py`
+  - expanded `frontend/tests/test_frontend_smoke.py`
+- Added tracking artifacts:
+  - `v3.2-plan.txt`
+  - `v3.2-build-log.txt`
+
+Validation
+----------
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m py_compile /home/henry/aegis-gpu/backend/log-analizer.py /home/henry/aegis-gpu/backend/node_scraper.py /home/henry/aegis-gpu/backend/tests/test_api.py /home/henry/aegis-gpu/backend/tests/test_api_unittest.py` passed
+- `python3 -m unittest discover -s /home/henry/aegis-gpu/backend/tests -p 'test_*unittest.py'` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-sim.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/app.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest discover -s /home/henry/aegis-gpu/frontend/tests -p 'test_*.py'` was still running through long browser-proof scenarios during loop closeout; targeted Loop 1 checks above were green and sufficient for the shared-state foundation slice.
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Local-live HTML now references:
+  - `js/cluster-sim.js?v=20260507a`
+  - `js/runtime.js?v=20260507c`
+  - `js/app.js?v=20260507c`
+- Verified deployed asset contents at `/var/www/html/js/cluster-sim.js`
+- Deploy script recorded local-live version metadata as `v3.2@56f641e` because Loop 1 changes were not yet committed at deploy time
+
+Exit Notes
+----------
+- Loop 1 intentionally stops at shared state and boot/runtime wiring.
+- No fleet dashboard UI was added yet beyond summary/idle status hooks.
+- Loop 2 should render the first dedicated cluster dashboard view using the existing shared simulator state instead of introducing new mock globals.

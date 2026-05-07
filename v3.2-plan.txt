@@ -1,0 +1,576 @@
+AEGIS-GPU VERSION 3.2 PLAN
+==========================
+
+Goal
+----
+Upgrade Aegis in-place from the current v3.1 training platform into a stronger simulator-first v3.2 release that feels closer to a real AI datacenter without crossing into unsafe live-cluster control. The release should deepen cluster simulation, scheduler realism, terminal coverage, fleet visualization, and fault-driven operator training while preserving the current Aegis architecture and deployment flow.
+
+Scope Boundary
+--------------
+This is an Aegis upgrade, not a new product.
+
+v3.2 is simulator-first:
+- simulated cluster state
+- simulated jobs and workloads
+- simulated command output
+- simulated alerts, faults, and degradation
+- stronger fleet dashboard and training UX
+
+v3.2 is not:
+- arbitrary shell execution against real hosts
+- browser-side LLM command synthesis
+- fully autonomous remediation of live systems
+- PXE provisioning work
+- a generic production control plane
+
+Current Starting Point
+----------------------
+- Aegis already has strong lab-based training across hardware, fabric, runtime, storage, and scheduler topics.
+- v3.0 and v3.1 added reasoning quality, branching, Ask Aegis guidance, terminal mode, local-live validation, and browser proof.
+- Current terminal behavior is lab-step-oriented rather than cluster-operations-oriented.
+- Current dashboard and telemetry framing are still centered on the existing lab simulator rather than a cluster-wide AI rack view.
+- Current workload realism is limited; users do not yet get a believable scheduler-backed fleet simulation with node allocation, queue behavior, and multi-workload load progression.
+- There is no formal simulator-only state model for an AI cluster that can power both the dashboard and the terminal consistently.
+
+Version 3.2 Product Principles
+------------------------------
+1. Preserve architectural honesty:
+   Aegis should feel real without pretending to be live hardware control.
+2. Simulator state is the source of truth:
+   Dashboard, job queue, topology, alerts, and terminal output must all read from the same simulated cluster state.
+3. Deterministic first:
+   Core command families and scenarios must be implemented with deterministic handlers rather than outsourced to an LLM.
+4. Train operator workflows, not screenshots:
+   Users should be able to inspect, submit, queue, cancel, diagnose, and reason about simulated workloads.
+5. Stay shippable:
+   Every loop must validate locally, deploy to local live, and leave behind proof and notes for the next engineer.
+6. Favor reusable systems over one-off scenes:
+   State engines, renderers, command routers, and fault catalogs should be reusable across labs and later live-mode work.
+
+Version 3.2 Build Loop
+----------------------
+For each loop:
+1. Define one bounded upgrade slice.
+2. Implement the slice in the repo.
+3. Add or expand tests.
+4. Run validation appropriate to the slice:
+   - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+   - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+   - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+   - node --check frontend/js/app.js
+   - node --check any new frontend JS modules added in the loop
+5. Deploy updated files to local live.
+6. Verify the deployed surface directly where practical.
+7. Append notes and proof references to the v3.2 build log.
+8. Commit locally.
+9. Move to the next loop.
+
+Expected New Planning/Tracking Artifacts
+----------------------------------------
+- v3.2-plan.txt
+- v3.2-build-log.txt
+- v3.2-summary.txt
+- v3.2-evidence-summary.json
+- v3.2-evidence-summary.txt
+
+Target Architecture For v3.2
+----------------------------
+Frontend systems to strengthen or introduce:
+- cluster simulator state module
+- fleet dashboard view
+- scheduler/job simulation module
+- terminal command router for cluster commands
+- fault injection/degradation model
+- alert/event feed model
+- reusable status/health rendering helpers
+
+Backend usage in v3.2:
+- preserve existing auth, local-live deployment, and current backend
+- do not require new live-control capabilities for simulator mode
+- only add backend support if a simulator artifact, metadata endpoint, or proof helper materially benefits the architecture
+
+Recommended Frontend Module Direction
+-------------------------------------
+The exact file split may vary, but the intent should be:
+- keep app bootstrapping and shared UI orchestration in frontend/js/app.js and frontend/js/runtime.js
+- move cluster-simulation data/state into dedicated modules under frontend/js/
+- avoid another monolithic single-file simulator
+- allow the existing lab simulator and the new cluster simulator to coexist cleanly
+
+Release Definition
+------------------
+v3.2 should ship with:
+- a configurable simulated multi-node AI cluster surface
+- realistic workload queue/submit/cancel lifecycle
+- deterministic terminal coverage for key operator commands
+- workload-driven node/GPU utilization changes over time
+- cluster alerts and degraded-state views
+- at least one integrated teaching path that uses the new simulator surfaces
+- local-live deployment and proof coverage
+
+Loop Roadmap
+------------
+
+Loop 1: Simulator State Foundation
+Owner area:
+- frontend/js/app.js
+- frontend/js/runtime.js
+- new frontend/js cluster simulation module(s)
+- frontend/tests/
+
+Purpose:
+- Introduce a shared simulator state model for nodes, GPUs, jobs, partitions, topology, and alerts.
+- Establish a single source of truth that can drive both the dashboard and command outputs.
+
+Why this loop comes first:
+- Every later loop depends on stable cluster state.
+- Without this, the dashboard, terminal, and queue will drift apart.
+
+Implementation tasks:
+- Define node schema:
+  - node id
+  - node name
+  - rack / group metadata if needed
+  - health state
+  - allocation state
+  - per-node network/fabric summary
+  - per-node aggregate telemetry
+- Define GPU schema:
+  - gpu id
+  - gpu name / model
+  - memory total / used
+  - utilization
+  - power
+  - temperature
+  - nvlink state
+  - ECC counters / fault fields
+- Define job schema:
+  - job id
+  - name
+  - type
+  - state
+  - requested nodes
+  - requested GPUs per node
+  - assigned nodes
+  - elapsed time
+  - walltime
+  - ramp profile
+  - target utilization / memory / power
+- Define alert schema:
+  - id
+  - severity
+  - category
+  - node / gpu / job reference
+  - message
+  - timestamp
+  - remediation hint
+- Build helper functions for:
+  - state initialization
+  - tick/update progression
+  - job placement
+  - health summarization
+  - fleet metric aggregation
+
+Acceptance criteria:
+- A single cluster state object exists and is used by multiple UI surfaces.
+- State ticks can update jobs and node/GPU metrics over time.
+- Fleet summary values can be derived from the model.
+- There is a documented place for future command handlers to read state.
+
+Tests and validation focus:
+- data shape/unit tests for state initialization and aggregation
+- smoke checks that state tick functions do not throw
+- `node --check` for any new frontend modules
+
+Local-live proof to capture:
+- screenshot or text proof showing the initialized simulator state rendering in local live
+
+Exit criteria:
+- The state model exists, is reusable, and later loops can depend on it without duplicating data structures.
+
+Handoff notes for next engineer:
+- Do not reintroduce per-view local mock state after this loop.
+- Extend the shared state model rather than adding new isolated globals.
+
+Loop 2: Fleet Dashboard Upgrade
+Owner area:
+- frontend/index.html
+- frontend/css/styles.css
+- frontend/js/app.js
+- new frontend/js cluster dashboard module(s)
+- frontend/tests/
+
+Purpose:
+- Add or upgrade a cluster/fleet dashboard inside Aegis using the shared simulator state.
+- Surface node health, GPU allocation, cluster summaries, and active alerts visually.
+
+Implementation tasks:
+- Design an Aegis-native dashboard view, not a copy of the GB200 mockup.
+- Add top-level metric cards for:
+  - nodes healthy / degraded / critical
+  - GPUs allocated
+  - cluster average utilization
+  - aggregate memory
+  - aggregate power
+  - active alerts
+- Render a node grid or rack grid driven by the simulator state.
+- Add per-node quick status:
+  - job occupancy
+  - average util
+  - health status
+  - key degradation flags
+- Add an alerts panel:
+  - recent alerts
+  - severity color mapping
+  - affected node/gpu/job
+- Preserve mobile/viewport safety.
+
+Acceptance criteria:
+- The dashboard reads entirely from simulator state.
+- Users can visually see which nodes are idle, allocated, degraded, or critical.
+- Alerts update when simulator state changes.
+- The UI feels integrated with current Aegis styling and navigation.
+
+Tests and validation focus:
+- frontend smoke checks for dashboard render
+- browser smoke additions if practical
+- layout regression checks for desktop and smaller screens
+
+Local-live proof to capture:
+- screenshot of live dashboard with populated fleet state and alerts
+
+Exit criteria:
+- Aegis has a credible fleet-level simulator view, not just lab-level node telemetry.
+
+Handoff notes for next engineer:
+- Use shared health-color rules consistently across cards, alerts, and node cells.
+- Avoid hardcoded node markup; rendering should stay data-driven.
+
+Loop 3: Scheduler And Workload Simulation
+Owner area:
+- frontend/js/app.js
+- new frontend/js scheduler/workload module(s)
+- frontend/tests/
+
+Purpose:
+- Add realistic simulated job lifecycle behavior: submit, queue, place, run, cool down, finish, cancel.
+
+Implementation tasks:
+- Support baseline workload families:
+  - LLM training
+  - inference serving
+  - HPC/simulation
+  - computer vision training
+  - benchmark / collective saturation
+- Add queue states:
+  - pending
+  - running
+  - completing
+  - completed
+  - cancelled
+  - failed where useful
+- Implement placement logic:
+  - match requested node count
+  - match GPUs per node
+  - leave jobs pending when capacity is insufficient
+- Implement ramp profiles by workload type:
+  - different warm-up, steady-state, and cool-down shapes
+- Tie state changes to GPU util, memory use, power, and network/fabric summaries.
+- Add visible queue and job monitor surfaces if not already present in Aegis.
+
+Acceptance criteria:
+- A user can submit a simulated job and see it progress through queue states.
+- Running jobs change node/GPU metrics over time.
+- Cancellation returns capacity and produces visible cooldown behavior.
+- Queue behavior remains consistent between job views and terminal outputs.
+
+Tests and validation focus:
+- scheduler parsing/placement tests
+- state transition tests
+- smoke tests for submit/cancel flows
+
+Local-live proof to capture:
+- evidence of submit -> running -> cancel or complete cycle
+
+Exit criteria:
+- Aegis can simulate believable multi-node workload occupancy rather than static load snapshots.
+
+Handoff notes for next engineer:
+- Keep workload families data-driven so new profiles can be added without rewriting scheduler logic.
+- Avoid workload-specific branching inside the renderer where a config table will suffice.
+
+Loop 4: Terminal Command Engine Expansion
+Owner area:
+- frontend/js/app.js
+- new frontend/js terminal command module(s)
+- frontend/tests/
+
+Purpose:
+- Upgrade the terminal from lab-step replay toward deterministic cluster-operations simulation.
+
+Implementation tasks:
+- Add command router support for key families:
+  - `nvidia-smi`
+  - `nvidia-smi topo -m`
+  - `nvidia-smi -L`
+  - selected query forms such as `--query-gpu=... --format=csv`
+  - `dcgmi`
+  - `squeue`
+  - `sinfo`
+  - `sbatch`
+  - `sacct`
+  - `scancel`
+  - `ibstat`
+  - `perfquery`
+  - `dmesg`
+  - `journalctl`
+  - `hostname`, `uname`, `free -h`, selected inspection commands
+- Add node-context handling:
+  - support simulated `ssh <node>` or equivalent context switching if adopted
+- Ensure command output is derived from simulator state, not freeform text blobs alone.
+- Handle unsupported commands honestly:
+  - unknown command
+  - unsupported flag
+  - not available in simulator mode
+
+Acceptance criteria:
+- Core operator commands return deterministic, state-aligned output.
+- Terminal output changes when jobs and faults change the simulator state.
+- The terminal no longer depends on browser-side LLM fallback for authoritative command families.
+
+Tests and validation focus:
+- command parser tests
+- golden output tests for core commands
+- smoke coverage for submit/cancel/query flows
+
+Local-live proof to capture:
+- command transcripts for representative commands across idle, loaded, and degraded states
+
+Exit criteria:
+- A user can meaningfully inspect the simulated cluster from the terminal.
+
+Handoff notes for next engineer:
+- Add command families incrementally; do not claim universal command support.
+- Shared formatting helpers are preferable to ad hoc string assembly everywhere.
+
+Loop 5: Fault Injection And Degraded-State Modeling
+Owner area:
+- frontend/js/app.js
+- new frontend/js fault model module(s)
+- frontend/tests/
+
+Purpose:
+- Make the simulator operationally meaningful by adding realistic failure and degradation paths.
+
+Implementation tasks:
+- Support controlled fault categories:
+  - ECC SBE accumulation
+  - ECC DBE / uncorrectable memory event
+  - XID 48 / 74 / 79 style modeled failures
+  - NVLink degradation
+  - IB congestion or path degradation
+  - scheduler/resource starvation
+  - CUDA/container/runtime mismatch where appropriate
+- Distinguish:
+  - warning
+  - degraded but running
+  - critical / isolated
+- Ensure faults affect:
+  - dashboard status
+  - alerts feed
+  - terminal command output
+  - job performance / queue outcomes where relevant
+- Add fault injection controls or scenario triggers in a bounded Aegis-native way.
+
+Acceptance criteria:
+- Injected faults propagate through all major simulator surfaces.
+- Health categories are more expressive than idle vs allocated.
+- Users can observe a fault operationally, not just read a label.
+
+Tests and validation focus:
+- state-change tests for each major fault family
+- regression coverage that normal jobs still work when no fault is present
+
+Local-live proof to capture:
+- before/after evidence for at least two fault families
+
+Exit criteria:
+- The simulator can teach degraded-state interpretation, not just healthy-state observation.
+
+Handoff notes for next engineer:
+- Keep fault definitions catalog-driven where practical.
+- Do not let individual fault handlers fork unrelated UI logic.
+
+Loop 6: Teaching And Scenario Integration
+Owner area:
+- frontend/js/app.js
+- frontend/js/labs*.js
+- frontend/js/learning*.js
+- frontend/tests/
+
+Purpose:
+- Connect the stronger simulator to Aegis’s teaching mission instead of leaving it as a standalone dashboard.
+
+Implementation tasks:
+- Add scenario flows that use the cluster simulator as evidence.
+- Link workload/fault states to guided reasoning:
+  - what changed
+  - which layer owns it
+  - what evidence supports the conclusion
+  - what safe next action follows
+- Add at least one simulator-backed learning path per major area:
+  - compute/runtime
+  - fabric/network
+  - scheduler/operations
+- Reuse current Aegis coaching patterns where they fit.
+
+Acceptance criteria:
+- The simulator strengthens the learning experience rather than competing with it.
+- Users can practice operator reasoning on cluster-level incidents.
+- Existing Aegis pedagogy remains coherent with the new surfaces.
+
+Tests and validation focus:
+- frontend smoke tests for scenario rendering
+- browser proof where scenario branching or modal behavior matters
+
+Local-live proof to capture:
+- evidence of a simulator-backed teaching scenario from start to finish
+
+Exit criteria:
+- v3.2 remains recognizably Aegis, not just a standalone cluster toy.
+
+Handoff notes for next engineer:
+- Reuse existing reasoning and guidance systems instead of inventing a second pedagogy layer.
+
+Loop 7: Alerts, Evidence, And UX Hardening
+Owner area:
+- frontend/index.html
+- frontend/css/styles.css
+- frontend/js/app.js
+- frontend/tests/
+
+Purpose:
+- Improve operational readability, evidence surfaces, and professional fit-and-finish.
+
+Implementation tasks:
+- Harden alert feed readability and severity language.
+- Add compact evidence/status detail surfaces:
+  - why a node is degraded
+  - which job is affected
+  - what command should confirm the condition
+- Add quick, safe simulator actions if they materially help:
+  - drain node
+  - clear simulated fault
+  - resubmit workload
+- Ensure state transitions are visually understandable.
+- Tighten keyboard flow, panel behavior, and responsive layout.
+
+Acceptance criteria:
+- Simulator state is legible at a glance and inspectable in detail.
+- The UI feels intentional and operator-facing, not like a rough prototype.
+- Repeated status concepts use consistent language and styling.
+
+Tests and validation focus:
+- regression checks on layout and key workflows
+- frontend/browser smoke additions for quick-action paths if added
+
+Local-live proof to capture:
+- screenshots and/or transcripts showing evidence-first degraded-state UX
+
+Exit criteria:
+- The v3.2 simulator feels production-minded in presentation while remaining simulator-safe in behavior.
+
+Handoff notes for next engineer:
+- Prefer fewer high-signal surfaces over more decorative widgets.
+
+Loop 8: Proof Coverage, Release Prep, And Documentation
+Owner area:
+- frontend/tests/
+- backend/tests/
+- deploy/
+- root planning/summary files
+
+Purpose:
+- Finish v3.2 with enough validation and documentation that another engineer can maintain and extend it safely.
+
+Implementation tasks:
+- Expand smoke/proof coverage for:
+  - dashboard render
+  - job submit/cancel lifecycle
+  - representative command outputs
+  - representative fault injections
+  - teaching/scenario integration
+- Create or update:
+  - v3.2-build-log.txt
+  - v3.2-summary.txt
+  - v3.2 evidence artifacts
+- Run final local-live deployment verification.
+- Ensure release tagging/push flow is documented once the build is complete.
+
+Acceptance criteria:
+- Major v3.2 differentiators have proof artifacts, not just implementation claims.
+- Build log and summary are complete enough for handoff.
+- Local live matches the workspace at release time.
+
+Tests and validation focus:
+- full frontend unittest suite
+- backend syntax/unit checks
+- browser proof where practical
+- explicit local-live verification
+
+Local-live proof to capture:
+- final release evidence summary and screenshots/transcripts
+
+Exit criteria:
+- v3.2 can be handed off, demonstrated, and iterated without rediscovering intent.
+
+Handoff notes for next engineer:
+- Update the build log after each loop, not only at the end.
+- If a loop expands materially, split it rather than silently broadening scope.
+
+Non-Goals For v3.2
+------------------
+- Full production AI datacenter control plane
+- Direct live-host shell from browser
+- Browser-embedded model API keys
+- Autonomous destructive remediation
+- PXE provisioning / imaging workflows
+- Complete support for every NVIDIA command and flag
+
+Risk Register
+-------------
+1. Monolith regression:
+   Risk that simulator code gets dumped back into app.js as one large block.
+   Mitigation: create dedicated modules early and keep responsibilities narrow.
+2. Inconsistent state:
+   Risk that dashboard, jobs, and terminal drift.
+   Mitigation: all major views must read from shared simulator state.
+3. Overpromising command support:
+   Risk that UI implies universal shell realism.
+   Mitigation: support core commands deeply and fail honestly elsewhere.
+4. Scope creep toward production mode:
+   Risk that simulator work turns into live-control work mid-release.
+   Mitigation: keep v3.2 simulator-only and defer live control to later planning.
+5. Validation debt:
+   Risk that richer simulator flows ship without proof.
+   Mitigation: every loop ends with local validation, local-live deployment, and build-log notes.
+
+Execution Order
+---------------
+1. Loop 1: Simulator State Foundation
+2. Loop 2: Fleet Dashboard Upgrade
+3. Loop 3: Scheduler And Workload Simulation
+4. Loop 4: Terminal Command Engine Expansion
+5. Loop 5: Fault Injection And Degraded-State Modeling
+6. Loop 6: Teaching And Scenario Integration
+7. Loop 7: Alerts, Evidence, And UX Hardening
+8. Loop 8: Proof Coverage, Release Prep, And Documentation
+
+Definition Of Done For Version 3.2
+----------------------------------
+- Aegis includes a simulator-grade multi-node AI cluster experience inside the existing product.
+- The simulator is state-driven, deterministic for core command families, and visually coherent.
+- Jobs, faults, alerts, and command outputs stay aligned with one shared model.
+- The new simulator surfaces strengthen Aegis’s training value.
+- Local-live deployment is updated and verified.
+- Proof artifacts, build logs, and summary documents exist so another engineer can continue without oral context.

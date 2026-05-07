@@ -12,7 +12,8 @@ COACH_JS = (ROOT / 'js' / 'coach.js').read_text(encoding='utf-8')
 STUDY_QUIZ_JS = (ROOT / 'js' / 'study-quiz.js').read_text(encoding='utf-8')
 RUNTIME_JS = (ROOT / 'js' / 'runtime.js').read_text(encoding='utf-8')
 LABS_PART1_JS = (ROOT / 'js' / 'labs-part-1.js').read_text(encoding='utf-8')
-FRONTEND_JS = APP_JS + '\n' + ANALYTICS_JS + '\n' + BRANCHING_JS + '\n' + COACH_JS + '\n' + STUDY_QUIZ_JS + '\n' + RUNTIME_JS
+CLUSTER_SIM_JS = (ROOT / 'js' / 'cluster-sim.js').read_text(encoding='utf-8')
+FRONTEND_JS = APP_JS + '\n' + ANALYTICS_JS + '\n' + BRANCHING_JS + '\n' + COACH_JS + '\n' + STUDY_QUIZ_JS + '\n' + RUNTIME_JS + '\n' + CLUSTER_SIM_JS
 
 
 class FrontendSmokeTest(unittest.TestCase):
@@ -24,6 +25,7 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('js/branching.js', INDEX)
         self.assertIn('js/coach.js', INDEX)
         self.assertIn('js/study-quiz.js', INDEX)
+        self.assertIn('js/cluster-sim.js', INDEX)
         self.assertIn('js/runtime.js', INDEX)
         self.assertIn('js/app.js', INDEX)
         self.assertIn('js/learning-part-1.js', INDEX)
@@ -88,6 +90,17 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('gpusim_terminal_mode', FRONTEND_JS)
         self.assertIn('id="btn-terminal-mode"', INDEX)
         self.assertIn('Turn on Terminal Mode', FRONTEND_JS)
+
+    def test_cluster_sim_foundation_is_available(self):
+        self.assertIn('AEGIS_CLUSTER_SIM', CLUSTER_SIM_JS)
+        self.assertIn('createInitialState', CLUSTER_SIM_JS)
+        self.assertIn('createStore', CLUSTER_SIM_JS)
+        self.assertIn('tickState', CLUSTER_SIM_JS)
+        self.assertIn('getFleetSummary', CLUSTER_SIM_JS)
+        self.assertIn('ensureClusterSimStore', APP_JS)
+        self.assertIn('describeClusterSimIdleView', APP_JS)
+        self.assertIn('updateClusterSimFoundationUI', RUNTIME_JS)
+        self.assertIn('startClusterSimFoundationLoop', RUNTIME_JS)
 
     def test_terminal_fixtures_cover_early_fault_labs(self):
         self.assertIn('ECC baseline probe accepted', LABS_PART1_JS)

@@ -8,6 +8,33 @@ let metrics = {
 let appMode = 'simulation';
 let thermalMode = false;
 let liveInterval = null;
+let clusterSimInterval = null;
+
+function updateClusterSimFoundationUI() {
+  const summary = typeof getClusterSimSummary === 'function' ? getClusterSimSummary() : null;
+  const status = document.getElementById('sys-status');
+  if (summary && status) {
+    status.innerHTML = `SYSTEM: <span style="color:var(--green)">SIM READY</span> | CLUSTER: <span style="color:var(--green)">${summary.totalNodes}N / ${summary.totalGpus}G</span> | JOBS: <span style="color:var(--green)">${summary.runningJobs}R / ${summary.pendingJobs}P</span>`;
+  }
+  if (!currentLab) {
+    const title = document.getElementById('scen-title');
+    const desc = document.getElementById('scen-desc');
+    if (title) title.textContent = 'GPU Infrastructure Simulator';
+    if (desc && typeof describeClusterSimIdleView === 'function') desc.textContent = describeClusterSimIdleView();
+  }
+}
+
+function startClusterSimFoundationLoop() {
+  const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
+  if (!store) return;
+  if (clusterSimInterval) clearInterval(clusterSimInterval);
+  updateClusterSimFoundationUI();
+  clusterSimInterval = setInterval(() => {
+    if (appMode !== 'simulation') return;
+    store.tick(3);
+    updateClusterSimFoundationUI();
+  }, 3000);
+}
 
 // --- RECONSTITUTION LOGIC ---
 function runInstantSentinel() {
@@ -736,6 +763,11 @@ function resetAll() {
   } else if (typeof drawWelcome === 'function') {
       drawWelcome(svg);
   }
+  if (typeof ensureClusterSimStore === 'function') {
+    const store = ensureClusterSimStore();
+    if (store && typeof store.reset === 'function') store.reset();
+  }
+  updateClusterSimFoundationUI();
 }
 
 function bindUIHandlers() {
@@ -857,6 +889,7 @@ function bindUIHandlers() {
 
 function initApp() {
   bindUIHandlers();
+  if (typeof ensureClusterSimStore === 'function') ensureClusterSimStore();
   syncBeginnerModeUI();
   const savedBp  = localStorage.getItem('gpusim_blueprint');
   const savedFab = localStorage.getItem('gpusim_fabric');
@@ -878,6 +911,7 @@ function initApp() {
 
   isProvisioned = false;
   currentBlueprint = null;
+  updateClusterSimFoundationUI();
   runInstantSentinel();
   const reconOverlay = document.getElementById('recon-overlay');
   if (reconOverlay) reconOverlay.style.display = 'flex';
@@ -933,6 +967,7 @@ function initApp() {
   }, 100);
   updateTerminalModeUI();
   updateTerminalInputHint();
+  startClusterSimFoundationLoop();
 }
 
 window.addEventListener('load', async ()=>{
