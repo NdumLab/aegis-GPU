@@ -101,6 +101,9 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('createStore', CLUSTER_SIM_JS)
         self.assertIn('tickState', CLUSTER_SIM_JS)
         self.assertIn('getFleetSummary', CLUSTER_SIM_JS)
+        self.assertIn('DEFAULT_FAULT_PRESETS', CLUSTER_SIM_JS)
+        self.assertIn('injectFault', CLUSTER_SIM_JS)
+        self.assertIn('clearAllFaults', CLUSTER_SIM_JS)
         self.assertIn('ensureClusterSimStore', APP_JS)
         self.assertIn('describeClusterSimIdleView', APP_JS)
         self.assertIn('updateClusterSimFoundationUI', RUNTIME_JS)
@@ -119,6 +122,9 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('renderClusterDashboardView', RUNTIME_JS)
         self.assertIn('submitClusterWorkload', RUNTIME_JS)
         self.assertIn('cancelClusterWorkload', RUNTIME_JS)
+        self.assertIn('injectClusterFault', RUNTIME_JS)
+        self.assertIn('clearClusterFault', RUNTIME_JS)
+        self.assertIn('Clear All Faults', CLUSTER_DASHBOARD_JS)
         self.assertIn('Cluster Fleet Simulator', RUNTIME_JS)
 
     def test_cluster_terminal_surface_is_available(self):

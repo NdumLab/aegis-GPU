@@ -127,6 +127,53 @@
     },
   };
 
+  const DEFAULT_FAULT_PRESETS = {
+    ecc_surge: {
+      id: 'ecc_surge',
+      label: 'ECC Surge',
+      severity: 'warn',
+      category: 'memory',
+      nodeId: 'gb200-node-05',
+      gpuId: 11,
+      kind: 'ecc_surge',
+      message: 'Corrected ECC events are climbing on one accelerator.',
+      remediationHint: 'Confirm whether SBE growth is contained or trending toward node drain conditions.',
+    },
+    nvlink_crc: {
+      id: 'nvlink_crc',
+      label: 'NVLink CRC',
+      severity: 'warn',
+      category: 'fabric',
+      nodeId: 'gb200-node-04',
+      gpuId: 6,
+      kind: 'nvlink_crc',
+      message: 'One tray is replaying NVLink traffic and losing expected bandwidth.',
+      remediationHint: 'Validate the fast path before blaming NCCL or the workload.',
+    },
+    ib_congestion: {
+      id: 'ib_congestion',
+      label: 'IB Congestion',
+      severity: 'warn',
+      category: 'network',
+      nodeId: 'gb200-node-06',
+      gpuId: null,
+      kind: 'ib_congestion',
+      message: 'InfiniBand throughput is link-up but congested under collective traffic.',
+      remediationHint: 'Compare utilization against network pressure before draining the node.',
+    },
+    xid_79: {
+      id: 'xid_79',
+      label: 'XID 79',
+      severity: 'critical',
+      category: 'gpu_fault',
+      nodeId: 'gb200-node-02',
+      gpuId: 3,
+      kind: 'xid_79',
+      message: 'A GPU has fallen off the bus and should be treated as a critical hardware incident.',
+      remediationHint: 'Contain the node, capture evidence, and verify whether the scheduler should drain it.',
+    },
+  };
+
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
@@ -305,6 +352,7 @@
       nodes,
       jobs,
       alerts,
+      activeFaults: [],
       nextJobId: 41025,
       lastTickMs: Date.now(),
       simClockSeconds: 0,
@@ -379,6 +427,81 @@
       gpu.xid = null;
       gpu.allocationState = utilizationColor(gpu.utilizationPct);
     });
+  }
+
+  function addNodeNote(node, note) {
+    if (!node.notes.includes(note)) node.notes.push(note);
+  }
+
+  function setFaultAlert(state, fault) {
+    state.alerts.unshift({
+      id: `sim-fault-${fault.id}-${Date.now()}`,
+      severity: fault.severity,
+      category: fault.category,
+      nodeId: fault.nodeId,
+      gpuId: fault.gpuId,
+      jobId: null,
+      message: fault.message,
+      remediationHint: fault.remediationHint,
+      timestamp: Date.now(),
+    });
+  }
+
+  function applyFaultToNode(node, fault) {
+    const gpu = fault.gpuId === null || fault.gpuId === undefined
+      ? null
+      : node.gpus.find((item) => item.id === fault.gpuId) || null;
+    if (fault.kind === 'ecc_surge') {
+      node.healthState = node.healthState === 'critical' ? 'critical' : 'degraded';
+      addNodeNote(node, 'ECC SBE rate elevated on one GPU');
+      if (gpu) {
+        gpu.ecc.sbe = 312;
+        gpu.temperatureC = clamp(gpu.temperatureC + 5, 30, 92);
+        gpu.memoryUsedGiB = clamp(gpu.memoryUsedGiB + 6, 0, gpu.memoryTotalGiB);
+      }
+      return;
+    }
+    if (fault.kind === 'nvlink_crc') {
+      node.healthState = node.healthState === 'critical' ? 'critical' : 'degraded';
+      node.fabric.nvlinkHealth = 'degraded';
+      node.fabric.nvlinkGbps = round(node.fabric.nvlinkGbps * 0.58, 1);
+      addNodeNote(node, 'NVLink replay / CRC pressure detected');
+      node.gpus.slice(0, 8).forEach((item, index) => {
+        if (index % 2 === 0) item.nvlinkState = 'replay';
+        item.utilizationPct = clamp(item.utilizationPct - 9, 6, 100);
+      });
+      return;
+    }
+    if (fault.kind === 'ib_congestion') {
+      node.healthState = node.healthState === 'critical' ? 'critical' : 'degraded';
+      node.fabric.ibHealth = 'congested';
+      node.fabric.ibRxGbps = round(Math.max(node.fabric.ibRxGbps * 0.64, 128), 1);
+      node.fabric.ibTxGbps = round(Math.max(node.fabric.ibTxGbps * 0.61, 120), 1);
+      addNodeNote(node, 'IB congestion is reducing collective throughput');
+      node.gpus.forEach((item, index) => {
+        if (index < 18) item.utilizationPct = clamp(item.utilizationPct - 12, 6, 100);
+      });
+      return;
+    }
+    if (fault.kind === 'xid_79') {
+      node.healthState = 'critical';
+      node.fabric.nvlinkHealth = 'degraded';
+      node.fabric.ibHealth = 'degraded';
+      node.fabric.nvlinkGbps = round(node.fabric.nvlinkGbps * 0.22, 1);
+      node.fabric.ibRxGbps = round(node.fabric.ibRxGbps * 0.37, 1);
+      node.fabric.ibTxGbps = round(node.fabric.ibTxGbps * 0.34, 1);
+      addNodeNote(node, 'XID 79: GPU fell off the bus');
+      if (gpu) {
+        gpu.xid = 79;
+        gpu.utilizationPct = 0;
+        gpu.powerWatts = 96;
+        gpu.temperatureC = clamp(gpu.temperatureC + 8, 30, 92);
+        gpu.nvlinkState = 'down';
+      }
+      node.gpus.forEach((item, index) => {
+        if (index !== fault.gpuId && index < 18) item.utilizationPct = clamp(item.utilizationPct - 18, 6, 100);
+      });
+    }
   }
 
   function getUsedNodeIds(state) {
@@ -475,6 +598,9 @@
       applyIdleNodeState(node);
       const runningJob = jobMap.get(node.id);
       if (runningJob) applyJobToNode(node, runningJob);
+      state.activeFaults.forEach((fault) => {
+        if (fault.nodeId === node.id) applyFaultToNode(node, fault);
+      });
       recomputeNodeTelemetry(node);
     });
     trimAlerts(state);
@@ -588,6 +714,52 @@
         reconcileState(state);
         return job;
       },
+      injectFault(faultId) {
+        const preset = DEFAULT_FAULT_PRESETS[faultId];
+        if (!preset) return null;
+        state.activeFaults = state.activeFaults.filter((fault) => fault.id !== faultId);
+        const fault = Object.assign({}, preset, { injectedAt: Date.now() });
+        state.activeFaults.push(fault);
+        setFaultAlert(state, fault);
+        reconcileState(state);
+        return fault;
+      },
+      clearFault(faultId) {
+        const existing = state.activeFaults.find((fault) => fault.id === faultId);
+        if (!existing) return null;
+        state.activeFaults = state.activeFaults.filter((fault) => fault.id !== faultId);
+        state.alerts.unshift({
+          id: `sim-fault-clear-${faultId}-${Date.now()}`,
+          severity: 'info',
+          category: existing.category,
+          nodeId: existing.nodeId,
+          gpuId: existing.gpuId,
+          jobId: null,
+          message: `Cleared injected fault ${existing.label} on ${existing.nodeId}.`,
+          remediationHint: 'Use the dashboard and terminal to confirm the node returned to its baseline simulator state.',
+          timestamp: Date.now(),
+        });
+        reconcileState(state);
+        return existing;
+      },
+      clearAllFaults() {
+        if (!state.activeFaults.length) return [];
+        const cleared = state.activeFaults.slice();
+        state.activeFaults = [];
+        state.alerts.unshift({
+          id: `sim-fault-clear-all-${Date.now()}`,
+          severity: 'info',
+          category: 'fault_injection',
+          nodeId: null,
+          gpuId: null,
+          jobId: null,
+          message: 'Cleared all injected simulator faults.',
+          remediationHint: 'Use this before starting a fresh scenario or comparing clean-vs-faulted behavior.',
+          timestamp: Date.now(),
+        });
+        reconcileState(state);
+        return cleared;
+      },
       reset(nextOptions) {
         const nextState = createInitialState(nextOptions || options);
         reconcileState(nextState);
@@ -611,6 +783,7 @@
     DEFAULT_CLUSTER_CONFIG,
     DEFAULT_WORKLOAD_PROFILES,
     DEFAULT_JOB_PRESETS,
+    DEFAULT_FAULT_PRESETS,
     createInitialState,
     createStore,
     tickState,

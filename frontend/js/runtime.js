@@ -84,6 +84,37 @@ function cancelClusterWorkload(jobId) {
   logTerm([{ t: 'dim', v: `# ${job.name} released its reserved simulator capacity.` }]);
 }
 
+function injectClusterFault(faultId) {
+  const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
+  if (!store || typeof store.injectFault !== 'function') return;
+  const fault = store.injectFault(faultId);
+  if (!fault) return;
+  renderClusterDashboardView();
+  switchTab('term');
+  logTerm([{ t: fault.severity === 'critical' ? 'bad' : 'warn', v: `[SIM FAULT] ${fault.label} injected on ${fault.nodeId}${fault.gpuId === null || fault.gpuId === undefined ? '' : ` GPU ${fault.gpuId}`}` }]);
+  logTerm([{ t: 'dim', v: `# ${fault.message}` }]);
+}
+
+function clearClusterFault(faultId) {
+  const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
+  if (!store || typeof store.clearFault !== 'function') return;
+  const fault = store.clearFault(faultId);
+  if (!fault) return;
+  renderClusterDashboardView();
+  switchTab('term');
+  logTerm([{ t: 'good', v: `[SIM FAULT] Cleared ${fault.label} on ${fault.nodeId}.` }]);
+}
+
+function clearAllClusterFaults() {
+  const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
+  if (!store || typeof store.clearAllFaults !== 'function') return;
+  const cleared = store.clearAllFaults();
+  if (!cleared || !cleared.length) return;
+  renderClusterDashboardView();
+  switchTab('term');
+  logTerm([{ t: 'good', v: `[SIM FAULT] Cleared ${cleared.length} injected fault(s).` }]);
+}
+
 function updateClusterSimFoundationUI() {
   const summary = typeof getClusterSimSummary === 'function' ? getClusterSimSummary() : null;
   const status = document.getElementById('sys-status');
@@ -1007,6 +1038,21 @@ function bindUIHandlers() {
     const cancelBtn = e.target.closest('[data-cluster-cancel]');
     if (cancelBtn) {
       cancelClusterWorkload(cancelBtn.getAttribute('data-cluster-cancel'));
+      return;
+    }
+    const injectFaultBtn = e.target.closest('[data-cluster-inject-fault]');
+    if (injectFaultBtn) {
+      injectClusterFault(injectFaultBtn.getAttribute('data-cluster-inject-fault'));
+      return;
+    }
+    const clearFaultBtn = e.target.closest('[data-cluster-clear-fault]');
+    if (clearFaultBtn) {
+      clearClusterFault(clearFaultBtn.getAttribute('data-cluster-clear-fault'));
+      return;
+    }
+    const clearAllFaultsBtn = e.target.closest('[data-cluster-clear-faults]');
+    if (clearAllFaultsBtn) {
+      clearAllClusterFaults();
     }
   });
 

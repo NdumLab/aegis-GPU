@@ -206,6 +206,8 @@ header h1 span { color: var(--green); }
 .cluster-gpu-cell.tone-active { background: rgba(74,158,255,.30); }
 .cluster-gpu-cell.tone-warning { background: rgba(240,180,41,.34); }
 .cluster-gpu-cell.tone-critical { background: rgba(224,82,82,.38); }
+.cluster-node-notes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.cluster-node-notes span { font-family: var(--font-mono); font-size: 9.5px; padding: 3px 6px; border-radius: 999px; background: rgba(240,180,41,.10); border: 1px solid rgba(240,180,41,.20); color: #ffd37b; }
 .cluster-node-foot { display: flex; flex-wrap: wrap; gap: 10px; font-size: 10px; color: var(--dim); }
 .cluster-kpi { min-width: 165px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: linear-gradient(180deg, rgba(17,21,32,.92), rgba(11,14,20,.92)); }
 .cluster-kpi-label { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin-bottom: 6px; }
@@ -225,13 +227,21 @@ header h1 span { color: var(--green); }
 .cluster-submit-card,
 .cluster-jobs-card { border: 1px solid var(--border); border-radius: 10px; background: linear-gradient(180deg, rgba(23,29,43,.94), rgba(11,14,20,.94)); padding: 12px; }
 .cluster-submit-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.cluster-submit-head-secondary { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); }
 .cluster-submit-title { font-family: var(--font-mono); font-size: 11px; color: var(--white); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
 .cluster-submit-copy { font-size: 10.5px; color: var(--dim); line-height: 1.65; max-width: 900px; }
 .cluster-submit-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .cluster-submit-btn { display: grid; gap: 4px; min-height: 70px; text-align: left; padding: 10px; background: rgba(255,255,255,.02); border: 1px solid rgba(74,158,255,.18); border-radius: 8px; color: var(--text); cursor: pointer; transition: border-color .15s, transform .15s, background .15s; }
 .cluster-submit-btn:hover { border-color: rgba(118,185,0,.32); background: rgba(118,185,0,.08); transform: translateY(-1px); }
+.cluster-submit-btn.tone-warning { border-color: rgba(240,180,41,.22); }
+.cluster-submit-btn.tone-warning:hover { border-color: rgba(240,180,41,.36); background: rgba(240,180,41,.10); }
+.cluster-submit-btn.tone-critical { border-color: rgba(224,82,82,.22); }
+.cluster-submit-btn.tone-critical:hover { border-color: rgba(224,82,82,.38); background: rgba(224,82,82,.10); }
 .cluster-submit-btn span { font-family: var(--font-mono); font-size: 11px; color: var(--white); }
 .cluster-submit-btn small { font-size: 10px; color: var(--dim); line-height: 1.4; }
+.cluster-submit-empty { display: flex; align-items: center; min-height: 54px; padding: 0 4px; font-size: 10px; color: var(--dim); }
+.cluster-clear-btn { font-family: var(--font-mono); font-size: 10px; padding: 6px 10px; border-radius: 5px; border: 1px solid rgba(74,158,255,.28); background: rgba(74,158,255,.08); color: var(--blue); cursor: pointer; }
+.cluster-clear-btn:hover { background: rgba(74,158,255,.14); }
 .cluster-jobs-shell { overflow-x: auto; }
 .cluster-jobs-table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 880px; }
 .cluster-jobs-table th { text-align: left; padding: 7px 8px; color: var(--dim); border-bottom: 1px solid rgba(255,255,255,.08); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }

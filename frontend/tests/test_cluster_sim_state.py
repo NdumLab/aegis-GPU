@@ -88,6 +88,35 @@ class ClusterSimStateTest(unittest.TestCase):
         self.assertGreaterEqual(payload['postSubmitRunning'], 1)
         self.assertGreaterEqual(payload['totalJobs'], 5)
 
+    def test_store_can_inject_and_clear_faults(self):
+        script = textwrap.dedent(
+            f"""
+            const fs = require('fs');
+            globalThis.window = globalThis;
+            eval(fs.readFileSync({json.dumps(str(CLUSTER_SIM_JS))}, 'utf8'));
+            const store = globalThis.AEGIS_CLUSTER_SIM.createStore();
+            const fault = store.injectFault('xid_79');
+            const node = store.getNode(fault.nodeId);
+            const afterInject = {{
+              health: node.healthState,
+              xid: node.gpus[fault.gpuId].xid,
+              activeFaults: store.state.activeFaults.length,
+            }};
+            store.clearFault('xid_79');
+            const afterClear = {{
+              activeFaults: store.state.activeFaults.length,
+              health: store.getNode(fault.nodeId).healthState,
+            }};
+            process.stdout.write(JSON.stringify({{ afterInject, afterClear }}));
+            """
+        )
+        output = subprocess.check_output(['node', '-e', script], text=True)
+        payload = json.loads(output)
+        self.assertEqual(payload['afterInject']['health'], 'critical')
+        self.assertEqual(payload['afterInject']['xid'], 79)
+        self.assertEqual(payload['afterInject']['activeFaults'], 1)
+        self.assertEqual(payload['afterClear']['activeFaults'], 0)
+
 
 if __name__ == '__main__':
     unittest.main()

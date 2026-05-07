@@ -28,6 +28,10 @@ def load_cluster_terminal_payload():
         const smi = terminal.runCommand(store.state, 'nvidia-smi -i 0');
         const sacct = terminal.runCommand(store.state, 'sacct');
         const cancel = terminal.runCommand(store.state, `scancel ${{pendingJob.id}}`);
+        store.injectFault('xid_79');
+        terminal.runCommand(store.state, 'ssh gb200-node-02');
+        const faultSmi = terminal.runCommand(store.state, 'nvidia-smi -i 3');
+        const faultIb = terminal.runCommand(store.state, 'ibstat');
         process.stdout.write(JSON.stringify({{
           squeueHeader: squeue.lines[0],
           squeueBody: squeue.lines[1] || '',
@@ -38,6 +42,8 @@ def load_cluster_terminal_payload():
           smiHeader: smi.lines[2],
           sacctHeader: sacct.lines[0],
           cancelAction: cancel.action,
+          faultSmiTail: faultSmi.lines.slice(-3),
+          faultIbTail: faultIb.lines.slice(-1)[0],
         }}));
         """
     )
@@ -67,6 +73,10 @@ class ClusterTerminalStateTest(unittest.TestCase):
     def test_scancel_returns_action_payload(self):
         self.assertEqual(self.payload['cancelAction']['type'], 'cancel')
         self.assertIsInstance(self.payload['cancelAction']['jobId'], int)
+
+    def test_fault_injection_changes_terminal_evidence(self):
+        self.assertTrue(any('XID 79' in line for line in self.payload['faultSmiTail']))
+        self.assertIn('degraded', self.payload['faultIbTail'])
 
 
 if __name__ == '__main__':

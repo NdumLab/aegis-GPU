@@ -54,8 +54,11 @@
       const healthClass = healthTone(node.healthState);
       const activeJob = state.jobs.find((job) => job.state === 'running' && job.assignedNodes.includes(node.id));
       const gpuCells = node.gpus.slice(0, 18).map((gpu) => `
-        <span class="cluster-gpu-cell tone-${esc(utilTone(gpu.utilizationPct))}" title="${esc(gpu.name)} • ${esc(gpu.utilizationPct)}% util • ${esc(gpu.memoryUsedGiB)}/${esc(gpu.memoryTotalGiB)} GiB"></span>
+        <span class="cluster-gpu-cell tone-${esc(gpu.xid ? 'critical' : utilTone(gpu.utilizationPct))}" title="${esc(gpu.name)} • ${esc(gpu.utilizationPct)}% util • ${esc(gpu.memoryUsedGiB)}/${esc(gpu.memoryTotalGiB)} GiB${gpu.xid ? ` • XID ${gpu.xid}` : ''}${gpu.ecc.sbe ? ` • SBE ${gpu.ecc.sbe}` : ''}"></span>
       `).join('');
+      const notes = node.notes.length
+        ? `<div class="cluster-node-notes">${node.notes.map((note) => `<span>${esc(note)}</span>`).join('')}</div>`
+        : '';
       return `
         <article class="cluster-node-card tone-${esc(healthClass)}">
           <div class="cluster-node-head">
@@ -74,6 +77,7 @@
               <span>${esc(node.fabric.ibRxGbps)} Gb/s IB RX</span>
             </div>
             <div class="cluster-gpu-strip">${gpuCells}</div>
+            ${notes}
             <div class="cluster-node-foot">
               <span>NVLink ${esc(node.fabric.nvlinkHealth)}</span>
               <span>IB ${esc(node.fabric.ibHealth)}</span>
@@ -95,6 +99,7 @@
         <div class="metric-row"><span class="metric-label">Cluster</span><span class="metric-value ok">${esc(summary.clusterName)}</span></div>
         <div class="metric-row"><span class="metric-label">Rack</span><span class="metric-value ok">${esc(summary.rackId)}</span></div>
         <div class="metric-row"><span class="metric-label">Healthy</span><span class="metric-value ok">${esc(summary.healthyNodes)}</span></div>
+        <div class="metric-row"><span class="metric-label">Injected Faults</span><span class="metric-value ${state.activeFaults?.length ? 'warn' : 'ok'}">${esc(state.activeFaults?.length || 0)}</span></div>
         <div class="metric-row"><span class="metric-label">Alerts</span><span class="metric-value ${summary.activeAlerts ? 'warn' : 'ok'}">${esc(summary.activeAlerts)}</span></div>
       </div>
       <div class="metric-group cluster-side-card">
@@ -128,6 +133,29 @@
             <button class="cluster-submit-btn" type="button" data-cluster-submit="${esc(preset.id)}" title="${esc(preset.commandPreview || '')}">
               <span>${esc(preset.label)}</span>
               <small>${esc(preset.requestedNodes)} node(s) • ${esc(preset.requestedGpusPerNode)} GPU/node</small>
+            </button>
+          `).join('')}
+        </div>
+        <div class="cluster-submit-head cluster-submit-head-secondary">
+          <div>
+            <div class="cluster-submit-title">Inject Simulator Fault</div>
+            <div class="cluster-submit-copy">Loop 5 adds bounded degraded-state modeling. These faults mutate the same shared node, fabric, alert, and terminal state already used by the dashboard and scheduler.</div>
+          </div>
+          <button class="cluster-clear-btn" type="button" data-cluster-clear-faults>Clear All Faults</button>
+        </div>
+        <div class="cluster-submit-row">
+          ${(state.activeFaults || []).length ? state.activeFaults.map((fault) => `
+            <button class="cluster-submit-btn tone-warning" type="button" data-cluster-clear-fault="${esc(fault.id)}" title="${esc(fault.message)}">
+              <span>Clear ${esc(fault.label)}</span>
+              <small>${esc(fault.nodeId)}${fault.gpuId === null || fault.gpuId === undefined ? '' : ` • GPU ${esc(fault.gpuId)}`}</small>
+            </button>
+          `).join('') : '<div class="cluster-submit-empty">No injected faults active.</div>'}
+        </div>
+        <div class="cluster-submit-row">
+          ${Object.values(global.AEGIS_CLUSTER_SIM?.DEFAULT_FAULT_PRESETS || {}).map((fault) => `
+            <button class="cluster-submit-btn tone-critical" type="button" data-cluster-inject-fault="${esc(fault.id)}" title="${esc(fault.message)}">
+              <span>${esc(fault.label)}</span>
+              <small>${esc(fault.nodeId)}${fault.gpuId === null || fault.gpuId === undefined ? '' : ` • GPU ${esc(fault.gpuId)}`}</small>
             </button>
           `).join('')}
         </div>

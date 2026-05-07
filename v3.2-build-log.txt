@@ -211,3 +211,72 @@ Exit Notes
 ----------
 - Loop 4 makes the Cluster Fleet view inspectable from the existing terminal without introducing live shell execution.
 - Fault injection and degraded-state modeling remain the focus of Loop 5.
+
+Loop 5 - Fault Injection And Degraded-State Modeling
+----------------------------------------------------
+- Status: completed
+- Goal: let the simulator inject realistic degraded cluster conditions so fleet cards, alerts, and terminal output stay synchronized under failure scenarios.
+- Extended `frontend/js/cluster-sim.js` to add:
+  - `DEFAULT_FAULT_PRESETS`
+  - `activeFaults` state
+  - `injectFault`, `clearFault`, and `clearAllFaults` store actions
+  - deterministic degraded-state mutations for:
+    - ECC surge
+    - NVLink CRC / replay pressure
+    - InfiniBand congestion
+    - XID 79 / fell-off-bus
+- Updated node reconciliation so injected faults alter:
+  - node health state
+  - node notes
+  - fabric health and throughput
+  - GPU ECC counters
+  - GPU XID state
+  - GPU utilization, temperature, and power behavior
+- Extended `frontend/js/cluster-dashboard.js` to render:
+  - an injected-faults count in the sidebar
+  - fault injection controls
+  - per-fault clear actions
+  - a clear-all-faults action
+  - node note chips on degraded and critical cards
+- Extended `frontend/js/runtime.js` to:
+  - inject simulator faults from the fleet view
+  - clear one injected fault
+  - clear all injected faults
+  - log those fault actions into the existing terminal
+- Extended `frontend/js/cluster-terminal.js` so terminal output now exposes degraded evidence:
+  - `nvidia-smi` includes XID and ECC fault notes
+  - `ibstat` reflects degraded fabric state
+  - `nvidia-smi topo -m` warns when NVLink health is no longer clean
+- Added styling in `frontend/css/styles.css` for:
+  - node note chips
+  - secondary fault-control section
+  - warning/critical fault buttons
+  - clear-all action button
+- Expanded test coverage:
+  - `frontend/tests/test_cluster_sim_state.py` now verifies fault injection and clearing at the shared-state layer
+  - `frontend/tests/test_cluster_terminal_state.py` now verifies injected fault evidence appears in terminal output
+  - `frontend/tests/test_frontend_smoke.py` now verifies the new fault-control surface and runtime hooks
+
+Validation
+----------
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-sim.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-dashboard.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-terminal.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_terminal_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Verified deployed assets in `/var/www/html` contain:
+  - `DEFAULT_FAULT_PRESETS`, `injectFault`, and `clearAllFaults` in `js/cluster-sim.js`
+  - injected-fault controls in `js/cluster-dashboard.js`
+  - fault action handlers in `js/runtime.js`
+- Verified local-live version metadata is now `v3.2@dc030cb` at `/opt/aegis-gpu/.aegis-version`
+
+Exit Notes
+----------
+- Loop 5 gives the simulator its first bounded incident-injection surface without mixing in real remediation or live cluster control.
+- Guided scenarios and teaching-layer fault walkthroughs remain the focus of Loop 6.

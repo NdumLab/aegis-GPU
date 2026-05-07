@@ -139,8 +139,9 @@
 
   function buildIbstat(state, context) {
     const node = getNodeForContext(state, context);
+    const isCongested = node && node.fabric.ibHealth !== 'healthy';
     const ibRate = node ? `${Math.max(200, Math.round(node.fabric.ibRxGbps))} Gb/sec (4X NDR)` : '400 Gb/sec (4X NDR)';
-    return [
+    const lines = [
       'CA \'mlx5_0\'',
       '        CA type: MT4129',
       '        Number of ports: 1',
@@ -153,6 +154,8 @@
       '                Physical state: LinkUp',
       `                Rate: ${ibRate}`,
     ];
+    if (isCongested) lines.push(`                Note: fabric state is ${node.fabric.ibHealth}`);
+    return lines;
   }
 
   function buildGpuList(state, context) {
@@ -160,8 +163,9 @@
     return node.gpus.slice(0, 8).map((gpu) => `GPU ${gpu.id}: NVIDIA GB200 NVL72 (UUID: ${gpu.uuid})`);
   }
 
-  function buildTopo(context) {
+  function buildTopo(state, context) {
     const rows = [];
+    const node = getNodeForContext(state, context);
     const header = ['\t', ...Array.from({ length: 8 }, (_, index) => `GPU${index}`), 'CPU Affinity', 'NUMA Affinity'].join('\t');
     rows.push(header);
     for (let row = 0; row < 8; row += 1) {
@@ -175,6 +179,9 @@
     }
     rows.push('');
     rows.push(`# Topology view for ${context.host}. Intra-tray paths stay on NVLink, cross-tray paths drop to SYS.`);
+    if (node && node.fabric.nvlinkHealth !== 'healthy') {
+      rows.push(`# Warning: NVLink health is ${node.fabric.nvlinkHealth}; replay or degraded bandwidth may force collective slowdown.`);
+    }
     return rows;
   }
 
@@ -198,6 +205,11 @@
     if (requestedGpuId === null) {
       lines.push(`# showing GPUs 0-3 of 72 on ${node.name}; use nvidia-smi -i <id> for a specific accelerator`);
     }
+    activeGpus.forEach((gpu) => {
+      if (gpu.xid) lines.push(`# GPU ${gpu.id} is reporting XID ${gpu.xid}.`);
+      if (gpu.ecc.sbe) lines.push(`# GPU ${gpu.id} corrected ECC count: ${gpu.ecc.sbe}.`);
+    });
+    node.notes.forEach((note) => lines.push(`# ${note}`));
     return lines;
   }
 
@@ -217,7 +229,7 @@
     if (normalized === 'ibstat') return { handled: true, lines: buildIbstat(state, context) };
     if (normalized === 'nvidia-smi') return { handled: true, lines: buildNodeNvidiaSmi(state, context, null) };
     if (normalized === 'nvidia-smi -l') return { handled: true, lines: buildGpuList(state, context) };
-    if (normalized === 'nvidia-smi topo -m') return { handled: true, lines: buildTopo(context) };
+    if (normalized === 'nvidia-smi topo -m') return { handled: true, lines: buildTopo(state, context) };
     if (/^nvidia-smi -i \d+$/.test(normalized)) {
       const requestedGpuId = Number(normalized.split(' ').pop());
       return { handled: true, lines: buildNodeNvidiaSmi(state, context, requestedGpuId) };
