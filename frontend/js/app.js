@@ -1214,6 +1214,20 @@ function hideLoginOverlay() {
   if (el) el.style.display = 'none';
 }
 
+async function refreshLoginVersion() {
+  const versionEl = document.getElementById('login-version');
+  if (!versionEl) return;
+  try {
+    const response = await fetch(`${API_BASE}/status`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    const version = String(payload.running_version || payload.version || '').trim() || 'unknown';
+    versionEl.textContent = `RUNNING VERSION: ${version}`;
+  } catch (_err) {
+    versionEl.textContent = 'RUNNING VERSION: UNAVAILABLE';
+  }
+}
+
 async function aegisLogin() {
   const u = (document.getElementById('login-user') || {}).value?.trim() || '';
   const p = (document.getElementById('login-pass') || {}).value || '';
@@ -1252,6 +1266,7 @@ function aegisLogout() {
     const el = document.getElementById(id);
     if (el) el.checked = false;
   });
+  refreshLoginVersion();
   showLoginOverlay();
 }
 

@@ -9,6 +9,21 @@ fi
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 BACKUP_SCRIPT="${REPO_ROOT}/scripts/backup.sh"
 
+detect_version() {
+  if git -C "${REPO_ROOT}" describe --tags --exact-match >/dev/null 2>&1; then
+    git -C "${REPO_ROOT}" describe --tags --exact-match
+    return
+  fi
+  local branch short_sha
+  branch=$(git -C "${REPO_ROOT}" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+  short_sha=$(git -C "${REPO_ROOT}" rev-parse --short HEAD 2>/dev/null || true)
+  if [ -n "${branch}" ] && [ -n "${short_sha}" ]; then
+    printf '%s@%s\n' "${branch}" "${short_sha}"
+    return
+  fi
+  printf 'unknown\n'
+}
+
 if [ "$(id -u)" -ne 0 ]; then
   echo "run as root" >&2
   exit 1
@@ -29,6 +44,9 @@ else
 fi
 echo "backup created at ${BACKUP_DIR}"
 
+DEPLOY_VERSION=$(detect_version)
+echo "deploying version ${DEPLOY_VERSION}"
+
 run mkdir -p /opt/aegis-gpu /var/www/html
 
 run rsync -a --delete \
@@ -40,6 +58,13 @@ run rsync -a --delete \
 run chown -R root:root /opt/aegis-gpu
 run find /opt/aegis-gpu -type d -exec chmod 755 {} +
 run find /opt/aegis-gpu -type f -exec chmod 644 {} +
+if [ "${DRY_RUN}" -eq 1 ]; then
+  printf '[dry-run] write %s\n' /opt/aegis-gpu/.aegis-version
+else
+  printf '%s\n' "${DEPLOY_VERSION}" > /opt/aegis-gpu/.aegis-version
+  chown root:root /opt/aegis-gpu/.aegis-version
+  chmod 644 /opt/aegis-gpu/.aegis-version
+fi
 
 run rsync -a --delete \
   --exclude '.git' \

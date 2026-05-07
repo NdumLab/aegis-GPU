@@ -6,6 +6,7 @@ import logging.handlers
 import os
 import re
 import sqlite3
+import subprocess
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -101,6 +102,65 @@ _DB_READY = False
 _DB_ERROR = ''
 
 
+def detect_runtime_version() -> str:
+    configured = (
+        os.getenv('AEGIS_APP_VERSION', '').strip()
+        or os.getenv('APP_VERSION', '').strip()
+        or os.getenv('BUILD_VERSION', '').strip()
+    )
+    if configured:
+        return configured
+
+    version_file_candidates = [
+        APP_ROOT / '.aegis-version',
+        Path('/opt/aegis-gpu/.aegis-version'),
+    ]
+    for candidate in version_file_candidates:
+        try:
+            value = candidate.read_text(encoding='utf-8').strip()
+        except (OSError, UnicodeDecodeError):
+            continue
+        if value:
+            return value
+
+    repo_root = APP_ROOT.parent
+    git_dir = repo_root / '.git'
+    if git_dir.exists():
+        try:
+            exact_tag = subprocess.run(
+                ['git', '-C', str(repo_root), 'describe', '--tags', '--exact-match'],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+            if exact_tag:
+                return exact_tag
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass
+        try:
+            branch = subprocess.run(
+                ['git', '-C', str(repo_root), 'rev-parse', '--abbrev-ref', 'HEAD'],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+            short_sha = subprocess.run(
+                ['git', '-C', str(repo_root), 'rev-parse', '--short', 'HEAD'],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+            if branch and short_sha:
+                return f'{branch}@{short_sha}'
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass
+
+    return 'unknown'
+
+
+RUNTIME_VERSION = detect_runtime_version()
+
+
 def ensure_incidents_db() -> bool:
     global _DB_READY, _DB_ERROR
     if _DB_READY:
@@ -180,7 +240,7 @@ GPU_FAULT_COUNT = Gauge('aegis_gpu_active_faults', 'Number of active GPU faults 
 GPU_DEGRADED = Gauge('aegis_gpu_metrics_degraded', 'Whether the backend is using degraded telemetry mode (1=yes, 0=no).')
 GPU_COUNT = Gauge('aegis_gpu_count', 'Number of GPUs visible to the backend telemetry collector.')
 APP_INFO = Gauge('aegis_build_info', 'Static Aegis-GPU build information.', ['version', 'active_llm'])
-APP_INFO.labels(version='1.0.0', active_llm=ACTIVE_LLM).set(1)
+APP_INFO.labels(version=RUNTIME_VERSION, active_llm=ACTIVE_LLM).set(1)
 
 
 def configured_secret(name: str) -> str:
@@ -224,7 +284,7 @@ def audit(request: Request, event: str, detail: str = '', user: str = None) -> N
     audit_logger.info(f'user="{principal}" ip="{ip}" event="{event}" detail="{detail}"')
 
 
-app = FastAPI(title='Aegis-GPU Telemetry Daemon', version='1.0.0')
+app = FastAPI(title='Aegis-GPU Telemetry Daemon', version=RUNTIME_VERSION)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -1587,6 +1647,7 @@ def update_live_metric_gauges(metrics: Dict[str, Any]) -> None:
 def get_status():
     return {
         'status': 'online',
+        'running_version': RUNTIME_VERSION,
         'timestamp': time.time(),
         'message': 'Aegis-GPU daemon active.',
         'auth_enabled': True,

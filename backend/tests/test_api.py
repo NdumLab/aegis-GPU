@@ -65,6 +65,18 @@ def test_metrics_requires_auth(monkeypatch):
     assert res.status_code == 403 or res.status_code == 401
 
 
+def test_status_reports_running_version(monkeypatch):
+    module = load_module(monkeypatch)
+    client = TestClient(module.app)
+
+    res = client.get('/api/v1/status')
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload['status'] == 'online'
+    assert payload['running_version']
+    assert payload['running_version'] == module.RUNTIME_VERSION
+
+
 def test_diagnose_returns_grounded_plan(monkeypatch):
     module = load_module(monkeypatch)
     client = TestClient(module.app)

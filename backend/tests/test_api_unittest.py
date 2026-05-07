@@ -65,6 +65,14 @@ class BackendSmokeTest(unittest.TestCase):
         res = self.client.get('/api/v1/hardware/metrics')
         self.assertIn(res.status_code, (401, 403))
 
+    def test_status_reports_running_version(self):
+        res = self.client.get('/api/v1/status')
+        self.assertEqual(res.status_code, 200)
+        payload = res.json()
+        self.assertEqual(payload['status'], 'online')
+        self.assertTrue(payload['running_version'])
+        self.assertEqual(payload['running_version'], self.module.RUNTIME_VERSION)
+
     def test_diagnose_returns_grounded_plan(self):
         res = self.client.post('/api/v1/diagnose/48', headers=self.auth_header())
         self.assertEqual(res.status_code, 200)

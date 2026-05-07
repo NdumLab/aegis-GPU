@@ -943,6 +943,7 @@ window.addEventListener('load', async ()=>{
     browserSmokeWait(120).then(runBrowserSmokeScenario);
     return;
   }
+  refreshLoginVersion();
   if (JWT_TOKEN) {
     try {
       const r = await fetch(`${API_BASE}/auth/me`, { headers: authHdr() });
