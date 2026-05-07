@@ -167,9 +167,15 @@
       <div class="diagram-pane">
         <svg id="diagram-canvas" xmlns="http://www.w3.org/2000/svg"></svg>
         <div id="cluster-dashboard-pane" class="cluster-dashboard-pane" style="display:none">
-          <div id="cluster-workload-controls"></div>
-          <div class="cluster-dashboard-grid" id="cluster-dashboard-grid"></div>
-          <div id="cluster-jobs-table"></div>
+          <div class="cluster-fleet-layout">
+            <aside class="cluster-fleet-kpis" id="cluster-fleet-kpis"></aside>
+            <div class="cluster-fleet-main">
+              <div id="cluster-workload-controls"></div>
+              <div class="cluster-dashboard-grid" id="cluster-dashboard-grid"></div>
+              <div id="cluster-jobs-table"></div>
+            </div>
+            <aside class="cluster-fleet-side" id="cluster-fleet-side"></aside>
+          </div>
         </div>
       </div>
       <div class="metrics-sidebar" id="metrics-sidebar">

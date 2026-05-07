@@ -112,6 +112,8 @@ class FrontendSmokeTest(unittest.TestCase):
     def test_cluster_fleet_dashboard_surface_is_available(self):
         self.assertIn('id="nav-cluster_fleet"', INDEX)
         self.assertIn('id="cluster-dashboard-pane"', INDEX)
+        self.assertIn('id="cluster-fleet-kpis"', INDEX)
+        self.assertIn('id="cluster-fleet-side"', INDEX)
         self.assertIn('AEGIS_CLUSTER_DASHBOARD', CLUSTER_DASHBOARD_JS)
         self.assertIn('renderFleetKpis', CLUSTER_DASHBOARD_JS)
         self.assertIn('renderFleetGrid', CLUSTER_DASHBOARD_JS)
@@ -120,6 +122,8 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('renderJobTable', CLUSTER_DASHBOARD_JS)
         self.assertIn('openClusterDashboard', RUNTIME_JS)
         self.assertIn('renderClusterDashboardView', RUNTIME_JS)
+        self.assertIn('cluster-fleet-kpis', RUNTIME_JS)
+        self.assertIn('cluster-fleet-side', RUNTIME_JS)
         self.assertIn('submitClusterWorkload', RUNTIME_JS)
         self.assertIn('cancelClusterWorkload', RUNTIME_JS)
         self.assertIn('injectClusterFault', RUNTIME_JS)

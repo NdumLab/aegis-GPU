@@ -18,8 +18,12 @@ function setClusterDashboardVisible(isVisible) {
   clusterDashboardActive = Boolean(isVisible);
   const pane = document.getElementById('cluster-dashboard-pane');
   const svg = document.getElementById('diagram-canvas');
+  const legacySidebar = document.getElementById('metrics-sidebar');
+  const stepControls = document.getElementById('step-controls');
   if (pane) pane.style.display = isVisible ? 'block' : 'none';
   if (svg) svg.style.display = isVisible ? 'none' : 'block';
+  if (legacySidebar) legacySidebar.style.display = isVisible ? 'none' : '';
+  if (stepControls) stepControls.style.display = isVisible ? 'none' : '';
 }
 
 function renderClusterDashboardView() {
@@ -27,9 +31,9 @@ function renderClusterDashboardView() {
   const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
   const api = window.AEGIS_CLUSTER_DASHBOARD || null;
   if (!summary || !store || !api) return;
-  const kpiTarget = document.getElementById('step-controls');
+  const kpiTarget = document.getElementById('cluster-fleet-kpis');
   const gridTarget = document.getElementById('cluster-dashboard-grid');
-  const sideTarget = document.getElementById('metrics-sidebar');
+  const sideTarget = document.getElementById('cluster-fleet-side');
   const controlsTarget = document.getElementById('cluster-workload-controls');
   const jobsTarget = document.getElementById('cluster-jobs-table');
   api.renderFleetKpis(summary, kpiTarget);

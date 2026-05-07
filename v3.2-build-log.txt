@@ -280,3 +280,44 @@ Exit Notes
 ----------
 - Loop 5 gives the simulator its first bounded incident-injection surface without mixing in real remediation or live cluster control.
 - Guided scenarios and teaching-layer fault walkthroughs remain the focus of Loop 6.
+
+Loop 5.5 - Fleet Layout Correction
+----------------------------------
+- Status: completed
+- Goal: stop the Cluster Fleet dashboard from competing with legacy lab layout regions and give the node grid a dedicated center column.
+- Reworked `frontend/index.html` so `cluster-dashboard-pane` now owns its own layout shell:
+  - `cluster-fleet-kpis`
+  - `cluster-fleet-main`
+  - `cluster-fleet-side`
+- Updated `frontend/js/runtime.js` so Cluster Fleet no longer renders into:
+  - `step-controls`
+  - `metrics-sidebar`
+- Updated cluster visibility toggling so the legacy top strip and legacy right sidebar are hidden while the fleet dashboard is active, then restored when returning to labs.
+- Added new fleet-layout CSS in `frontend/css/styles.css`:
+  - three-column desktop layout
+  - left vertical KPI rail
+  - centered node/workload/jobs column
+  - right summary/alerts rail
+  - responsive collapse for narrower widths
+- Expanded smoke coverage in `frontend/tests/test_frontend_smoke.py` to assert the new fleet-shell anchors and runtime targets.
+
+Validation
+----------
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_terminal_state.py` passed
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Verified deployed files contain:
+  - `cluster-fleet-layout`, `cluster-fleet-kpis`, and `cluster-fleet-side` in `/var/www/html/index.html`
+  - `cluster-fleet-kpis` and `cluster-fleet-side` render targets in `/var/www/html/js/runtime.js`
+  - the new three-column layout rules in `/var/www/html/css/styles.css`
+- Verified local-live version metadata remained aligned at `v3.2@5f4c9da` during deploy
+
+Exit Notes
+----------
+- Cluster Fleet now has a cleaner layout contract and more horizontal room for node cards.
+- Loop 6 can continue on top of this without inheriting the old step-controls/sidebar coupling.
