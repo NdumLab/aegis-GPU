@@ -156,3 +156,58 @@ Exit Notes
 ----------
 - Loop 3 adds dashboard-driven scheduler realism and workload lifecycle changes to shared state.
 - Terminal command-family expansion remains the focus of Loop 4.
+
+Loop 4 - Cluster Terminal Command Routing
+-----------------------------------------
+- Status: completed
+- Goal: let the existing Aegis terminal inspect and act on the shared cluster simulator state while the Cluster Fleet dashboard is active.
+- Added `frontend/js/cluster-terminal.js` as a deterministic cluster terminal router for:
+  - `squeue`
+  - `sinfo`
+  - `sacct`
+  - `nvidia-smi`
+  - `nvidia-smi -L`
+  - `nvidia-smi topo -m`
+  - `nvidia-smi -i <id>`
+  - `ibstat`
+  - `hostname`
+  - `uname -a`
+  - `free -h`
+  - `ssh gb200-node-XX`
+  - `scancel <jobid>`
+  - `exit`
+- Extended `frontend/js/runtime.js` to:
+  - route terminal input to the cluster command engine whenever the fleet dashboard is active
+  - update the terminal placeholder so the fleet view advertises supported commands even when lab terminal mode is off
+  - log a fleet-terminal hint when the Cluster Fleet view opens
+  - convert `scancel <jobid>` terminal actions into the same scheduler cancellation flow used by dashboard buttons
+- Updated `frontend/index.html` to load `js/cluster-terminal.js` and bump the runtime/app cache keys for the new command-routing behavior.
+- Expanded test coverage:
+  - `frontend/tests/test_frontend_smoke.py` now verifies the new asset reference and runtime entrypoints
+  - added `frontend/tests/test_cluster_terminal_state.py` to validate deterministic cluster terminal output and action payloads
+
+Validation
+----------
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-terminal.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_terminal_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Verified local-live HTML references:
+  - `js/cluster-terminal.js?v=20260507a`
+  - `js/runtime.js?v=20260507e`
+  - `js/app.js?v=20260507e`
+- Verified deployed assets in `/var/www/html` contain:
+  - the Loop 4 fleet-terminal hint in `js/runtime.js`
+  - `runClusterTerminalCommand` in `js/runtime.js`
+  - deterministic cluster command handlers in `js/cluster-terminal.js`
+- Deploy script recorded local-live version metadata as `v3.2@230a114` because Loop 4 changes were not yet committed at deploy time
+
+Exit Notes
+----------
+- Loop 4 makes the Cluster Fleet view inspectable from the existing terminal without introducing live shell execution.
+- Fault injection and degraded-state modeling remain the focus of Loop 5.

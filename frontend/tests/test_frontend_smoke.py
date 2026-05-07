@@ -14,7 +14,8 @@ RUNTIME_JS = (ROOT / 'js' / 'runtime.js').read_text(encoding='utf-8')
 LABS_PART1_JS = (ROOT / 'js' / 'labs-part-1.js').read_text(encoding='utf-8')
 CLUSTER_SIM_JS = (ROOT / 'js' / 'cluster-sim.js').read_text(encoding='utf-8')
 CLUSTER_DASHBOARD_JS = (ROOT / 'js' / 'cluster-dashboard.js').read_text(encoding='utf-8')
-FRONTEND_JS = APP_JS + '\n' + ANALYTICS_JS + '\n' + BRANCHING_JS + '\n' + COACH_JS + '\n' + STUDY_QUIZ_JS + '\n' + RUNTIME_JS + '\n' + CLUSTER_SIM_JS + '\n' + CLUSTER_DASHBOARD_JS
+CLUSTER_TERMINAL_JS = (ROOT / 'js' / 'cluster-terminal.js').read_text(encoding='utf-8')
+FRONTEND_JS = APP_JS + '\n' + ANALYTICS_JS + '\n' + BRANCHING_JS + '\n' + COACH_JS + '\n' + STUDY_QUIZ_JS + '\n' + RUNTIME_JS + '\n' + CLUSTER_SIM_JS + '\n' + CLUSTER_DASHBOARD_JS + '\n' + CLUSTER_TERMINAL_JS
 
 
 class FrontendSmokeTest(unittest.TestCase):
@@ -28,6 +29,7 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('js/study-quiz.js', INDEX)
         self.assertIn('js/cluster-sim.js', INDEX)
         self.assertIn('js/cluster-dashboard.js', INDEX)
+        self.assertIn('js/cluster-terminal.js', INDEX)
         self.assertIn('js/runtime.js', INDEX)
         self.assertIn('js/app.js', INDEX)
         self.assertIn('js/learning-part-1.js', INDEX)
@@ -118,6 +120,17 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('submitClusterWorkload', RUNTIME_JS)
         self.assertIn('cancelClusterWorkload', RUNTIME_JS)
         self.assertIn('Cluster Fleet Simulator', RUNTIME_JS)
+
+    def test_cluster_terminal_surface_is_available(self):
+        self.assertIn('AEGIS_CLUSTER_TERMINAL', CLUSTER_TERMINAL_JS)
+        self.assertIn('runCommand', CLUSTER_TERMINAL_JS)
+        self.assertIn('buildSqueue', CLUSTER_TERMINAL_JS)
+        self.assertIn('buildSinfo', CLUSTER_TERMINAL_JS)
+        self.assertIn('buildSacct', CLUSTER_TERMINAL_JS)
+        self.assertIn('buildNodeNvidiaSmi', CLUSTER_TERMINAL_JS)
+        self.assertIn('buildTopo', CLUSTER_TERMINAL_JS)
+        self.assertIn('runClusterTerminalCommand', RUNTIME_JS)
+        self.assertIn('ssh gb200-node-00', RUNTIME_JS)
 
     def test_terminal_fixtures_cover_early_fault_labs(self):
         self.assertIn('ECC baseline probe accepted', LABS_PART1_JS)

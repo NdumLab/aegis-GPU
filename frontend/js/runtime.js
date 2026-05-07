@@ -54,8 +54,10 @@ function openClusterDashboard() {
   clearTerminal();
   logTerm([{ t: 'info', v: `[SIM] Cluster fleet view loaded for ${store.state.topology.clusterName}.` }]);
   logTerm([{ t: 'dim', v: '# Loop 2 dashboard reads the shared simulator state: jobs, nodes, GPUs, and alerts stay aligned.' }]);
+  logTerm([{ t: 'dim', v: '# Loop 4 terminal routing is active here: try squeue, sinfo, sacct, nvidia-smi, ibstat, hostname, or ssh gb200-node-00.' }]);
   setClusterDashboardVisible(true);
   renderClusterDashboardView();
+  updateTerminalInputHint();
   switchTab('term');
 }
 
@@ -619,10 +621,18 @@ function updateTerminalInputHint() {
   const cmdInput = document.getElementById('cmd-input');
   if (!cmdInput) return;
   if (!terminalModeEnabled) {
+    if (isClusterDashboardActive()) {
+      cmdInput.placeholder = 'Cluster Fleet terminal: try squeue, sinfo, nvidia-smi, ibstat, hostname, or ssh gb200-node-00...';
+      return;
+    }
     cmdInput.placeholder = 'Turn on Terminal Mode to type authored probes for the current checkpoint...';
     return;
   }
   if (!currentLab) {
+    if (isClusterDashboardActive()) {
+      cmdInput.placeholder = 'Cluster Fleet terminal: try squeue, sinfo, nvidia-smi, ibstat, hostname, or ssh gb200-node-00...';
+      return;
+    }
     cmdInput.placeholder = 'Select a checkpoint, then type the command you want to run...';
     return;
   }
@@ -637,7 +647,28 @@ function updateTerminalInputHint() {
     : 'Type the current checkpoint command, or type help for accepted probes...';
 }
 
+function runClusterTerminalCommand(cmd) {
+  const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
+  const api = window.AEGIS_CLUSTER_TERMINAL || null;
+  if (!store || !api || typeof api.runCommand !== 'function') return false;
+  const result = api.runCommand(store.state, cmd);
+  if (!result || result.handled !== true) return false;
+  logTerm([{ t: 'cmd', v: '$ ' + cmd }]);
+  if (result.action && result.action.type === 'cancel') {
+    cancelClusterWorkload(result.action.jobId);
+    if (!result.lines || !result.lines.length) return true;
+  }
+  (result.lines || []).forEach((line) => {
+    const level = line.startsWith('#') ? 'dim' : 'info';
+    logTerm([{ t: level, v: line }]);
+  });
+  return true;
+}
+
 function handleCustomCommand(cmd) {
+  if (isClusterDashboardActive() && runClusterTerminalCommand(cmd)) {
+    return;
+  }
   const c = cmd.toLowerCase();
   if(c.includes('nvidia-smi') && !c.includes('dmon') && !c.includes('topo') && !c.includes('nvlink')) {
     if(typeof TERMINAL_OUTPUT !== 'undefined') TERMINAL_OUTPUT.smi_check?.forEach(l=>logTerm([l]));
