@@ -98,6 +98,10 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 'expected_details': ['analytics-focus-visible', 'analytics-risk-visible', 'analytics-initial-rationale', 'analytics-domain-adapted', 'analytics-recovery-rationale'],
             },
             {
+                'name': 'cluster_fleet_layout',
+                'expected_details': ['fleet-title-visible', 'fleet-kpi-rail-visible', 'fleet-side-rail-visible', 'fleet-grid-visible', 'legacy-rails-hidden'],
+            },
+            {
                 'name': 'lab_terminal_nvlink',
                 'expected_details': ['terminal-help-visible', 'terminal-weak-feedback', 'terminal-accepted-output'],
             },

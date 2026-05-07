@@ -345,6 +345,33 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'cluster_fleet_layout') {
+      openClusterDashboard();
+      await browserSmokeWait(120);
+      const title = String(document.getElementById('scen-title')?.textContent || '');
+      const kpiRail = document.getElementById('cluster-fleet-kpis');
+      const sideRail = document.getElementById('cluster-fleet-side');
+      const grid = document.getElementById('cluster-dashboard-grid');
+      const legacySidebar = document.getElementById('metrics-sidebar');
+      const legacySteps = document.getElementById('step-controls');
+      if (!title.includes('Cluster Fleet Simulator')) throw new Error('cluster fleet title did not render');
+      if (!kpiRail || !sideRail || !grid) throw new Error('cluster fleet layout shell is incomplete');
+      if (kpiRail.children.length !== 4) throw new Error(`expected 4 fleet KPI cards, found ${kpiRail.children.length}`);
+      if (!String(sideRail.textContent || '').includes('Latest Alerts')) throw new Error('fleet side rail did not render alert content');
+      if (grid.children.length !== 8) throw new Error(`expected 8 node cards, found ${grid.children.length}`);
+      if (window.getComputedStyle(legacySidebar).display !== 'none') throw new Error('legacy metrics sidebar is still visible during cluster fleet view');
+      if (window.getComputedStyle(legacySteps).display !== 'none') throw new Error('legacy step controls are still visible during cluster fleet view');
+      const layoutStyle = window.getComputedStyle(document.querySelector('.cluster-fleet-layout'));
+      if (!layoutStyle.gridTemplateColumns || layoutStyle.gridTemplateColumns === 'none') throw new Error('fleet layout grid columns did not resolve');
+      details.push('fleet-title-visible');
+      details.push('fleet-kpi-rail-visible');
+      details.push('fleet-side-rail-visible');
+      details.push('fleet-grid-visible');
+      details.push('legacy-rails-hidden');
+      setBrowserSmokeResult('pass', 'cluster fleet layout verified', details);
+      return;
+    }
+
     if (scenario === 'lab_terminal_nvlink') {
       loadLab('nvlink');
       selectStep('nvlink', 0);
