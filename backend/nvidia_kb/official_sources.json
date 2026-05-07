@@ -1,0 +1,60 @@
+{
+  "sources": [
+    {
+      "id": "nvidia_xid_errors",
+      "title": "NVIDIA Xid Errors",
+      "url": "https://docs.nvidia.com/deploy/xid-errors/index.html",
+      "topics": ["xid", "ecc", "fault isolation", "hardware"],
+      "keywords": ["xid", "xid 48", "xid 74", "xid 79", "ecc", "dbe", "sbe", "fallen off the bus", "nvlink"],
+      "summary": "Official NVIDIA guidance for understanding Xid messages, classifying fault families, and interpreting GPU-related error codes during diagnosis."
+    },
+    {
+      "id": "nvidia_nccl_troubleshooting",
+      "title": "NVIDIA NCCL Troubleshooting",
+      "url": "https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html",
+      "topics": ["nccl", "collectives", "fabric", "allreduce"],
+      "keywords": ["nccl", "allreduce", "socket", "ib", "infiniband", "ras", "transport", "collective", "nccl_debug"],
+      "summary": "Official NCCL troubleshooting guidance covering error categories, debugging, transport behavior, and reliability and serviceability features for collective communication issues."
+    },
+    {
+      "id": "nvidia_cuda_compatibility",
+      "title": "NVIDIA CUDA Compatibility",
+      "url": "https://docs.nvidia.com/deploy/cuda-compatibility/index.html",
+      "topics": ["cuda", "driver", "runtime", "compatibility"],
+      "keywords": ["cuda", "driver", "runtime", "compatibility", "forward compatibility", "minor version compatibility", "cuda-compat", "ptx"],
+      "summary": "Official CUDA compatibility guidance describing backward, minor-version, and forward-compatibility models, including when compatibility packages are required."
+    },
+    {
+      "id": "nvidia_gpu_operator_troubleshooting",
+      "title": "NVIDIA GPU Operator Troubleshooting",
+      "url": "https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/25.3.1/troubleshooting.html",
+      "topics": ["kubernetes", "gpu operator", "scheduling", "troubleshooting"],
+      "keywords": ["gpu operator", "kubernetes", "pending", "crashloop", "nouveau", "device plugin", "mig", "sandbox", "taint"],
+      "summary": "Official GPU Operator troubleshooting guidance for Kubernetes GPU deployments, including pending pods, driver issues, mixed MIG regressions, and operator operand failures."
+    },
+    {
+      "id": "nvidia_dcgm_overview",
+      "title": "NVIDIA DCGM Overview",
+      "url": "https://docs.nvidia.com/datacenter/dcgm/3.0/user-guide/index.html",
+      "topics": ["dcgm", "monitoring", "health", "diagnostics"],
+      "keywords": ["dcgm", "health", "diagnostics", "monitoring", "nvswitch", "telemetry", "gpu health"],
+      "summary": "Official DCGM documentation describing GPU monitoring, diagnostics, health checks, policy management, and datacenter telemetry responsibilities."
+    },
+    {
+      "id": "nvidia_gds_troubleshooting",
+      "title": "NVIDIA GPUDirect Storage Installation and Troubleshooting Guide",
+      "url": "https://docs.nvidia.com/gpudirect-storage/troubleshooting-guide/",
+      "topics": ["gpudirect storage", "gds", "storage", "data path"],
+      "keywords": ["gds", "gpudirect storage", "cufile", "iommu", "storage", "dma", "rdma", "cufiledriveropen"],
+      "summary": "Official GPUDirect Storage guidance covering installation checks, direct-path prerequisites, API errors, and performance and troubleshooting steps for storage-to-GPU data paths."
+    },
+    {
+      "id": "nvidia_mig_user_guide",
+      "title": "NVIDIA Multi-Instance GPU User Guide",
+      "url": "https://docs.nvidia.com/datacenter/tesla/mig-user-guide/latest/index.html",
+      "topics": ["mig", "partitioning", "kubernetes", "capacity"],
+      "keywords": ["mig", "multi-instance gpu", "partition", "slice", "gpu instance", "compute instance", "kubernetes", "device plugin"],
+      "summary": "Official MIG guidance for supported platforms, partitioning concepts, device-instance layout, and operational considerations when mixing slices with full GPUs."
+    }
+  ]
+}

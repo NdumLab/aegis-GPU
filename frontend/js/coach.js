@@ -12,6 +12,15 @@ function getCurrentLabStep() {
   return activeAlternateStep || activeMainRedirectStep || lab.steps[currentStep] || null;
 }
 
+function sanitizeAskAegisUrl(value) {
+  try {
+    const parsed = new URL(String(value || '').trim());
+    return parsed.protocol === 'https:' ? parsed.href : '';
+  } catch (_) {
+    return '';
+  }
+}
+
 function getDeterministicAskAegisResponse(intent, labId, step, stepIdx) {
   if (!labId || !step) {
     return 'Ask Aegis becomes available once a lab step is active.';
@@ -109,12 +118,25 @@ function extractAskAegisFaultCode(question, visibleEvidence) {
   return match ? match[1] : '';
 }
 
-async function requestAskAegisAnswer(labId, step, stepIdx, question, fallbackText = '') {
+function buildAskAegisRequestContext(intent, labId, step, stepIdx) {
+  const branchChoice = getSelectedBranchChoice(labId, stepIdx);
+  return {
+    ask_intent: intent || '',
+    inferred_layer: inferOwningLayer(labId),
+    next_check_hint: (step?.takeAction && step.takeAction[0]) || (step?.lookFor && step.lookFor[0]) || '',
+    branch_effect: branchChoice?.effect || '',
+    branch_choice_label: branchChoice?.label || '',
+    branch_penalty: getBranchPenaltyMessages(labId, stepIdx)[0] || '',
+  };
+}
+
+async function requestAskAegisAnswer(labId, step, stepIdx, question, fallbackText = '', options = {}) {
   ensureAskAegisState(labId, step, stepIdx);
   const trimmedQuestion = String(question || '').trim();
   if (!trimmedQuestion) return;
 
-  const visibleEvidence = getKeyOutputClues(step).map(item => `${item.text} — ${item.meaning}`);
+  const visibleEvidence = getAskAegisVisibleEvidence(step);
+  const requestContext = buildAskAegisRequestContext(options.intent || '', labId, step, stepIdx);
   askAegisState = {
     ...askAegisState,
     question: trimmedQuestion,
@@ -151,6 +173,12 @@ async function requestAskAegisAnswer(labId, step, stepIdx, question, fallbackTex
         step_title: step?.label || '',
         visible_evidence: visibleEvidence,
         fault_code: extractAskAegisFaultCode(trimmedQuestion, visibleEvidence),
+        ask_intent: requestContext.ask_intent,
+        inferred_layer: requestContext.inferred_layer,
+        next_check_hint: requestContext.next_check_hint,
+        branch_effect: requestContext.branch_effect,
+        branch_choice_label: requestContext.branch_choice_label,
+        branch_penalty: requestContext.branch_penalty,
         allow_llm: llmDiagnosisEnabled && backendLLMAvailable,
       }),
     });
@@ -158,9 +186,16 @@ async function requestAskAegisAnswer(labId, step, stepIdx, question, fallbackTex
       handle401();
       return;
     }
-    const data = await response.json();
+    const rawBody = await response.text();
+    let data = {};
+    try {
+      data = rawBody ? JSON.parse(rawBody) : {};
+    } catch (_) {
+      data = {};
+    }
     if (!response.ok) {
-      throw new Error(data.detail || `HTTP ${response.status}`);
+      const detail = data.detail || rawBody.trim() || `HTTP ${response.status}`;
+      throw new Error(detail);
     }
     askAegisState = {
       ...askAegisState,
@@ -189,7 +224,10 @@ function renderAskAegisBlock(labId, step, stepIdx) {
   ensureAskAegisState(labId, step, stepIdx);
   const suggestions = getAskAegisSuggestions(labId, step, stepIdx);
   const references = (askAegisState.references || []).map(ref => `
-    <li><strong>${escHtml(ref.title || 'NVIDIA reference')}</strong>: ${escHtml(ref.excerpt || '')}</li>
+    <li>
+      <strong>${escHtml(ref.title || 'NVIDIA reference')}</strong>${sanitizeAskAegisUrl(ref.url) ? ` <a href="${sanitizeAskAegisUrl(ref.url)}" target="_blank" rel="noreferrer">Source</a>` : ''}:
+      ${escHtml(ref.excerpt || '')}
+    </li>
   `).join('');
   const statusLabel = askAegisState.loading
     ? 'Grounding...'
@@ -203,7 +241,7 @@ function renderAskAegisBlock(labId, step, stepIdx) {
       <div class="ask-aegis-head">
         <div>
           <div class="lab-step-coach-section-title ask-aegis-title">Ask Aegis</div>
-          <div class="ask-aegis-subtitle">Grounded in the current lab state, the diagnosis path, and checked-in NVIDIA references when authenticated.</div>
+          <div class="ask-aegis-subtitle">Grounded in the current lab state, the diagnosis path, and checked-in NVIDIA documentation when authenticated.</div>
         </div>
         <div class="ask-aegis-badge">${escHtml(statusLabel)}</div>
       </div>
@@ -214,6 +252,7 @@ function renderAskAegisBlock(labId, step, stepIdx) {
             class="ask-aegis-btn"
             data-ask-aegis="${escHtml(intent.id)}"
             data-ask-aegis-prompt="${escHtml(intent.prompt)}"
+            data-ask-aegis-intent="${escHtml(intent.id)}"
           >${escHtml(intent.label)}</button>
         `).join('')}
       </div>
@@ -254,6 +293,7 @@ function handleLabCoachClick(event) {
       currentStep,
       askBtn.dataset.askAegisPrompt || '',
       getAskAegisSuggestions(currentLab, getCurrentLabStep(), currentStep).find(item => item.id === askBtn.dataset.askAegis)?.fallback || '',
+      { intent: askBtn.dataset.askAegisIntent || '' },
     );
     return;
   }
@@ -270,6 +310,7 @@ function handleLabCoachClick(event) {
       currentStep,
       input?.value || '',
       'Ask Aegis could not use the grounded backend, so no answer was produced for the custom question.',
+      {},
     );
   }
 }
@@ -490,6 +531,7 @@ function renderDetachedPanel(kind) {
           currentStep,
           askBtn.dataset.askAegisPrompt || '',
           getAskAegisSuggestions(currentLab, getCurrentLabStep(), currentStep).find(item => item.id === askBtn.dataset.askAegis)?.fallback || '',
+          { intent: askBtn.dataset.askAegisIntent || '' },
         );
         return;
       }
@@ -502,6 +544,7 @@ function renderDetachedPanel(kind) {
         currentStep,
         input?.value || '',
         'Ask Aegis could not use the grounded backend, so no answer was produced for the custom question.',
+        {},
       );
     };
   }
@@ -600,7 +643,7 @@ function renderLabStepCoach() {
       <div class="lab-step-coach-section">
         <div class="lab-step-coach-section-title">How To Work</div>
         <ul class="lab-step-coach-list">
-          <li>Use the step buttons or the Run button. You are not expected to memorize every command.</li>
+          <li>Use the step buttons to choose the checkpoint, then type the probe in the terminal. You are expected to practice the command shape.</li>
           <li>Read the terminal, metrics sidebar, and event log together.</li>
           <li>Move on only when you can explain what changed and why it matters.</li>
         </ul>
@@ -624,6 +667,7 @@ function renderLabStepCoach() {
         <div class="lab-step-coach-section-title">How To Use This Lab</div>
         <ul class="lab-step-coach-list">
           <li>Each step represents one operator question: what am I checking, and what answer do I expect?</li>
+          <li>The terminal accepts a limited set of authored probes. Type <code>help</code> to see the accepted commands for the current checkpoint.</li>
           <li>Use the terminal output as the main clue, then confirm the story in the side metrics.</li>
           <li>Fault steps are supposed to look bad. The lesson is learning what that bad output means.</li>
         </ul>
@@ -639,7 +683,7 @@ function renderLabStepCoach() {
   const outputClues = getKeyOutputClues(step);
   const useTip = step.cmd?.startsWith('#')
     ? 'This step is a simulated transition. You are meant to study the new state it creates, not to memorize a literal shell command.'
-    : 'Click Run to replay this step. The command is shown for realism, but the learning goal is understanding the evidence it produces, not memorizing the syntax.';
+    : 'Type the command for this step in the limited terminal. The goal is to build realistic operator recall while learning what the evidence means.';
   const completion = step.fault
     ? (step.justifiedConclusion || step.meaning || 'This fault step is complete once you can explain why the degraded signal is significant.')
     : (step.justifiedConclusion || step.meaning || 'This step is complete once the expected healthy signal is visible and you can explain why it matters.');
@@ -725,7 +769,7 @@ function renderLabStepCoach() {
 
   content.innerHTML = `
     <div class="${calloutClass}">
-      <p><strong>What this step is for:</strong> ${escHtml(stepPurpose)}</p>
+      <p><strong class="lab-step-coach-topic-label lab-step-coach-topic-label-purpose">What this step is for:</strong> ${escHtml(stepPurpose)}</p>
       <p>${escHtml(tightenDisplayCopy(useTip))}</p>
     </div>
     ${renderAskAegisBlock(currentLab, step, currentStep)}

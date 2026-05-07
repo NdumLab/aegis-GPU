@@ -37,11 +37,19 @@ run rsync -a --delete \
   --exclude '*.pyc' \
   "${REPO_ROOT}/backend/" /opt/aegis-gpu/
 
+run chown -R root:root /opt/aegis-gpu
+run find /opt/aegis-gpu -type d -exec chmod 755 {} +
+run find /opt/aegis-gpu -type f -exec chmod 644 {} +
+
 run rsync -a --delete \
   --exclude '.git' \
   --exclude '__pycache__' \
   --exclude '*.pyc' \
   "${REPO_ROOT}/frontend/" /var/www/html/
+
+run chown -R root:root /var/www/html
+run find /var/www/html -type d -exec chmod 755 {} +
+run find /var/www/html -type f -exec chmod 644 {} +
 
 run install -o root -g root -m 644 \
   "${REPO_ROOT}/deploy/nginx/aegis-gpu.conf" \

@@ -1600,8 +1600,8 @@ function renderBeginnerStoryStepCoach(step, lab, outputClues, tabNote) {
 
   return `
     <div class="lab-step-coach-callout${step.fault ? ' err' : ''}">
-      <p><strong>What you’re doing:</strong> ${escHtml(tightenDisplayCopy(step.whatsHappening || describeStepCommand(step)))}</p>
-      <p><strong>Why it matters:</strong> ${escHtml(tightenDisplayCopy(whyItMatters))}</p>
+      <p><strong class="lab-step-coach-topic-label lab-step-coach-topic-label-doing">What you’re doing:</strong> ${escHtml(tightenDisplayCopy(step.whatsHappening || describeStepCommand(step)))}</p>
+      <p><strong class="lab-step-coach-topic-label lab-step-coach-topic-label-matters">Why it matters:</strong> ${escHtml(tightenDisplayCopy(whyItMatters))}</p>
     </div>
     ${askAegis}
     <div class="lab-step-coach-section">
@@ -1918,6 +1918,17 @@ function getKeyOutputClues(step) {
       text: line.v,
       meaning: explainOutputLineText(line.v),
     }));
+}
+
+function getAskAegisVisibleEvidence(step) {
+  return getStepOutput(step)
+    .filter(line => line && line.v && line.t !== 'cmd' && line.t !== 'dim')
+    .map(line => String(line.v || '').trim())
+    .filter(Boolean)
+    .filter(line => !line.startsWith('#'))
+    .filter(line => !line.startsWith('[branch-step]'))
+    .filter(line => !/^simulating\b/i.test(line))
+    .slice(0, 5);
 }
 
 function getMetricsToWatch(labId, step) {

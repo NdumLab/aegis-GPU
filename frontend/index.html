@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aegis-GPU | NCA-AIIO</title>
-<link rel="stylesheet" href="css/styles.css?v=20260424v3ab">
+<link rel="stylesheet" href="css/styles.css?v=20260425b">
 <script src="js/hardware.js" defer></script>
 <script src="js/render.js" defer></script>
-<script src="js/labs-part-1.js?v=20260421a" defer></script>
+<script src="js/labs-part-1.js?v=20260425a" defer></script>
 <script src="js/labs-part-2.js?v=20260421a" defer></script>
-<script src="js/labs-part-3.js?v=20260421a" defer></script>
-<script src="js/labs-part-4.js?v=20260421a" defer></script>
+<script src="js/labs-part-3.js?v=20260425a" defer></script>
+<script src="js/labs-part-4.js?v=20260425a" defer></script>
 <script src="js/labs.js?v=20260421o" defer></script>
 <script src="js/learning-part-1.js?v=20260423b" defer></script>
 <script src="js/learning-part-2.js?v=20260423b" defer></script>
@@ -18,9 +18,9 @@
 <script src="js/explain.js?v=20260423d" defer></script>
 <script src="js/analytics.js?v=20260424ref1" defer></script>
 <script src="js/branching.js?v=20260424ref2" defer></script>
-<script src="js/coach.js?v=20260424ref3" defer></script>
+<script src="js/coach.js?v=20260425a" defer></script>
 <script src="js/study-quiz.js?v=20260424ref4" defer></script>
-<script src="js/runtime.js?v=20260424ref5" defer></script>
+<script src="js/runtime.js?v=20260425a" defer></script>
 <script src="js/app.js?v=20260424v3ab" defer></script>
 </head>
 <body>
@@ -219,10 +219,15 @@
           <button class="btn-sm" id="btn-clear-term">Clear</button>
           <button class="btn-sm" id="btn-toggle-coach">📘 Guide</button>
           <button class="btn-sm" id="toggle-ai-btn" style="display:none; background:#f4a261; color:#000; font-weight:bold;">&#128194; VIEW FULL AI DIAGNOSIS</button>
-          <button class="btn-sm primary" id="run-btn">▶ Run</button>
+          <button class="btn-sm primary" id="run-btn">⌨ Type</button>
         </div>
       </div>
       
+      <div class="terminal-input-row" id="terminal-input-row">
+        <span>$</span>
+        <input type="text" id="cmd-input" placeholder="Select a checkpoint, then type the command you want to run..." autocomplete="off" spellcheck="false">
+      </div>
+
       <div class="terminal-body">
         <div class="terminal-output" id="terminal-output"></div>
         <div id="parser-ui" style="display:none; padding:15px; width:100%; flex-direction:column; gap:10px;">
@@ -248,11 +253,6 @@
           </div>
         </aside>
         <aside class="ai-static-overlay" id="ai-static-overlay"></aside>
-      </div>
-      
-      <div class="terminal-input-row" id="terminal-input-row">
-        <span>$</span>
-        <input type="text" id="cmd-input" placeholder="Type a command or click ▶ Run to execute the current step..." autocomplete="off" spellcheck="false">
       </div>
     </div>
   </div>

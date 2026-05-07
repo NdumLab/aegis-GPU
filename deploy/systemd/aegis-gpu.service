@@ -4,17 +4,23 @@ After=network.target
 Wants=network.target
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=all
 User=aegis
 Group=aegis
 WorkingDirectory=/opt/aegis-gpu
 EnvironmentFile=/etc/aegis-gpu/aegis.env
 Environment=PYTHONUNBUFFERED=1
+Environment=AEGIS_BIND_HOST=127.0.0.1
+Environment=AEGIS_BIND_PORT=8000
+Environment=AEGIS_WORKERS=4
+Environment=AEGIS_READY_TIMEOUT=45
 UMask=0027
 
-ExecStart=/usr/local/bin/uvicorn log-analizer:app --host 127.0.0.1 --port 8000 --workers 4
+ExecStart=/usr/bin/python3 /opt/aegis-gpu/aegis_service_runner.py
 Restart=always
 RestartSec=5
+TimeoutStartSec=60
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aegis-gpu

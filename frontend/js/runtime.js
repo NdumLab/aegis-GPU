@@ -74,7 +74,7 @@ function loadLab(id) {
     const btn = document.createElement('button');
     btn.className = 'step-btn' + (s.fault ? ' fault' : '');
     btn.textContent = (i+1) + '. ' + s.label;
-    btn.onclick = () => runStep(id, i);
+    btn.onclick = () => selectStep(id, i);
     sc.appendChild(btn);
   });
 
@@ -83,6 +83,7 @@ function loadLab(id) {
   if(activeTab==='dmesg') renderTab('dmesg');
   if(activeTab==='dcgm')  renderTab('dcgm');
   renderLabStepCoach();
+  updateTerminalInputHint();
 
   showIntro(id);
 
@@ -92,17 +93,24 @@ function loadLab(id) {
   if(lab.draw) lab.draw(svg, -1);
 }
 
-function runStep(labId, stepIdx) {
+function getStepExecutionContext(labId, stepIdx) {
   if(currentLab !== labId) return;
   activeAlternateStep = null;
   activeMainRedirectStep = null;
-  currentStep = stepIdx;
-  if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
   const lab = LABS[labId];
   const redirectedMainStep = getMainPathRedirectStep(labId, stepIdx);
   const step = redirectedMainStep || lab.steps[stepIdx];
-  activeMainRedirectStep = redirectedMainStep;
   const stepModifier = getBranchStepModifier(labId, stepIdx);
+  return { lab, redirectedMainStep, step, stepModifier };
+}
+
+function stageSelectedStep(labId, stepIdx, options = {}) {
+  const context = getStepExecutionContext(labId, stepIdx);
+  if (!context) return null;
+  const { lab, redirectedMainStep, step, stepModifier } = context;
+  currentStep = stepIdx;
+  activeMainRedirectStep = redirectedMainStep;
+  if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
 
   document.querySelectorAll('.step-btn').forEach((btn,i) => {
     btn.classList.toggle('active', i===stepIdx);
@@ -114,11 +122,47 @@ function runStep(labId, stepIdx) {
     ? `${step.label} • Redirected recovery-aware main path`
     : (stepModifier ? `${stepModifier.title} • ${step.label}` : step.label);
   const cmdInput = document.getElementById('cmd-input');
-  if (cmdInput) cmdInput.value = step.cmd || '';
+  if (cmdInput && !options.preserveInput) cmdInput.value = '';
+  updateTerminalInputHint();
+
+  const svg = document.getElementById('diagram-canvas');
+  clearCanvas();
+  const w = svg.clientWidth, h = svg.clientHeight;
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  setTimeout(()=> { if(lab.draw) lab.draw(svg, stepIdx); }, 100);
+
+  updateMetrics(labId, stepIdx, step);
+  renderLabStepCoach();
+  recordLabReasoningProgress(labId, stepIdx, getReasoningScorecardContext(labId, step));
+  if (options.focusInput && cmdInput) cmdInput.focus();
+  return context;
+}
+
+function logStepTypingHint(step) {
+  const hint = step?.terminal
+    ? '# Type the probe for this checkpoint, or type help to see accepted commands.'
+    : '# Select a checkpoint and type the command shown in the guide to replay the evidence.';
+  logTerm([{ t: 'dim', v: hint }]);
+}
+
+function selectStep(labId, stepIdx) {
+  const context = stageSelectedStep(labId, stepIdx, { focusInput: true });
+  if (!context) return;
+  switchTab('term');
+  clearTerminal();
+  logStepTypingHint(context.step);
+  scrollTerminal();
+}
+
+function runStep(labId, stepIdx, options = {}) {
+  const invokedCommand = options.invokedCommand || '';
+  const context = stageSelectedStep(labId, stepIdx, { preserveInput: true });
+  if (!context) return;
+  const { lab, redirectedMainStep, step } = context;
 
   switchTab('term');
   clearTerminal();
-  logTerm([{t:'prompt',v:`[gpu-node-01] `},{t:'cmd',v:step.cmd}]);
+  logTerm([{t:'prompt',v:`[gpu-node-01] `},{t:'cmd',v:invokedCommand || step.cmd}]);
 
   const out = (typeof TERMINAL_OUTPUT !== 'undefined' && TERMINAL_OUTPUT[step.type]) ? [...TERMINAL_OUTPUT[step.type]] : [{t:'dim',v:'# (output executed)'}];
   getBranchPenaltyMessages(labId, stepIdx).forEach(message => {
@@ -132,16 +176,7 @@ function runStep(labId, stepIdx) {
     }, delay + i*60);
   });
 
-  const svg = document.getElementById('diagram-canvas');
-  clearCanvas();
-  const w = svg.clientWidth, h = svg.clientHeight;
-  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
-  setTimeout(()=> { if(lab.draw) lab.draw(svg, stepIdx); }, 100);
-
-  updateMetrics(labId, stepIdx, step);
   addXIDLog(labId, stepIdx, step);
-  renderLabStepCoach();
-  recordLabReasoningProgress(labId, stepIdx, getReasoningScorecardContext(labId, step));
   if (redirectedMainStep) markMainPathRedirectDone(labId, stepIdx);
 
   const aiFaultTargets = {
@@ -180,6 +215,20 @@ function runStep(labId, stepIdx) {
 
 function runCurrentStep() {
   if(!currentLab) return;
+  if (currentStep < 0) {
+    selectStep(currentLab, 0);
+    return;
+  }
+  const context = getStepExecutionContext(currentLab, currentStep);
+  if (!context) return;
+  const cmdInput = document.getElementById('cmd-input');
+  if (context.step?.terminal || (context.step?.cmd && !String(context.step.cmd).trim().startsWith('#'))) {
+    switchTab('term');
+    if (cmdInput) cmdInput.focus();
+    logTerm([{ t: 'dim', v: '# Type the command for this checkpoint and press Enter. Type help to see accepted probes.' }]);
+    scrollTerminal();
+    return;
+  }
   if (currentStep >= 0 && isBranchDetourPending(currentLab, currentStep)) {
     if (runBranchDetour(currentLab, currentStep)) return;
   }
@@ -369,6 +418,88 @@ function renderTab(tab) {
   });
 }
 
+function normalizeLabTerminalCommand(cmd) {
+  return String(cmd || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function matchesLabTerminalPattern(pattern, normalized) {
+  if (!pattern) return false;
+  if (pattern instanceof RegExp) return pattern.test(normalized);
+  return normalized === normalizeLabTerminalCommand(pattern);
+}
+
+function getLabTerminalConfig(step) {
+  return step && step.terminal ? step.terminal : null;
+}
+
+function getLabTerminalCandidateSteps() {
+  if (!currentLab || !LABS[currentLab]) return [];
+  const lab = LABS[currentLab];
+  const indices = currentStep < 0 ? [0] : [currentStep, currentStep + 1];
+  return [...new Set(indices)]
+    .filter(stepIdx => stepIdx >= 0 && stepIdx < lab.steps.length)
+    .map(stepIdx => ({ stepIdx, step: lab.steps[stepIdx], config: getLabTerminalConfig(lab.steps[stepIdx]) }))
+    .filter(item => item.step && item.config);
+}
+
+function getLabTerminalHelpLines() {
+  const candidates = getLabTerminalCandidateSteps();
+  if (!candidates.length) {
+    return [{ t: 'dim', v: '# No limited lab terminal is active yet. Start a supported lab step first.' }];
+  }
+  const lines = [{ t: 'info', v: '[LAB TERMINAL] Accepted probes for the current checkpoint(s):' }];
+  candidates.forEach(({ stepIdx, step, config }) => {
+    const examples = Array.isArray(config.examples) ? config.examples : [];
+    if (!examples.length) return;
+    lines.push({ t: 'dim', v: `# Step ${stepIdx + 1}: ${step.label}` });
+    examples.slice(0, 3).forEach(example => lines.push({ t: 'good', v: `  ${example}` }));
+  });
+  lines.push({ t: 'dim', v: '# The terminal is intentionally limited. It accepts authored probes, not arbitrary shell execution.' });
+  return lines;
+}
+
+function resolveLabTerminalCommand(cmd) {
+  const normalized = normalizeLabTerminalCommand(cmd);
+  if (!normalized) return { kind: 'empty' };
+  if (normalized === 'help' || normalized === '?') return { kind: 'help' };
+
+  const candidates = getLabTerminalCandidateSteps();
+  for (const candidate of candidates) {
+    const accepted = Array.isArray(candidate.config.accepted) ? candidate.config.accepted : [];
+    if (accepted.some(pattern => matchesLabTerminalPattern(pattern, normalized))) {
+      return { kind: 'accepted', ...candidate };
+    }
+
+    const weakMatches = Array.isArray(candidate.config.weak) ? candidate.config.weak : [];
+    for (const weak of weakMatches) {
+      const patterns = Array.isArray(weak.match) ? weak.match : [weak.match];
+      if (patterns.some(pattern => matchesLabTerminalPattern(pattern, normalized))) {
+        return { kind: 'weak', ...candidate, feedback: weak.feedback || 'That command is related, but it does not answer the current checkpoint cleanly.' };
+      }
+    }
+  }
+
+  return { kind: 'miss' };
+}
+
+function updateTerminalInputHint() {
+  const cmdInput = document.getElementById('cmd-input');
+  if (!cmdInput) return;
+  if (!currentLab) {
+    cmdInput.placeholder = 'Select a checkpoint, then type the command you want to run...';
+    return;
+  }
+  const candidates = getLabTerminalCandidateSteps();
+  if (!candidates.length) {
+    cmdInput.placeholder = 'Type the current checkpoint command, or type help for accepted probes...';
+    return;
+  }
+  const firstExample = candidates[0].config?.examples?.[0];
+  cmdInput.placeholder = firstExample
+    ? `Try: ${firstExample}  |  type help for accepted probes`
+    : 'Type the current checkpoint command, or type help for accepted probes...';
+}
+
 function handleCustomCommand(cmd) {
   const c = cmd.toLowerCase();
   if(c.includes('nvidia-smi') && !c.includes('dmon') && !c.includes('topo') && !c.includes('nvlink')) {
@@ -382,6 +513,36 @@ function handleCustomCommand(cmd) {
   } else {
     logTerm([{t:'dim',v:'# Tip: use the step buttons above for guided lab output and read the Lab Coach panel on the right for what to look for.'}]);
   }
+}
+
+function executeLabTerminalCommand(cmd) {
+  if (!getLabTerminalCandidateSteps().length) {
+    logTerm([{t:'cmd',v:'$ '+cmd}]);
+    handleCustomCommand(cmd);
+    return;
+  }
+  const resolved = resolveLabTerminalCommand(cmd);
+  if (resolved.kind === 'help') {
+    logTerm([{t:'cmd',v:'$ '+cmd}]);
+    getLabTerminalHelpLines().forEach(line => logTerm([line]));
+    return;
+  }
+  if (resolved.kind === 'accepted') {
+    runStep(currentLab, resolved.stepIdx, {
+      invokedCommand: cmd
+    });
+    return;
+  }
+  if (resolved.kind === 'weak') {
+    logTerm([{t:'cmd',v:'$ '+cmd}]);
+    logTerm([{ t: 'warn', v: `[LAB TERMINAL] ${resolved.feedback}` }]);
+    const example = resolved.config?.examples?.[0];
+    if (example) logTerm([{ t: 'dim', v: `# Try instead: ${example}` }]);
+    return;
+  }
+  logTerm([{t:'cmd',v:'$ '+cmd}]);
+  logTerm([{ t: 'dim', v: '# This terminal is intentionally limited for the lab. Type help to see the accepted probes for the current checkpoint.' }]);
+  getLabTerminalHelpLines().slice(0, 5).forEach(line => logTerm([line]));
 }
 
 function showIntro(id) {
@@ -401,6 +562,10 @@ function showIntro(id) {
 
   el.innerHTML = `
     <h2>${lab.icon} ${lab.name}</h2>
+    <div class="intro-action-row intro-action-row-top">
+      <button class="btn-sm" type="button" data-intro-action="skip">Skip Intro</button>
+      <button class="btn-sm primary" type="button" data-intro-action="start">▶ Start Lab</button>
+    </div>
     ${modeNote}
     <div class="objective">
       <h4>${escHtml(objectiveTitle)}</h4>
@@ -425,7 +590,7 @@ function closeIntro() {
 
 function startLab() {
   closeIntro();
-  if(currentLab) runStep(currentLab, 0);
+  if(currentLab) selectStep(currentLab, 0);
 }
 
 function renderRunbookButton(xid) {
@@ -598,6 +763,18 @@ function bindUIHandlers() {
   on('btn-intro-close', 'click', closeIntro);
   on('btn-intro-skip',  'click', closeIntro);
   on('btn-intro-start', 'click', startLab);
+  const introContent = document.getElementById('intro-content');
+  if (introContent) introContent.addEventListener('click', e => {
+    const action = e.target.closest('[data-intro-action]');
+    if (!action) return;
+    if (action.dataset.introAction === 'skip') {
+      closeIntro();
+      return;
+    }
+    if (action.dataset.introAction === 'start') {
+      startLab();
+    }
+  });
 
   on('btn-quiz-close', 'click', closeQuiz);
   on('btn-study-close', 'click', closeStudyGuide);
@@ -700,8 +877,12 @@ function initApp() {
             if(!cmd) return;
             e.target.value='';
             switchTab('term');
-            logTerm([{t:'cmd',v:'$ '+cmd}]);
-            handleCustomCommand(cmd);
+            if (currentLab) {
+              executeLabTerminalCommand(cmd);
+            } else {
+              logTerm([{t:'cmd',v:'$ '+cmd}]);
+              handleCustomCommand(cmd);
+            }
             scrollTerminal();
           }
         });
@@ -716,6 +897,7 @@ function initApp() {
         if(typeof drawWelcome === 'function') drawWelcome(svg);
     }
   }, 100);
+  updateTerminalInputHint();
 }
 
 window.addEventListener('load', async ()=>{
