@@ -1292,6 +1292,20 @@ function aegisLogout() {
   sessionStorage.removeItem('aegis_jwt');
   sessionStorage.removeItem('aegis_role');
   if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
+  if (clusterSimInterval) { clearInterval(clusterSimInterval); clusterSimInterval = null; }
+  const clusterTermApi = window.AEGIS_CLUSTER_TERMINAL || null;
+  if (clusterTermApi && typeof clusterTermApi.setContext === 'function') {
+    clusterTermApi.setContext();
+  }
+  if (clusterSimStore && typeof clusterSimStore.reset === 'function') {
+    clusterSimStore.reset();
+  }
+  if (typeof setClusterDashboardVisible === 'function') setClusterDashboardVisible(false);
+  clusterDashboardActive = false;
+  currentLab = null;
+  currentStep = -1;
+  activeAlternateStep = null;
+  activeMainRedirectStep = null;
   appMode = 'simulation';
   ['toggle-live','sidebar-toggle-live','quiz-toggle-live'].forEach(id => {
     const el = document.getElementById(id);

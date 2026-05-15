@@ -372,6 +372,62 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'quiz_feedback') {
+      openQuiz();
+      await browserSmokeWait(120);
+      const quizContent = document.getElementById('quiz-content');
+      if (!quizContent || !String(quizContent.textContent || '').includes('Xid (PCI:0000:83:00): 48')) {
+        throw new Error('quiz content did not render');
+      }
+
+      document.getElementById('qo-0-0')?.click();
+      await browserSmokeWait(80);
+      const q1WrongText = String(document.getElementById('qe-0')?.textContent || '');
+      if (!q1WrongText.includes('NVLink CRC errors are communication-link problems')) {
+        throw new Error('question 1 wrong-answer feedback was not specific');
+      }
+      if (q1WrongText.includes('missing a specific explanation') || q1WrongText.includes('different failure class')) {
+        throw new Error('question 1 wrong-answer feedback fell back to generic text');
+      }
+      details.push('quiz-q1-wrong-specific');
+
+      document.getElementById('qo-0-1')?.click();
+      await browserSmokeWait(80);
+      const q1CorrectText = String(document.getElementById('qe-0')?.textContent || '');
+      if (!q1CorrectText.includes('XID 48 is the beginner anchor')) {
+        throw new Error('question 1 correct-answer teaching feedback missing');
+      }
+      if (!q1CorrectText.includes('double-bit ECC memory failure')) {
+        throw new Error('question 1 correct-answer explanation missing');
+      }
+      details.push('quiz-q1-correct-teaches');
+
+      document.getElementById('qo-2-1')?.click();
+      await browserSmokeWait(80);
+      const q3WrongText = String(document.getElementById('qe-2')?.textContent || '');
+      if (!q3WrongText.includes('XID 74 is tied to NVLink CRC flit errors')) {
+        throw new Error('question 3 XID 74 feedback was not specific');
+      }
+      if (q3WrongText.includes('missing a specific explanation') || q3WrongText.includes('different failure class')) {
+        throw new Error('question 3 XID 74 feedback fell back to generic text');
+      }
+      details.push('quiz-q3-xid74-specific');
+
+      document.getElementById('qo-2-2')?.click();
+      await browserSmokeWait(80);
+      const q3CorrectText = String(document.getElementById('qe-2')?.textContent || '');
+      if (!q3CorrectText.includes('Fallen off the bus')) {
+        throw new Error('question 3 correct-answer teaching feedback missing');
+      }
+      if (!q3CorrectText.includes('XID 79')) {
+        throw new Error('question 3 correct-answer explanation missing XID 79');
+      }
+      details.push('quiz-q3-correct-teaches');
+
+      setBrowserSmokeResult('pass', 'quiz feedback learning flow verified', details);
+      return;
+    }
+
     if (scenario === 'lab_terminal_nvlink') {
       loadLab('nvlink');
       selectStep('nvlink', 0);

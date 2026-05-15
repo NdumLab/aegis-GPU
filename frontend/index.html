@@ -19,7 +19,7 @@
 <script src="js/analytics.js?v=20260424ref1" defer></script>
 <script src="js/branching.js?v=20260424ref2" defer></script>
 <script src="js/coach.js?v=20260507a" defer></script>
-<script src="js/study-quiz.js?v=20260424ref4" defer></script>
+<script src="js/study-quiz.js?v=20260515d" defer></script>
 <script src="js/cluster-sim.js?v=20260507b" defer></script>
 <script src="js/cluster-dashboard.js?v=20260507b" defer></script>
 <script src="js/cluster-terminal.js?v=20260507b" defer></script>
@@ -167,14 +167,23 @@
       <div class="diagram-pane">
         <svg id="diagram-canvas" xmlns="http://www.w3.org/2000/svg"></svg>
         <div id="cluster-dashboard-pane" class="cluster-dashboard-pane" style="display:none">
-          <div class="cluster-fleet-layout">
-            <aside class="cluster-fleet-kpis" id="cluster-fleet-kpis"></aside>
-            <div class="cluster-fleet-main">
-              <div id="cluster-workload-controls"></div>
-              <div class="cluster-dashboard-grid" id="cluster-dashboard-grid"></div>
-              <div id="cluster-jobs-table"></div>
+          <div class="cluster-dashboard-shell">
+            <div class="cluster-dashboard-topbar">
+              <div>
+                <div class="cluster-dashboard-kicker">Cluster Fleet Simulator</div>
+                <div class="cluster-dashboard-subtitle">Full fleet view in a popup so operators can scan nodes, jobs, and faults without scrolling through the main page.</div>
+              </div>
+              <button class="close-btn cluster-dashboard-close" id="btn-cluster-dashboard-close" type="button" aria-label="Close Cluster Fleet">✕</button>
             </div>
-            <aside class="cluster-fleet-side" id="cluster-fleet-side"></aside>
+            <div class="cluster-fleet-layout">
+              <aside class="cluster-fleet-kpis" id="cluster-fleet-kpis"></aside>
+              <div class="cluster-fleet-main">
+                <div id="cluster-workload-controls"></div>
+                <div class="cluster-dashboard-grid" id="cluster-dashboard-grid"></div>
+                <div id="cluster-jobs-table"></div>
+              </div>
+              <aside class="cluster-fleet-side" id="cluster-fleet-side"></aside>
+            </div>
           </div>
         </div>
       </div>

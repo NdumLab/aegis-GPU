@@ -65,6 +65,17 @@ function openClusterDashboard() {
   switchTab('term');
 }
 
+function closeClusterDashboard() {
+  if (!isClusterDashboardActive()) return;
+  setClusterDashboardVisible(false);
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('scen-title').textContent = 'GPU Infrastructure Simulator';
+  const desc = document.getElementById('scen-desc');
+  if (desc && typeof describeClusterSimIdleView === 'function') desc.textContent = describeClusterSimIdleView();
+  document.getElementById('scen-step').style.display = 'none';
+  updateTerminalInputHint();
+}
+
 function submitClusterWorkload(presetId) {
   const store = typeof ensureClusterSimStore === 'function' ? ensureClusterSimStore() : null;
   if (!store || typeof store.submitPreset !== 'function') return;
@@ -1018,6 +1029,7 @@ function bindUIHandlers() {
 
   on('btn-incidents', 'click', openIncidentHistory);
   on('btn-incidents-close', 'click', closeIncidentHistory);
+  on('btn-cluster-dashboard-close', 'click', closeClusterDashboard);
 
   const navList = document.querySelector('.sidebar-scroll');
   if(navList) navList.addEventListener('click', e => {
@@ -1034,6 +1046,10 @@ function bindUIHandlers() {
 
   const clusterPane = document.getElementById('cluster-dashboard-pane');
   if (clusterPane) clusterPane.addEventListener('click', e => {
+    if (e.target === clusterPane) {
+      closeClusterDashboard();
+      return;
+    }
     const submitBtn = e.target.closest('[data-cluster-submit]');
     if (submitBtn) {
       submitClusterWorkload(submitBtn.getAttribute('data-cluster-submit'));
@@ -1062,6 +1078,10 @@ function bindUIHandlers() {
 
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'Escape' && isClusterDashboardActive()) {
+      closeClusterDashboard();
+      return;
+    }
     if (e.key === 'ArrowRight' && currentLab) runCurrentStep();
     if (e.key === 'ArrowLeft' && currentLab && currentStep > 0) runStep(currentLab, currentStep - 1);
   });

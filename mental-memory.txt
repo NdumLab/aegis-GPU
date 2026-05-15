@@ -1,0 +1,200 @@
+Mental Memory Guide for Aegis AIIO Study
+
+If you want the platform to stick, do not memorize it as a list. Memorize it as one incident scene.
+
+Picture a GPU campus:
+- The power room keeps the lights on.
+- The safety inspector checks whether the machines are still trustworthy.
+- The front desk decides who gets a room.
+- The roads between buildings carry the workload traffic.
+- The loading dock keeps the machine fed.
+
+That scene maps cleanly to the study path:
+- `cuda_stack` is the power room.
+- `ecc` is the safety inspector.
+- `container`, `k8s`, and `slurm` are the front desk and room assignment desk.
+- `ib_fabric`, `roce`, `allreduce`, and `nccl_fallback` are the roads.
+- `storage` and `gds` are the loading dock.
+
+If you can replay that one scene, the topics stop feeling like separate trivia.
+
+The study order
+
+1. `cuda_stack`
+
+This is the "can the GPU even be used?" layer.
+
+Memorable example:
+- A building can have electricity, but if the wall outlet is wired wrong, your laptop still does not charge.
+- A server can show a GPU in `nvidia-smi`, but the application still may not be able to use CUDA.
+
+What to remember:
+- visible hardware is not usable hardware
+- driver present is not runtime success
+- runtime present is not application access
+
+Short memory hook:
+- "The GPU exists, but can the workload touch it?"
+
+2. `ecc`
+
+This is the memory trust layer.
+
+Memorable example:
+- A cashier can catch one wrong digit on a receipt by checking the register tape.
+- If the amount is wrong in two places, the receipt is no longer trustworthy.
+
+That is SBE versus DBE:
+- SBE is a corrected mistake.
+- DBE is a corrupted result you should not trust.
+
+What to remember:
+- SBE is a warning, not a stop sign
+- DBE is a stop sign, not a shrug
+- XID 48 is the alarm that says the memory story crossed the line
+
+Short memory hook:
+- "SBE means watch the trend."
+- "DBE means contain the node."
+
+3. `monitoring`
+
+Monitoring is how you tell whether the problem is a blip or a pattern.
+
+Memorable example:
+- One cough does not diagnose pneumonia.
+- A repeated cough, a fever, and a bad scan together tell a fuller story.
+
+That is how ECC counters behave:
+- one corrected error may be noise
+- repeated corrected errors are a warning trend
+- a DBE means the story has crossed into an incident
+
+What to remember:
+- counters are the pulse
+- trends are the diagnosis
+- matching evidence is the proof
+
+4. `container`
+
+This is the "did the package arrive with the right tools?" layer.
+
+Memorable example:
+- A suitcase can arrive at the hotel, but if your passport is in the wrong bag, the trip still fails.
+- A container can start successfully and still not have GPU access.
+
+What to remember:
+- container started does not mean GPU exposed
+- image valid does not mean runtime configured
+- process running does not mean the accelerator is reachable
+
+5. `k8s`
+
+Kubernetes is the room assignment system.
+
+Memorable example:
+- A theater can have seats on paper, but if the seats are already occupied, the next person waits in the lobby.
+- `Insufficient nvidia.com/gpu` means the lobby problem, not a dead GPU by default.
+
+What to remember:
+- capacity is not the same as free slots
+- Pending often means placement, not hardware failure
+- requests are a scheduling problem before they are an accelerator problem
+
+6. `slurm`
+
+Slurm is the shared-lab queue.
+
+Memorable example:
+- A coffee shop can have a working espresso machine and still tell you to wait because six people ordered ahead of you.
+- `Reason=Priority` usually means policy, not failure.
+
+What to remember:
+- priority is policy
+- capacity is availability
+- dependency is waiting on another job
+
+7. `ib_fabric`, `roce`, `allreduce`, `nccl_fallback`
+
+This is the road system between GPUs.
+
+Memorable example:
+- Two hospitals can both be open, but if the bridge between them is closed, ambulance transfer gets slow.
+- Two GPUs can both be healthy, but if NCCL falls back to TCP or the fabric path is wrong, training slows down anyway.
+
+What to remember:
+- local GPU health is not enough
+- communication can fail even when every GPU is visible
+- a bad network path can masquerade as a compute problem
+
+Useful image:
+- GPU health is the engine
+- NCCL path is the road
+- AllReduce is the convoy
+
+8. `storage` and `gds`
+
+This is the supply chain.
+
+Memorable example:
+- A restaurant with a perfect kitchen still fails if the food truck never arrives.
+- A GPU can look weak when the DataLoader is starving it for input.
+
+What to remember:
+- low GPU utilization is not always a GPU fault
+- sawtooth utilization often means input starvation
+- GPUDirect Storage changes the delivery route
+
+The dependency ladder
+
+If you want one chain to rehearse, use this:
+
+`cuda_stack` -> `ecc` -> `container` / `k8s` / `slurm` -> `ib_fabric` / `roce` / `allreduce` -> `storage` / `gds`
+
+Or even shorter:
+
+Foundation -> trust -> placement -> communication -> supply
+
+Why the order matters
+
+When you study in this sequence, you answer the same five questions every time:
+
+1. Can the GPU be used?
+2. Can the memory be trusted?
+3. Can the workload be placed?
+4. Can the GPUs talk at speed?
+5. Can the data arrive fast enough?
+
+That is the order real incidents usually unfold in.
+
+ECC memory chain
+
+Use this to remember the ECC branch:
+
+- SBE is a warning lamp.
+- DBE is a brake failure.
+- XID 48 is the red dashboard alert.
+- Drain or isolate is the first safe move.
+- Support or RMA is the later path.
+
+Tiny mnemonic:
+
+`See warning, check trend, confirm fault, contain node, repair hardware.`
+
+Trouble-to-layer map
+
+If you hear:
+- "CUDA unavailable" -> think `cuda_stack`
+- "XID 48" -> think `ecc`
+- "Insufficient nvidia.com/gpu" -> think `k8s`
+- "NCCL Socket" -> think `ib_fabric` or `roce`
+- "GPU idle, storage busy" -> think `storage`
+
+Final rule
+
+Do not memorize the platform by topic names.
+Memorize it by the dependency question:
+
+"What must already be healthy for this symptom to be possible?"
+
+That one question is the bridge from beginner recall to operator judgment.

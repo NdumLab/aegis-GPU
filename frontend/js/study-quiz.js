@@ -8,6 +8,19 @@ const EXAM_STUDY_GUIDES = {
       'When an exam question gives you a symptom, first locate the broken layer: hardware, driver, CUDA/runtime, container, scheduler, network, storage, or observability.',
       'A correct operator answer usually preserves evidence, protects running workloads, and chooses the smallest safe recovery step before broad changes.'
     ],
+    memoryWriteup: {
+      title: 'How To Build Mental Memory',
+      intro: 'Do not memorize the labs as separate facts. Memorize them as one stack that gets wider and more operational as you move down the path.',
+      ladder: [
+        'Start with `cuda_stack`, `mig`, and `nvlink` so you know what the hardware, driver, runtime, and GPU-to-GPU path actually do.',
+        'Move to `ecc`, `nvlink_fault`, and `monitoring` so you can read the language of failure: SBE, DBE, XID, and telemetry counters.',
+        'Then study `container`, `k8s`, `slurm`, and `training` so you can tell the difference between missing GPU access and missing GPU capacity.',
+        'After that, learn `ib_fabric`, `roce`, `allreduce`, and `nccl_fallback` so you can separate local GPU health from distributed communication problems.',
+        'Finish with `storage` and `gds` so you can recognize GPU starvation caused by the data path instead of compute.'
+      ],
+      anchor: 'If you feel lost, ask one question: what dependency must already be healthy for this symptom to be possible? That usually tells you the next lab.',
+      mnemonic: 'Foundation -> fault signals -> delivery -> collectives -> storage. That is the order the brain can keep in working memory.'
+    },
     path: [
       {
         phase: '1',
@@ -139,6 +152,17 @@ function renderStudyGuide(examId = 'nca_aiio') {
       ${renderParagraphs(guide.mentalModel)}
     </section>
 
+    <section class="learn-section learn-callout">
+      <div class="learn-heading-row">
+        <h4>${escHtml(guide.memoryWriteup.title)}</h4>
+        <span class="learn-mode-tag">Memory ladder</span>
+      </div>
+      <p>${escHtml(tightenDisplayCopy(guide.memoryWriteup.intro))}</p>
+      ${renderBulletList(guide.memoryWriteup.ladder, 'learn-list')}
+      <div class="study-trap" style="margin-top:10px"><strong>Memory anchor:</strong> ${escHtml(tightenDisplayCopy(guide.memoryWriteup.anchor))}</div>
+      <div class="study-trap" style="margin-top:10px"><strong>Mnemonic:</strong> ${escHtml(tightenDisplayCopy(guide.memoryWriteup.mnemonic))}</div>
+    </section>
+
     <section class="learn-section">
       <div class="learn-heading-row">
         <h4>Study Path</h4>
@@ -212,11 +236,11 @@ const QUIZ = [
   // XID & ECC — NCA-AIIO: Hardware Fault Response
   {q:"dmesg shows 'NVRM: Xid (PCI:0000:83:00): 48'. What does XID 48 indicate and what is the first action?",
    opts:["NVLink CRC error — swap the NVLink cable","Double-Bit ECC uncorrectable error — drain the node and open an RMA","GPU fallen off the bus — reset the driver","Thermal throttle — reduce workload"],
-   ans:1,exp:"XID 48 = Double-Bit ECC (DBE). A DBE is a hardware memory failure that cannot be corrected. The node must be drained immediately and an RMA opened with NVIDIA."},
+   ans:1,exp:"XID 48 is the driver telling you the GPU hit a double-bit ECC memory failure. For beginners: ECC can fix some single-bit errors, but DBE means the data can no longer be trusted. The safe move is to stop new work, preserve the evidence, drain or isolate the node, and follow the hardware support or RMA path."},
 
   {q:"dcgmi dmon -e 157 shows value 1 on GPU 3 after 3 consecutive polls. What is your immediate action?",
    opts:["Wait for more polls to confirm","Drain the node, notify job owner, open NVIDIA RMA","Restart the NVIDIA driver","Reduce GPU power limit"],
-   ans:1,exp:"Field 157 = DCGM_FI_DEV_ECC_DBE_VOL_TOTAL. Any non-zero volatile DBE count means an uncorrectable hardware error. Drain and RMA immediately."},
+   ans:1,exp:"Field 157 is the DBE counter. A non-zero volatile DBE means the GPU reported an uncorrectable memory event during this boot window. Drain the node, protect active jobs, and capture the evidence before the counter resets."},
 
   {q:"dmesg reports 'GPU Board RmUninitializeClient: GPU-0000:43:00 has fallen off the bus'. Which XID code corresponds to this event?",
    opts:["XID 48","XID 74","XID 79","XID 13"],
@@ -297,6 +321,168 @@ const QUIZ = [
    ans:1,exp:"CUDA 11.8 does not include sm_90 kernels required by H100 GPUs (compute capability 9.0 was introduced in CUDA 11.8 but full support arrived in CUDA 12.x). Rebuilding with an NGC image based on CUDA 12.x ensures the correct sm_90 PTX/SASS kernels are present. Note: newer drivers ARE backwards-compatible with older CUDA runtimes — the issue here is missing GPU architecture support, not driver version mismatch."}
 ];
 
+const QUIZ_WRONG_CHOICE_FEEDBACK = {
+  0: {
+    0: 'Your choice is not correct. NVLink CRC errors are communication-link problems between GPUs or through NVSwitch. They usually point to XID 74 and signal-integrity issues, not XID 48. This question is about GPU memory integrity, so look for the ECC answer.',
+    2: 'Your choice is not correct. A GPU falling off the bus means the system lost contact with the GPU, which maps to XID 79. XID 48 is different: it points at an uncorrectable ECC memory error.',
+    3: 'Your choice is not correct. Thermal throttling happens when the GPU is too hot and clocks down to protect itself. XID 48 is not a temperature warning; it is an ECC memory-failure signal.',
+  },
+  1: {
+    0: 'Your choice is not correct. Waiting is appropriate for weak or noisy evidence, but DCGM field 157 is the double-bit ECC counter. Any non-zero DBE means the GPU reported uncorrectable memory trouble, so beginners should treat it as contain-now evidence, not wait-and-see evidence.',
+    2: 'Your choice is not correct. Restarting the NVIDIA driver is a broad software recovery step. A DBE is a hardware memory-integrity signal; restarting software could erase useful evidence without making the GPU trustworthy again.',
+    3: 'Your choice is not correct. Reducing the power limit is a thermal or power mitigation. Field 157 is not a heat or power clue; it is an ECC DBE clue, so the safe action is to drain or isolate the node and preserve evidence.',
+  },
+  2: {
+    0: 'Your choice is not correct. XID 48 means double-bit ECC memory trouble. The phrase "fallen off the bus" means Linux or the driver lost contact with the GPU, which is the XID 79 failure family.',
+    1: 'Your choice is not correct. XID 74 is tied to NVLink CRC flit errors. This prompt is not describing link corruption; it says the GPU fell off the bus, which points to XID 79.',
+    3: 'Your choice is not correct. XID 13 is generally a graphics or engine exception. This question gives the specific "fallen off the bus" wording, so the beginner anchor is XID 79.',
+  },
+  3: {
+    0: 'Your choice is not correct. Killing processes and retrying can be reasonable for some reset-blocked situations, but this scenario says the reset after XID 79 failed. For the exam, a failed reset on a fallen-off-bus GPU means move to a hard node reboot.',
+    2: 'Your choice is not correct. Lowering power helps when the symptom is thermal slowdown or power pressure. XID 79 is a GPU hang or bus-loss condition, not a power-cap tuning problem.',
+    3: 'Your choice is not correct. Updating the driver is not the immediate incident action. During an XID 79 recovery path, the operator first tries reset, and if reset fails, reboots the node before considering software maintenance later.',
+  },
+  4: {
+    0: 'Your choice is not correct. XID 48 is memory integrity, specifically double-bit ECC. The prompt gives a CRC flit error on an NVLink, which is a communication-link signal rather than a GPU memory signal.',
+    1: 'Your choice is not correct. XID 79 means the GPU has fallen off the bus or become unreachable. Here the GPU is reachable enough to report NVLink CRC counters, so the issue is the link path, not a full GPU bus loss.',
+    3: 'Your choice is not correct. XID 13 points to an engine exception. CRC flit errors are about corrupted packets on the NVLink fabric, which beginners should associate with XID 74.',
+  },
+  5: {
+    0: 'Your choice is not correct. VRAM pressure can cause allocation failures or paging-like behavior, but the prompt gives high temperature plus SM utilization dropping in bursts. That is the classic shape of thermal throttling.',
+    2: 'Your choice is not correct. NCCL TCP fallback hurts distributed communication throughput, but it does not explain a GPU sitting at 87C and throttling SM utilization. The strongest clue here is temperature.',
+    3: 'Your choice is not correct. A storage bottleneck can create sawtooth GPU utilization, but the prompt explicitly says the GPU is hot enough to throttle. Temperature is the deciding evidence.',
+  },
+  6: {
+    0: 'Your choice is not correct. RMA is for hardware failure evidence such as DBE or persistent physical faults. This prompt says no ECC errors and shows thermal slowdown, so the first path is cooling inspection and temporary power mitigation, not immediate replacement.',
+    2: 'Your choice is not correct. Reinstalling the driver is a software action. HW Thermal SlowDown means the GPU is protecting itself from heat, so fix airflow, heatsink contact, or power behavior first.',
+    3: 'Your choice is not correct. Increasing batch size is a performance-tuning move. It does not solve an 88C thermal condition and can even increase heat. Operators should protect jobs and inspect cooling.',
+  },
+  7: {
+    0: 'Your choice is not correct. Field 100 is GPU utilization, which tells you how busy the GPU is. It does not count ECC memory corrections, so it cannot warn you about rising SBE trends.',
+    2: 'Your choice is not correct. Field 157 is the double-bit ECC counter. DBE is already uncorrectable; the question asks for single-bit ECC monitoring before things escalate, which is field 156.',
+    3: 'Your choice is not correct. Field 203 is about SM clock speed. Clock speed can explain performance changes, but it is not the counter for corrected memory errors.',
+  },
+  8: {
+    0: 'Your choice is not correct. Reinstalling NCCL is too broad for the first move. The log says NCCL is using Socket, so beginners should first check the environment variables that can force TCP fallback.',
+    2: 'Your choice is not correct. Rebooting all training nodes is disruptive and not targeted. The most common simple cause is NCCL_IB_DISABLE=1, so inspect the environment before touching nodes.',
+    3: 'Your choice is not correct. Batch size tuning changes compute and memory behavior, but the prompt shows the communication path is wrong. Fix the NCCL network path before tuning the model.',
+  },
+  9: {
+    0: 'Your choice is not correct. If ibstat shows ports Active, the basic fabric and driver visibility are probably not the next clue. The remaining likely issue is that NCCL is pointed at the wrong HCA name.',
+    2: 'Your choice is not correct. NVLink is the fast path inside or closely between GPUs, but this question is about NCCL still using TCP even though InfiniBand ports are active. That points at NCCL HCA selection.',
+    3: 'Your choice is not correct. A Kubernetes NetworkPolicy can block rendezvous traffic, but the given evidence is about NCCL transport selection after IB detection. The targeted next check is NCCL_IB_HCA.',
+  },
+  10: {
+    0: 'Your choice is not correct. InfiniBand fabric failure would be a different fabric type and evidence pattern. The prompt says RoCEv2 and rising PFC frames, which is Ethernet lossless-congestion behavior.',
+    2: 'Your choice is not correct. NCCL TCP fallback means NCCL is using sockets instead of the intended high-speed path. Rising rx_pfc_frames points to pause-frame congestion, not simply a transport fallback.',
+    3: 'Your choice is not correct. ECC errors affect GPU memory correctness. PFC frames are network switch flow-control signals, so the problem is in the fabric behavior, not corrupted GPU memory.',
+  },
+  11: {
+    0: 'Your choice is not correct. NCCL TCP fallback would show logs like "Using network Socket." This prompt gives topology output changing from NV4 to PHB, so the local GPU-to-GPU path changed to PCIe host-bridge traversal.',
+    2: 'Your choice is not correct. ECC errors affect memory reliability, not the topology label between two GPUs. PHB instead of NV4 means the NVLink path is unavailable.',
+    3: 'Your choice is not correct. Thermal throttling reduces clocks because of heat. It does not change nvidia-smi topo output from NVLink to PHB.',
+  },
+  12: {
+    0: 'Your choice is not correct. MIG is not enabled by asking for seven instances in one flag. First enable MIG mode, then create specific GPU and compute instances with the right profile.',
+    2: 'Your choice is not correct. "nvidia-smi partition" is not the H100 MIG command sequence. The exam expects the MIG mode enable step followed by nvidia-smi mig profile creation.',
+    3: 'Your choice is not correct. Kubernetes can consume MIG resources after the node is configured, but kubectl does not create the physical MIG slices on the GPU. The GPU must be partitioned with nvidia-smi first.',
+  },
+  13: {
+    0: 'Your choice is not correct. Thermal throttling usually comes with high temperatures or HW Thermal SlowDown evidence. This prompt instead pairs sawtooth GPU utilization with NFS at 100 percent utilization, which points to input starvation.',
+    1: 'Your choice is not correct. ECC retry storms would need ECC counters or XID evidence. The prompt gives storage saturation, so the GPU is likely waiting for data rather than retrying bad memory reads.',
+    3: 'Your choice is not correct. An AllReduce stall is a distributed communication problem. The evidence here names NFS at 100 percent utilization, so the data path is the bottleneck.',
+  },
+  14: {
+    0: 'Your choice is not correct. More DataLoader workers can help feed GPUs, but if Lustre stripe_count is 1, all reads still hit one OST. Fix the filesystem striping first so storage bandwidth can spread out.',
+    2: 'Your choice is not correct. GPUDirect Storage can reduce CPU bounce-buffer overhead, but it is not the first fix for a dataset striped across only one OST. Correct the stripe count before jumping to a bigger architecture change.',
+    3: 'Your choice is not correct. More CPU on storage nodes might help some workloads, but the direct evidence is bad striping. The simplest high-impact fix is to distribute reads across more OSTs.',
+  },
+  15: {
+    0: 'Your choice is not correct. Port 9090 is commonly used by Prometheus itself. DCGM Exporter exposes GPU metrics separately, and its default endpoint is on port 9400.',
+    2: 'Your choice is not correct. Port 8080 is a common generic web-app port, but it is not the default DCGM Exporter metrics port.',
+    3: 'Your choice is not correct. Port 2049 is associated with NFS. DCGM Exporter is a metrics exporter, not a filesystem service.',
+  },
+  16: {
+    0: 'Your choice is not correct. If every node reports nvidia.com/gpu resources, the GPU Operator is probably doing its basic job. Pending with Insufficient nvidia.com/gpu usually means the allocatable GPU slots are already consumed.',
+    2: 'Your choice is not correct. A pod requesting zero GPUs would not be blocked by insufficient GPU capacity. The scheduler complains because the pod needs GPUs that are not currently free.',
+    3: 'Your choice is not correct. A kubelet restart issue would usually affect resource visibility on nodes. The prompt says nodes show eight GPUs, so visibility exists; the problem is allocation pressure.',
+  },
+  17: {
+    1: 'Your choice is not correct. A very low FairShare value does not mean Alice has used little. It means her recent usage is high relative to her allocation, so Slurm lowers priority until usage decays.',
+    2: 'Your choice is not correct. A lost Slurm controller or node contact would show node or controller health symptoms. Reason=Priority with FairShare 0.034 is a scheduling-policy clue.',
+    3: 'Your choice is not correct. Not enough GPUs would show a resource or capacity reason. This prompt says Reason=Priority, so the job is delayed by fair-share priority, not by GPU count.',
+  },
+  18: {
+    0: 'Your choice is not correct. Pod affinity can influence where pods land, but it does not guarantee that all ranks start together. Distributed training needs an all-or-nothing scheduling guarantee.',
+    2: 'Your choice is not correct. A DaemonSet runs one pod per selected node, which is useful for agents. It does not coordinate a 16-pod training job so all ranks start at the same time.',
+    3: 'Your choice is not correct. ResourceQuota limits how much a namespace can consume. It does not hold a distributed job until every required pod can be scheduled.',
+  },
+  19: {
+    0: 'Your choice is not correct. GPU reset helps with some hung-GPU incidents, but this error says the container lacks a kernel image for the H100 architecture. That is a build/runtime compatibility issue.',
+    2: 'Your choice is not correct. Newer NVIDIA drivers are generally backward-compatible with older CUDA runtimes. The problem is not that the driver is too new; the container was built without the needed sm_90 support.',
+    3: 'Your choice is not correct. Setting CUDA_VISIBLE_DEVICES empty hides GPUs from the application. That would avoid using the GPU instead of fixing the missing H100-compatible CUDA kernels.',
+  },
+};
+
+const QUIZ_CORRECT_CHOICE_FEEDBACK = {
+  0: 'Correct. XID 48 is the beginner anchor for double-bit ECC memory failure. The important operator idea is trust: once memory reports an uncorrectable error, you protect workloads and stop scheduling new work there.',
+  1: 'Correct. DCGM field 157 is the DBE counter. A non-zero value is not just a warning trend; it means uncorrectable memory trouble has already appeared in this boot window.',
+  2: 'Correct. "Fallen off the bus" means the driver or OS lost contact with the GPU. That phrase should make you think XID 79, not ECC, NVLink CRC, or thermal throttling.',
+  3: 'Correct. After XID 79, a failed GPU reset means the safe recovery path escalates to a hard node reboot. The key lesson is not to keep poking a GPU the system can no longer reliably control.',
+  4: 'Correct. CRC flit errors are packet corruption on the NVLink path. That points to XID 74 and a physical or signal-integrity problem on the cable, connector, or NVSwitch path.',
+  5: 'Correct. High temperature plus utilization dropping in bursts is the thermal-throttle pattern. Beginners should tie heat evidence to clocks and SM utilization before blaming network or storage.',
+  6: 'Correct. HW Thermal SlowDown is cooling evidence. Drain first to protect jobs, inspect airflow or heatsink contact, then use a power cap as a temporary mitigation while the physical issue is handled.',
+  7: 'Correct. Field 156 is the single-bit ECC counter. SBE is corrected, so it is usually a trend and maintenance signal rather than an immediate stop-the-node signal like DBE.',
+  8: 'Correct. "Using network Socket" means NCCL is not using the intended high-speed IB path. The first cheap, targeted check is whether an environment variable forced IB off.',
+  9: 'Correct. If IB ports are Active but NCCL still uses TCP, the fabric exists but NCCL may be pointed at the wrong HCA name. This separates hardware visibility from application configuration.',
+  10: 'Correct. Rising PFC frames on RoCE point to pause-frame congestion. The beginner lesson is that Ethernet lossless behavior can hurt training throughput even when GPUs themselves are healthy.',
+  11: 'Correct. PHB instead of NV4 means traffic is crossing the PCIe host bridge instead of the expected NVLink path. The topology output is the evidence, not the utilization number by itself.',
+  12: 'Correct. MIG setup is a two-step mental model: enable MIG mode, then create the specific GPU instances and compute instances. Kubernetes consumes the result later; it does not carve the GPU by itself.',
+  13: 'Correct. Sawtooth GPU utilization plus saturated NFS is input starvation. The GPU is not weak; it is waiting for data between bursts of work.',
+  14: 'Correct. A stripe count of 1 sends the dataset through one OST. Striping across more OSTs spreads reads out and often fixes the largest bottleneck before application tuning.',
+  15: 'Correct. DCGM Exporter exposes GPU metrics on port 9400 by default. Prometheus may scrape it, but Prometheus itself is usually a different service and port.',
+  16: 'Correct. The nodes advertise GPUs, so visibility exists. "Insufficient nvidia.com/gpu" usually means the GPU slots are already allocated to other pods.',
+  17: 'Correct. Low FairShare means Alice has consumed more than her share recently. Slurm is applying scheduling policy, not reporting a broken GPU or lost controller.',
+  18: 'Correct. Gang scheduling is the all-or-nothing concept. Distributed training ranks often need to start together, or early ranks wait and NCCL initialization can hang.',
+  19: 'Correct. "No kernel image is available" means the container lacks code for the GPU architecture. For H100, rebuild on a CUDA 12-era NGC base image with sm_90 support.',
+};
+
+function getQuizChoiceFeedback(qi, q, chosenIdx) {
+  const questionIndex = Number.isInteger(qi) ? qi : QUIZ.indexOf(q);
+  if (chosenIdx === q.ans) {
+    return QUIZ_CORRECT_CHOICE_FEEDBACK[questionIndex]
+      || 'Correct. This answer matches the strongest evidence in the scenario and chooses the smallest safe operator action.';
+  }
+  return QUIZ_WRONG_CHOICE_FEEDBACK[questionIndex]?.[chosenIdx]
+    || 'Your choice is not correct. This quiz option is missing a specific explanation, so flag it for review. The intended learning flow should explain the exact failure class behind every wrong answer.';
+}
+
+function renderQuizExplanation(q, chosenIdx, revealCorrect = chosenIdx === q.ans, qi = null) {
+  const correctLetter = String.fromCharCode(65 + q.ans);
+  const correctText = q.opts[q.ans] || '';
+  const chosenLetter = String.fromCharCode(65 + chosenIdx);
+  const chosenText = q.opts[chosenIdx] || '';
+  const isCorrect = chosenIdx === q.ans;
+  const choiceReason = getQuizChoiceFeedback(qi, q, chosenIdx);
+  return `
+    <div class="quiz-explain-kicker">${isCorrect ? 'Correct' : 'Not quite'}</div>
+    <div class="quiz-choice-feedback ${isCorrect ? 'correct' : 'wrong'}">
+      <span>${escHtml(chosenLetter)}</span>
+      <div>
+        <strong>${escHtml(tightenDisplayCopy(chosenText))}</strong>
+        <p>${escHtml(tightenDisplayCopy(choiceReason))}</p>
+      </div>
+    </div>
+    ${revealCorrect ? `
+      <div class="quiz-correct-answer">
+        <span>${escHtml(correctLetter)}</span>
+        <strong>${escHtml(tightenDisplayCopy(correctText))}</strong>
+      </div>
+      <p>${escHtml(tightenDisplayCopy(q.exp))}</p>
+    ` : ''}
+  `;
+}
+
 let quizState = {};
 
 function openQuiz() {
@@ -333,7 +519,6 @@ function openQuiz() {
     const explain = document.createElement('div');
     explain.className = 'quiz-explain';
     explain.id = `qe-${i}`;
-    explain.textContent = tightenDisplayCopy(q.exp);
     question.appendChild(explain);
 
     el.appendChild(question);
@@ -372,8 +557,21 @@ function openQuiz() {
 function selectAnswer(qi, optIdx) {
   if(quizState.submitted) return;
   quizState.answers[qi] = optIdx;
-  document.querySelectorAll(`[id^="qo-${qi}-"]`).forEach(el=>el.classList.remove('selected'));
-  document.getElementById(`qo-${qi}-${optIdx}`).classList.add('selected');
+  const q = QUIZ[qi];
+  document.querySelectorAll(`[id^="qo-${qi}-"]`).forEach(el=>{
+    el.classList.remove('selected', 'correct', 'wrong');
+  });
+  document.getElementById(`qo-${qi}-${optIdx}`)?.classList.add('selected');
+  if(optIdx === q.ans) {
+    document.getElementById(`qo-${qi}-${optIdx}`)?.classList.add('correct');
+  } else {
+    document.getElementById(`qo-${qi}-${optIdx}`)?.classList.add('wrong');
+  }
+  const explanation = document.getElementById(`qe-${qi}`);
+  if (explanation) {
+    explanation.innerHTML = renderQuizExplanation(q, optIdx, optIdx === q.ans, qi);
+    explanation.classList.add('show');
+  }
   document.getElementById('quiz-progress').textContent = `${Object.keys(quizState.answers).length}/${QUIZ.length} answered`;
   renderDetachedPanel('quizOverlay');
 }
@@ -387,7 +585,11 @@ function submitQuiz() {
     if(chosen === q.ans) correct++;
     document.getElementById(`qo-${i}-${q.ans}`).classList.add('correct');
     if(chosen !== q.ans) document.getElementById(`qo-${i}-${chosen}`)?.classList.add('wrong');
-    document.getElementById(`qe-${i}`).classList.add('show');
+    const explanation = document.getElementById(`qe-${i}`);
+    if (explanation) {
+      explanation.innerHTML = renderQuizExplanation(q, chosen, true, i);
+      explanation.classList.add('show');
+    }
   });
   const pct = Math.round((correct/QUIZ.length)*100);
   const quizScorecard = {

@@ -102,6 +102,10 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 'expected_details': ['fleet-title-visible', 'fleet-kpi-rail-visible', 'fleet-side-rail-visible', 'fleet-grid-visible', 'legacy-rails-hidden'],
             },
             {
+                'name': 'quiz_feedback',
+                'expected_details': ['quiz-q1-wrong-specific', 'quiz-q1-correct-teaches', 'quiz-q3-xid74-specific', 'quiz-q3-correct-teaches'],
+            },
+            {
                 'name': 'lab_terminal_nvlink',
                 'expected_details': ['terminal-help-visible', 'terminal-weak-feedback', 'terminal-accepted-output'],
             },

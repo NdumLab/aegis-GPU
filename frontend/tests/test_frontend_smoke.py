@@ -1,4 +1,5 @@
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -69,9 +70,33 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('submitQuiz', FRONTEND_JS)
         self.assertIn('resetQuiz', FRONTEND_JS)
         self.assertIn('closeQuiz', FRONTEND_JS)
+        self.assertIn('QUIZ_WRONG_CHOICE_FEEDBACK', FRONTEND_JS)
+        self.assertIn('QUIZ_CORRECT_CHOICE_FEEDBACK', FRONTEND_JS)
+        self.assertIn('getQuizChoiceFeedback', FRONTEND_JS)
         self.assertIn('The Chain To Remember', FRONTEND_JS)
         self.assertIn('Submit Answers', FRONTEND_JS)
         self.assertIn('Quiz accuracy', FRONTEND_JS)
+
+    def test_quiz_wrong_answers_have_feedback(self):
+        script = f"""
+        const fs = require('fs');
+        const source = fs.readFileSync({str(ROOT / 'js' / 'study-quiz.js')!r}, 'utf8');
+        eval(source + `
+          const missing = [];
+          QUIZ.forEach((question, questionIndex) => {{
+            if (!QUIZ_CORRECT_CHOICE_FEEDBACK[questionIndex]) {{
+              missing.push(questionIndex + ':correct');
+            }}
+            question.opts.forEach((_, optionIndex) => {{
+              if (optionIndex !== question.ans && !QUIZ_WRONG_CHOICE_FEEDBACK[questionIndex]?.[optionIndex]) {{
+                missing.push(questionIndex + ':' + optionIndex);
+              }}
+            }});
+          }});
+          if (missing.length) throw new Error('Missing quiz feedback for ' + missing.join(', '));
+        `);
+        """
+        subprocess.check_call(['node', '-e', script])
 
     def test_runtime_surface_is_available(self):
         self.assertIn('function loadLab', FRONTEND_JS)
