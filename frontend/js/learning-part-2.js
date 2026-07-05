@@ -8,7 +8,7 @@ window.AEGIS_LEARNING_PARTS.platform_operations = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are learning how to recognize when NCCL silently drops onto a slower communication path. The beginner goal is to stop treating a running job as proof of a healthy job and to learn how to spot expensive slow success.",
+    objectiveText: "NCCL is the communication layer many distributed GPU jobs use to move data between ranks. In this lab, fallback means NCCL drops from its preferred fast transport to a slower one. The beginner goal is to stop treating a running job as proof of a healthy job and to learn how to spot expensive slow success.",
     plainPicture: "Picture NCCL as the dispatcher that chooses how GPUs talk during distributed training. The preferred route is the fast express lane, such as InfiniBand. Fallback means the dispatcher could not or did not use that express lane, so it sends traffic through a slower city street such as TCP sockets. The job may still move, but every synchronized step takes longer. This lab teaches you to read the route label first: if the job is using Socket instead of IB, the problem is the communication path, not necessarily the model code.",
     whyOperatorsCare: [
       "This is one of the clearest beginner examples of slow success. Nothing crashes, but throughput drops enough to waste expensive GPU time.",
@@ -42,8 +42,8 @@ window.AEGIS_LEARNING_PARTS.platform_operations = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are figuring out whether the GPUs are being starved by the data path instead of by their own compute limits. The beginner goal is to stop blaming the most visible component first and to learn how to trace starvation upstream.",
-    plainPicture: "Picture the GPU as a chef who can cook very fast, but ingredients arrive from the pantry one small box at a time. The chef looks idle between boxes even though the kitchen is powerful. That is a storage bottleneck. The sawtooth GPU graph is the chef cooking quickly, then waiting, then cooking again. The real fix may be in the pantry route: storage striping, read throughput, or DataLoader workers. This lab teaches you to follow the ingredient path before blaming the chef.",
+    objectiveText: "A storage bottleneck happens when the data path feeding the GPUs is slower than the GPUs' ability to process that data. We are figuring out whether the GPUs are being starved by that upstream path instead of by their own compute limits. The beginner goal is to stop blaming the most visible component first and to learn how to trace starvation upstream.",
+    plainPicture: "Picture the GPU as a chef who can cook very fast, but ingredients arrive from the pantry one small box at a time. The chef looks idle between boxes even though the kitchen is powerful. That is what a storage bottleneck looks like. The sawtooth GPU graph is the chef cooking quickly, then waiting, then cooking again. The real fix may be in the pantry route: storage striping, read throughput, or DataLoader workers. This lab teaches you to follow the ingredient path before blaming the chef.",
     whyOperatorsCare: [
       "This is one of the best beginner lessons in whole-system reasoning because the most visible symptom appears on the accelerator while the actual bottleneck sits elsewhere.",
       "Expensive GPUs lose value quickly when they spend time waiting on datasets, loaders, or shared storage paths instead of computing.",
@@ -76,8 +76,8 @@ window.AEGIS_LEARNING_PARTS.platform_operations = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are comparing the normal storage-to-GPU path with a more direct one. The beginner goal is to understand the path change first, verify the feature second, and only then trust the benchmark result.",
-    plainPicture: "Picture training data as boxes moving from storage to the GPU. On the traditional path, the boxes stop at the CPU loading dock first, get handled in system memory, and then move to GPU memory. GPUDirect Storage tries to send the boxes on a more direct conveyor belt from storage toward GPU memory, reducing extra handling. It does not magically make every job faster; the hardware, driver, filesystem, and workload must support the path. This lab proves the direct route exists and then measures whether it helped.",
+    objectiveText: "GPUDirect Storage (GDS) can shorten the storage-to-GPU path, but only after the right driver and filesystem pieces are enabled. The beginner goal is to compare the traditional and direct paths, identify what has to be enabled for GDS, verify the cuFile software path, and only then trust the benchmark result.",
+    plainPicture: "Picture training data as boxes moving from storage to the GPU. In the traditional route, the boxes stop in CPU memory first and the CPU helps move them along. With GDS, the goal is to remove that extra bounce-buffer handling so storage can DMA data more directly toward GPU memory. That does not happen automatically just because NVIDIA GPUs are present. The driver stack, cuFile runtime, supported filesystem path, and workload all have to line up before the direct path is real. This lab first compares the two routes, then checks the enablement pieces, and finally measures whether the shorter route actually helped.",
     whyOperatorsCare: [
       "This lab teaches that performance is often about path design, not just raw device speed. A faster route can matter as much as a faster component.",
       "GDS can reduce CPU overhead and improve data movement for storage-heavy workloads when the environment really supports it.",
@@ -89,9 +89,9 @@ window.AEGIS_LEARNING_PARTS.platform_operations = {
       "So this lab matters because it teaches how infrastructure design choices change the real path users depend on, not just the names of the technologies involved."
     ],
     coreTerms: [
-      { term: "GPUDirect Storage", plain: "A technology that allows data to move more directly between storage and GPU memory.", why: "It can reduce CPU overhead and improve throughput." },
+      { term: "GPUDirect Storage", plain: "A technology that can let storage DMA data to or from GPU memory without the usual CPU bounce buffer.", why: "It can reduce CPU overhead and improve throughput when the stack really supports it." },
       { term: "DMA", plain: "Direct Memory Access, a hardware-assisted way to move data without constant CPU handling.", why: "It is the mechanism that makes direct paths efficient." },
-      { term: "cufile", plain: "The software interface commonly used for GPUDirect Storage operations.", why: "It is a practical sign that the feature is available in the environment." },
+      { term: "cuFile", plain: "The software interface commonly used for GPUDirect Storage operations.", why: "Its presence is a practical sign that the GDS software path is available in the environment." },
       { term: "Data path", plain: "The route data takes from storage to the GPU.", why: "GDS only makes sense if beginners can picture the path it is shortening." }
     ],
     commonMisreads: [
@@ -101,6 +101,7 @@ window.AEGIS_LEARNING_PARTS.platform_operations = {
     ],
     safeActions: [
       "Verify the feature exists before benchmarking it.",
+      "Enable GDS deliberately: the `nvidia-fs` and cuFile stack must be present and the storage path must be one the platform supports.",
       "Use the screenshot sequence to keep design, verification, and benchmark evidence separate.",
       "Compare the old path and new path with the same workload.",
       "Treat GDS as an optimization, not a default assumption."

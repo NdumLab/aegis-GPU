@@ -1,5 +1,6 @@
 import importlib.util
 import sys
+import tempfile
 from pathlib import Path
 
 import bcrypt
@@ -12,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def load_module(monkeypatch):
     admin_hash = bcrypt.hashpw(b'unit-test-pass', bcrypt.gensalt()).decode('utf-8')
     analyst_hash = bcrypt.hashpw(b'unit-test-analyst', bcrypt.gensalt()).decode('utf-8')
+    incidents_db = Path(tempfile.gettempdir()) / 'aegis-test-incidents-pytest.db'
+    incidents_db = incidents_db.with_name(f'{incidents_db.stem}-{id(monkeypatch)}{incidents_db.suffix}')
 
     monkeypatch.setenv('ACTIVE_LLM', 'deterministic')
     monkeypatch.setenv('CLAUDE_API_KEY', 'your-anthropic-key-here')
@@ -23,7 +26,7 @@ def load_module(monkeypatch):
     monkeypatch.setenv('ALLOW_DESTRUCTIVE_REMEDIATION', 'false')
     monkeypatch.setenv('ALLOWED_ORIGINS', 'https://unit.test')
     monkeypatch.setenv('AEGIS_AUDIT_LOG_PATH', '/tmp/aegis-test-audit.log')
-    monkeypatch.setenv('AEGIS_INCIDENTS_DB', '/tmp/aegis-test-incidents-pytest.db')
+    monkeypatch.setenv('AEGIS_INCIDENTS_DB', str(incidents_db))
 
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))

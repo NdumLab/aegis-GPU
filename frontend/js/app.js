@@ -1546,6 +1546,37 @@ function renderOperatorStoryGuide(guide) {
       <section class="learn-section learn-callout">
         <h4>Plain-Language Picture</h4>
         <p>${escHtml(tightenDisplayCopy(plainPicture))}</p>
+        ${guide.stackHandoffs && guide.stackHandoffs.length ? `
+          <p class="stack-handoff-intro">Each layer depends on the one below it for a reason.</p>
+          <div class="stack-handoff-list">
+            ${guide.stackHandoffs.map((item, index) => `
+              <article class="stack-handoff-card stack-handoff-${escHtml(item.tone || 'blue')}">
+                <div class="stack-handoff-top">
+                  <span class="stack-handoff-num">${index + 1}</span>
+                  <h5>${escHtml(item.title)}</h5>
+                </div>
+                <p>${escHtml(tightenDisplayCopy(item.text || ''))}</p>
+              </article>
+            `).join('')}
+          </div>
+        ` : ''}
+        ${guide.stackProblemSummary ? `
+          <div class="stack-problem-callout">
+            <h5>Where Problems Can Come From</h5>
+            <p>${escHtml(tightenDisplayCopy(guide.stackProblemSummary))}</p>
+          </div>
+        ` : ''}
+        ${guide.stackVersionCheck ? `
+          <div class="stack-version-check">
+            <h5>${escHtml(guide.stackVersionCheck.title || 'How To Check Versions')}</h5>
+            <p>${escHtml(tightenDisplayCopy(guide.stackVersionCheck.intro || ''))}</p>
+            ${guide.stackVersionCheck.checks && guide.stackVersionCheck.checks.length ? `
+              <ol>
+                ${guide.stackVersionCheck.checks.map(item => `<li>${escHtml(tightenDisplayCopy(item))}</li>`).join('')}
+              </ol>
+            ` : ''}
+          </div>
+        ` : ''}
       </section>
     `);
   }

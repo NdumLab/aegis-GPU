@@ -482,7 +482,7 @@ async function runBrowserSmokeScenario() {
       executeLabTerminalCommand('NCCL_DEBUG=INFO torchrun train.py');
       await browserSmokeWait(900);
       const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
-      if (!acceptedText.includes('NCCL WARN Using network Socket')) throw new Error('nccl fallback accepted command did not replay transport warning');
+      if (!acceptedText.includes('NCCL WARN Falling back to TCP transport')) throw new Error('nccl fallback accepted command did not replay transport warning');
       details.push('terminal-accepted-output');
 
       setBrowserSmokeResult('pass', 'limited terminal nccl fallback flow verified', details);
@@ -512,7 +512,7 @@ async function runBrowserSmokeScenario() {
       executeLabTerminalCommand('kubectl get pods -n gpu-operator');
       await browserSmokeWait(900);
       const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
-      if (!acceptedText.includes('nvidia-device-plugin READY 1/1')) throw new Error('k8s accepted command did not replay operator evidence');
+      if (!acceptedText.includes('nvidia-device-plugin-daemonset   1/1   Running')) throw new Error('k8s accepted command did not replay operator evidence');
       details.push('terminal-accepted-output');
 
       setBrowserSmokeResult('pass', 'limited terminal k8s flow verified', details);
@@ -572,7 +572,7 @@ async function runBrowserSmokeScenario() {
       executeLabTerminalCommand('docker run dcgm-exporter');
       await browserSmokeWait(900);
       const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
-      if (!acceptedText.includes('Listening on :9400/metrics')) throw new Error('monitoring accepted command did not replay exporter evidence');
+      if (!acceptedText.includes('dcgm-exporter listening on :9400')) throw new Error('monitoring accepted command did not replay exporter evidence');
       details.push('terminal-accepted-output');
 
       setBrowserSmokeResult('pass', 'limited terminal monitoring flow verified', details);
@@ -602,7 +602,7 @@ async function runBrowserSmokeScenario() {
       executeLabTerminalCommand('cat /proc/driver/nvidia/version');
       await browserSmokeWait(900);
       const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
-      if (!acceptedText.includes('NVRM version: 545.23.08')) throw new Error('cuda stack accepted command did not replay driver evidence');
+      if (!acceptedText.includes('NVRM version: NVIDIA UNIX x86_64 Kernel Module  550.54.15')) throw new Error('cuda stack accepted command did not replay driver evidence');
       details.push('terminal-accepted-output');
 
       setBrowserSmokeResult('pass', 'limited terminal cuda stack flow verified', details);
@@ -632,7 +632,7 @@ async function runBrowserSmokeScenario() {
       executeLabTerminalCommand('docker pull nvcr.io/nvidia/pytorch');
       await browserSmokeWait(900);
       const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
-      if (!acceptedText.includes('Status: Downloaded nvidia/pytorch:24.01-py3')) throw new Error('container accepted command did not replay image-baseline evidence');
+      if (!acceptedText.includes('Status: Image is up to date for nvcr.io/nvidia/pytorch:24.03-py3')) throw new Error('container accepted command did not replay image-baseline evidence');
       details.push('terminal-accepted-output');
 
       setBrowserSmokeResult('pass', 'limited terminal container flow verified', details);
@@ -662,7 +662,7 @@ async function runBrowserSmokeScenario() {
       executeLabTerminalCommand('torchrun train.py');
       await browserSmokeWait(900);
       const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
-      if (!acceptedText.includes('All 16 ranks connected')) throw new Error('training accepted command did not replay DDP launch evidence');
+      if (!acceptedText.includes('World size 8 established successfully')) throw new Error('training accepted command did not replay DDP launch evidence');
       details.push('terminal-accepted-output');
 
       setBrowserSmokeResult('pass', 'limited terminal training flow verified', details);
@@ -782,7 +782,7 @@ async function runBrowserSmokeScenario() {
       executeLabTerminalCommand('nvidia-smi dmon -s u');
       await browserSmokeWait(900);
       const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
-      if (!acceptedText.includes('GPU util: 94%')) throw new Error('storage accepted command did not replay sawtooth evidence');
+      if (!acceptedText.includes('Sawtooth GPU utilization: accelerators are waiting for input')) throw new Error('storage accepted command did not replay sawtooth evidence');
       details.push('terminal-accepted-output');
 
       setBrowserSmokeResult('pass', 'limited terminal storage flow verified', details);
@@ -812,7 +812,7 @@ async function runBrowserSmokeScenario() {
       executeLabTerminalCommand('cat /opt/aegis/gds-path.txt');
       await browserSmokeWait(900);
       const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
-      if (!acceptedText.includes('NVMe → CPU → PCIe → GPU')) throw new Error('gds accepted command did not replay traditional-path evidence');
+      if (!acceptedText.includes('NVMe read -> page cache / CPU memory')) throw new Error('gds accepted command did not replay traditional-path evidence');
       details.push('terminal-accepted-output');
 
       setBrowserSmokeResult('pass', 'limited terminal gds flow verified', details);
@@ -842,7 +842,7 @@ async function runBrowserSmokeScenario() {
       executeLabTerminalCommand('sudo nvidia-smi -i 0 -mig 1');
       await browserSmokeWait(900);
       const acceptedText = String(document.getElementById('terminal-output')?.textContent || '');
-      if (!acceptedText.includes('Enabled MIG Mode for GPU 0')) throw new Error('mig accepted command did not replay enablement evidence');
+      if (!acceptedText.includes('Enabled MIG Mode for GPU 00000000:17:00.0')) throw new Error('mig accepted command did not replay enablement evidence');
       details.push('terminal-accepted-output');
 
       setBrowserSmokeResult('pass', 'limited terminal mig flow verified', details);

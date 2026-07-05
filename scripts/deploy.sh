@@ -80,6 +80,12 @@ run install -o root -g root -m 644 \
   "${REPO_ROOT}/deploy/nginx/aegis-gpu.conf" \
   /etc/nginx/conf.d/aegis-gpu.conf
 
+if [ "${DRY_RUN}" -eq 1 ]; then
+  run bash "${REPO_ROOT}/scripts/ensure_tls_cert.sh" --dry-run
+else
+  run bash "${REPO_ROOT}/scripts/ensure_tls_cert.sh"
+fi
+
 run install -o root -g root -m 644 \
   "${REPO_ROOT}/deploy/systemd/aegis-gpu.service" \
   /etc/systemd/system/aegis-gpu.service

@@ -3,6 +3,22 @@ const EXAM_STUDY_GUIDES = {
     code: 'NCA-AIIO',
     title: 'NVIDIA-Certified Associate: AI Infrastructure and Operations',
     examShape: 'Associate-level, 50 questions, 60 minutes. The goal is foundational infrastructure reasoning, not memorizing every command flag.',
+    officialBlueprint: {
+      source: 'NVIDIA certification page',
+      sourceUrl: 'https://www.nvidia.com/en-us/learn/certification/ai-infrastructure-operations-associate/',
+      details: [
+        'Duration: one hour',
+        'Questions: 50',
+        'Certification level: Associate',
+        'Validity: two years from issuance',
+        'Prerequisite: basic data center infrastructure understanding'
+      ],
+      weights: [
+        { label: 'Essential AI Knowledge', value: '38%' },
+        { label: 'AI Infrastructure', value: '40%' },
+        { label: 'AI Operations', value: '22%' }
+      ]
+    },
     mentalModel: [
       'GPU hardware is the capacity. The driver makes it visible to Linux. CUDA and libraries make it usable by applications. Containers and schedulers deliver it to workloads. Telemetry and logs tell operators whether that chain is still trustworthy.',
       'When an exam question gives you a symptom, first locate the broken layer: hardware, driver, CUDA/runtime, container, scheduler, network, storage, or observability.',
@@ -143,6 +159,28 @@ function renderStudyGuide(examId = 'nca_aiio') {
     </section>
 
     ${renderReasoningProgressSummary()}
+
+    <section class="learn-section study-official">
+      <div class="learn-heading-row">
+        <h4>Official Exam Shape</h4>
+        <span class="learn-mode-tag">${escHtml(guide.officialBlueprint.source)}</span>
+      </div>
+      <div class="study-official-grid">
+        ${guide.officialBlueprint.details.map(item => `
+          <div class="study-official-card">${escHtml(item)}</div>
+        `).join('')}
+      </div>
+      <div class="study-blueprint-bars">
+        ${guide.officialBlueprint.weights.map(item => `
+          <div class="study-blueprint-row">
+            <div class="study-blueprint-label">${escHtml(item.label)}</div>
+            <div class="study-blueprint-track"><span style="width:${escHtml(item.value)}"></span></div>
+            <div class="study-blueprint-value">${escHtml(item.value)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <a class="study-source-link" href="${escHtml(guide.officialBlueprint.sourceUrl)}" target="_blank" rel="noreferrer">NVIDIA certification page</a>
+    </section>
 
     <section class="learn-section study-model">
       <div class="learn-heading-row">
@@ -316,8 +354,8 @@ const QUIZ = [
    opts:["Pod Affinity with requiredDuringScheduling","Gang Scheduling via a PodGroup resource (Volcano or Coscheduler)","DaemonSet with a node selector","ResourceQuota at the namespace level"],
    ans:1,exp:"Gang scheduling (PodGroup via Volcano or Kubernetes Coscheduler) holds all pods in a group until the entire group can be scheduled simultaneously. Without it, partial scheduling causes NCCL init to hang waiting for all ranks."},
 
-  {q:"A Kubernetes pod fails with 'CUDA error: no kernel image is available for execution on the device'. Container was built with CUDA 11.8. Cluster nodes have Driver 12.3. What is the correct fix?",
-   opts:["Run 'nvidia-smi --gpu-reset' on the node","Rebuild the container using an NGC base image (nvcr.io/nvidia/pytorch:24.01-py3) that includes CUDA 12.x","Downgrade the node driver to match the container","Set CUDA_VISIBLE_DEVICES='' in the pod spec"],
+  {q:"A Kubernetes pod fails with 'CUDA error: no kernel image is available for execution on the device'. Container was built with CUDA 11.8. Cluster nodes have a current NVIDIA driver. What is the correct fix?",
+   opts:["Run 'nvidia-smi --gpu-reset' on the node","Rebuild the container using an NGC base image (nvcr.io/nvidia/pytorch:24.03-py3) that includes CUDA 12.x","Downgrade the node driver to match the container","Set CUDA_VISIBLE_DEVICES='' in the pod spec"],
    ans:1,exp:"CUDA 11.8 does not include sm_90 kernels required by H100 GPUs (compute capability 9.0 was introduced in CUDA 11.8 but full support arrived in CUDA 12.x). Rebuilding with an NGC image based on CUDA 12.x ensures the correct sm_90 PTX/SASS kernels are present. Note: newer drivers ARE backwards-compatible with older CUDA runtimes — the issue here is missing GPU architecture support, not driver version mismatch."}
 ];
 

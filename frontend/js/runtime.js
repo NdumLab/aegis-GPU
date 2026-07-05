@@ -293,9 +293,9 @@ function stageSelectedStep(labId, stepIdx, options = {}) {
 function logStepTypingHint(step) {
   const hint = terminalModeEnabled
     ? (step?.terminal
-      ? '# Type the probe for this checkpoint, or type help to see accepted commands.'
-      : '# Type the command shown in the guide to replay the evidence for this checkpoint.')
-    : '# Press Run Step to replay the authored evidence, or turn on Terminal Mode to type the probe yourself.';
+      ? '# Type Probes mode: type the accepted probe for this checkpoint, or type help.'
+      : '# Type Probes mode: type the command shown in the guide to replay this checkpoint.')
+    : '# Guided Replay mode: press Run Step to replay the authored evidence automatically.';
   logTerm([{ t: 'dim', v: hint }]);
 }
 
@@ -379,7 +379,7 @@ function runCurrentStep() {
   if (terminalModeEnabled && (context.step?.terminal || (context.step?.cmd && !String(context.step.cmd).trim().startsWith('#')))) {
     switchTab('term');
     if (cmdInput) cmdInput.focus();
-    logTerm([{ t: 'dim', v: '# Type the command for this checkpoint and press Enter. Type help to see accepted probes.' }]);
+    logTerm([{ t: 'dim', v: '# Type Probes mode is on. Type the checkpoint probe and press Enter, or type help.' }]);
     scrollTerminal();
     return;
   }
@@ -598,18 +598,32 @@ function updateTerminalModeUI() {
   const toggleBtn = document.getElementById('btn-terminal-mode');
   if (toggleBtn) {
     toggleBtn.classList.toggle('active', terminalModeEnabled);
-    toggleBtn.textContent = terminalModeEnabled ? '⌨ Terminal Mode On' : '⌨ Terminal Mode Off';
+    toggleBtn.textContent = terminalModeEnabled ? '⌨ Type Probes' : '▶ Guided Replay';
     toggleBtn.title = terminalModeEnabled
-      ? 'Terminal Mode is on. Type authored probes for the current checkpoint.'
-      : 'Terminal Mode is off. Use Run Step to replay the authored checkpoint evidence.';
+      ? 'Type Probes mode is on. You must type accepted probes for the current checkpoint.'
+      : 'Guided Replay mode is on. Use Run Step to replay authored checkpoint evidence.';
   }
   const runBtn = document.getElementById('run-btn');
   if (runBtn) {
-    runBtn.textContent = terminalModeEnabled ? '⌨ Type' : '▶ Run Step';
+    runBtn.textContent = terminalModeEnabled ? '⌨ Focus Input' : '▶ Run Step';
+    runBtn.title = terminalModeEnabled
+      ? 'Focus the terminal input. The checkpoint advances only after you type an accepted probe.'
+      : 'Replay the authored checkpoint evidence and advance to the next step.';
   }
   const inputRow = document.getElementById('terminal-input-row');
   if (inputRow) {
     inputRow.style.display = terminalModeEnabled ? 'flex' : 'none';
+  }
+  updateTerminalModeStatus();
+}
+
+function updateTerminalModeStatus() {
+  const status = document.getElementById('terminal-mode-status');
+  if (!status) return;
+  if (terminalModeEnabled) {
+    status.innerHTML = '<strong class="mode-terminal">Type Probes:</strong> type an accepted checkpoint command and press Enter. Use <strong>help</strong> to list valid probes. The <strong>Focus Input</strong> button only places the cursor in the terminal.';
+  } else {
+    status.innerHTML = '<strong class="mode-guided">Guided Replay:</strong> press <strong>Run Step</strong> to replay the authored evidence automatically. Turn on <strong>Type Probes</strong> when you want to practice commands.';
   }
 }
 
@@ -671,7 +685,7 @@ function updateTerminalInputHint() {
       cmdInput.placeholder = 'Cluster Fleet terminal: try squeue, sinfo, nvidia-smi, ibstat, hostname, or ssh gb200-node-00...';
       return;
     }
-    cmdInput.placeholder = 'Turn on Terminal Mode to type authored probes for the current checkpoint...';
+    cmdInput.placeholder = 'Guided Replay is on. Turn on Type Probes to type checkpoint commands...';
     return;
   }
   if (!currentLab) {
@@ -679,18 +693,18 @@ function updateTerminalInputHint() {
       cmdInput.placeholder = 'Cluster Fleet terminal: try squeue, sinfo, nvidia-smi, ibstat, hostname, or ssh gb200-node-00...';
       return;
     }
-    cmdInput.placeholder = 'Select a checkpoint, then type the command you want to run...';
+    cmdInput.placeholder = 'Select a checkpoint, then type an accepted probe...';
     return;
   }
   const candidates = getLabTerminalCandidateSteps();
   if (!candidates.length) {
-    cmdInput.placeholder = 'Type the current checkpoint command, or type help for accepted probes...';
+    cmdInput.placeholder = 'Type the current checkpoint probe, or type help for accepted probes...';
     return;
   }
   const firstExample = candidates[0].config?.examples?.[0];
   cmdInput.placeholder = firstExample
     ? `Try: ${firstExample}  |  type help for accepted probes`
-    : 'Type the current checkpoint command, or type help for accepted probes...';
+    : 'Type the current checkpoint probe, or type help for accepted probes...';
 }
 
 function runClusterTerminalCommand(cmd) {
@@ -926,6 +940,24 @@ function resetAll() {
   updateClusterSimFoundationUI();
 }
 
+function setWorkspaceMode(mode, options = {}) {
+  const allowedModes = new Set(['training', 'incident', 'fleet']);
+  const nextMode = allowedModes.has(mode) ? mode : 'training';
+  document.body.dataset.workspaceMode = nextMode;
+  localStorage.setItem('gpusim_workspace_mode', nextMode);
+  document.querySelectorAll('[data-workspace-mode]').forEach(button => {
+    button.classList.toggle('active', button.getAttribute('data-workspace-mode') === nextMode);
+  });
+  if (nextMode === 'fleet' && options.openFleet !== false) {
+    openClusterDashboard();
+  }
+  if (nextMode === 'incident' && !incidentMode) {
+    setIncidentMode(true);
+  } else if (nextMode !== 'incident' && incidentMode) {
+    setIncidentMode(false);
+  }
+}
+
 function bindUIHandlers() {
   if (_uiHandlersBound) return;
   _uiHandlersBound = true;
@@ -938,6 +970,7 @@ function bindUIHandlers() {
   on('btn-quiz',    'click', openQuiz);
   on('btn-study',   'click', () => openStudyGuide('nca_aiio'));
   on('btn-blueprint', 'click', () => { document.getElementById('recon-overlay').style.display = 'flex'; });
+  on('btn-open-fleet', 'click', () => openClusterDashboard());
   on('btn-learn',   'click', () => { if (currentLab) showIntro(currentLab); });
   on('btn-logout',  'click', aegisLogout);
   on('btn-reset',   'click', resetAll);
@@ -1030,6 +1063,9 @@ function bindUIHandlers() {
   on('btn-incidents', 'click', openIncidentHistory);
   on('btn-incidents-close', 'click', closeIncidentHistory);
   on('btn-cluster-dashboard-close', 'click', closeClusterDashboard);
+  document.querySelectorAll('[data-workspace-mode]').forEach(button => {
+    button.addEventListener('click', () => setWorkspaceMode(button.getAttribute('data-workspace-mode')));
+  });
 
   const navList = document.querySelector('.sidebar-scroll');
   if(navList) navList.addEventListener('click', e => {
@@ -1037,9 +1073,11 @@ function bindUIHandlers() {
     if(item) {
       const target = item.id.replace('nav-', '');
       if (target === 'cluster_fleet') {
+        setWorkspaceMode('fleet', { openFleet: false });
         openClusterDashboard();
         return;
       }
+      setWorkspaceMode('training', { openFleet: false });
       loadLab(target);
     }
   });
@@ -1090,6 +1128,7 @@ function bindUIHandlers() {
 function initApp() {
   bindUIHandlers();
   if (typeof ensureClusterSimStore === 'function') ensureClusterSimStore();
+  setWorkspaceMode(localStorage.getItem('gpusim_workspace_mode') || 'training', { openFleet: false });
   syncBeginnerModeUI();
   const savedBp  = localStorage.getItem('gpusim_blueprint');
   const savedFab = localStorage.getItem('gpusim_fabric');

@@ -32,14 +32,33 @@ def load_frontend_data():
         globalThis.window = globalThis;
         {draw_stub_block}
         {chr(10).join(f"eval(fs.readFileSync({json.dumps(str(path))}, 'utf8'));" for path in LABS_PARTS)}
-        eval(fs.readFileSync({json.dumps(str(LABS_JS))}, 'utf8') + '\\nglobalThis.__LABS__ = LABS;');
+        eval(fs.readFileSync({json.dumps(str(LABS_JS))}, 'utf8') + '\\nglobalThis.__LABS__ = LABS; globalThis.__TERMINAL_OUTPUT__ = TERMINAL_OUTPUT;');
         {chr(10).join(f"eval(fs.readFileSync({json.dumps(str(path))}, 'utf8'));" for path in LEARNING_PARTS)}
         eval(fs.readFileSync({json.dumps(str(LEARNING_JS))}, 'utf8'));
         const labs = globalThis.__LABS__;
+        const terminalOutput = globalThis.__TERMINAL_OUTPUT__;
         const learning = globalThis.AEGIS_LEARNING;
+        const usedTypes = new Set();
+        const missingTerminalOutput = [];
+        for (const [labId, lab] of Object.entries(labs)) {{
+          for (const [idx, step] of lab.steps.entries()) {{
+            usedTypes.add(step.type);
+            if (!terminalOutput[step.type]) missingTerminalOutput.push(`${{labId}}[${{idx}}] ${{step.type}}`);
+          }}
+        }}
         const summary = {{
           labKeys: Object.keys(labs),
           learningKeys: Object.keys(learning),
+          terminal: {{
+            missingOutput: missingTerminalOutput,
+            missingCommandRow: Object.entries(terminalOutput)
+              .filter(([, lines]) => Array.isArray(lines) && !lines.some(line => line.t === 'cmd'))
+              .map(([type]) => type),
+            shortOutput: Object.entries(terminalOutput)
+              .filter(([, lines]) => Array.isArray(lines) && lines.length < 3)
+              .map(([type]) => type),
+            orphanOutput: Object.keys(terminalOutput).filter(type => !usedTypes.has(type)),
+          }},
           labs: Object.fromEntries(
             Object.entries(labs).map(([id, lab]) => [id, {{
               steps: lab.steps.length,
@@ -90,6 +109,12 @@ class FrontendDataStructureTest(unittest.TestCase):
             self.assertFalse(info['missingScreenshotReference'], f'{lab_id} missing screenshotReference: {info["missingScreenshotReference"]}')
             self.assertFalse(info['missingScreenshots'], f'{lab_id} missing screenshots: {info["missingScreenshots"]}')
             self.assertFalse(info['missingTerminalMetadata'], f'{lab_id} missing terminal metadata: {info["missingTerminalMetadata"]}')
+
+    def test_terminal_output_fixtures_are_complete(self):
+        self.assertFalse(self.summary['terminal']['missingOutput'])
+        self.assertFalse(self.summary['terminal']['missingCommandRow'])
+        self.assertFalse(self.summary['terminal']['shortOutput'])
+        self.assertFalse(self.summary['terminal']['orphanOutput'])
 
     def test_learning_guides_have_required_sections(self):
         for guide_id, info in self.summary['learning'].items():

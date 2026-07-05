@@ -52,41 +52,60 @@
 
 
 <header>
-  <h1>Aegis<span>-GPU</span></h1>
-  <div class="hdr-badge">NCA-AIIO</div>
+  <div class="hdr-brand">
+    <h1>Aegis<span>-GPU</span></h1>
+    <div class="hdr-badge">NCA-AIIO</div>
+  </div>
+  <div class="mode-switch" aria-label="Workspace mode">
+    <button class="mode-tab active" type="button" data-workspace-mode="training">Training</button>
+    <button class="mode-tab" type="button" data-workspace-mode="incident">Incident</button>
+    <button class="mode-tab" type="button" data-workspace-mode="fleet">Fleet</button>
+  </div>
   <div class="hdr-right">
-    <div class="hdr-stat" id="sys-status" style="margin-right:15px">SYSTEM: <span>UNPROVISIONED</span></div>
-    <div class="hdr-stat">Labs completed: <span id="h-done">0</span>/16</div>
-    <div class="hdr-stat" style="margin-left:8px">Score: <span id="h-score">—</span></div>
-    <div class="hdr-stat" style="margin-left:8px">Judgment: <span id="h-judgment">—</span></div>
-<div class="explain-toolbar">
-  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-live"> Live Telemetry</label>
-  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-thermal"> Thermal Map</label>
-  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-beginner" checked> Beginner Mode</label>
-  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-incident-mode"> Incident Mode</label>
-  <label class="explain-toolbar-check"><input type="checkbox" id="toggle-llm-diagnosis"> Allow LLM Diagnosis</label>
-  <label class="explain-toolbar-select">Depth
-    <select id="sel-explain-level">
-      <option value="beginner">Beginner</option>
-      <option value="intermediate">Intermediate</option>
-      <option value="operator">Operator</option>
-    </select>
-  </label>
-  <label class="explain-toolbar-select">Role
-    <select id="sel-explain-role">
-      <option value="cluster_operator">Cluster Operator</option>
-      <option value="sre">SRE</option>
-      <option value="ml_engineer">ML Engineer</option>
-    </select>
-  </label>
-</div>
-    <button class="btn-sm" id="btn-blueprint" style="margin-left:8px">🖥 Blueprint</button>
-    <button class="btn-sm" id="btn-study" style="margin-left:8px">📚 Exam Prep</button>
-    <button class="btn-sm" id="btn-learn" style="margin-left:8px">📘 Learn</button>
-    <button class="btn-sm" id="btn-quiz" style="margin-left:8px">📋 Quiz</button>
-    <button class="btn-sm" id="btn-incidents" style="margin-left:4px">🕐 Incidents</button>
-    <button class="btn-sm" id="btn-logout" style="margin-left:4px;background:#1a2030;border-color:#f4a261;color:#f4a261">⏻ Logout</button>
-    <button class="btn-sm" id="btn-reset" style="margin-left:4px">↺ Reset</button>
+    <div class="hdr-status-group" data-mode-scope="training incident fleet">
+      <div class="hdr-stat" id="sys-status">SYSTEM: <span>UNPROVISIONED</span></div>
+      <div class="hdr-stat">Labs: <span id="h-done">0</span>/16</div>
+      <div class="hdr-stat">Score: <span id="h-score">—</span></div>
+      <div class="hdr-stat">Judgment: <span id="h-judgment">—</span></div>
+    </div>
+    <div class="hdr-tool-group" data-mode-scope="training">
+      <button class="btn-sm" id="btn-study">Exam Prep</button>
+      <button class="btn-sm" id="btn-learn">Learn</button>
+      <button class="btn-sm" id="btn-quiz">Quiz</button>
+      <label class="explain-toolbar-check"><input type="checkbox" id="toggle-beginner" checked> Beginner</label>
+    </div>
+    <div class="hdr-tool-group" data-mode-scope="incident">
+      <label class="explain-toolbar-check"><input type="checkbox" id="toggle-live"> Live</label>
+      <label class="explain-toolbar-check"><input type="checkbox" id="toggle-thermal"> Thermal</label>
+      <label class="explain-toolbar-check"><input type="checkbox" id="toggle-incident-mode"> Incident</label>
+      <label class="explain-toolbar-check"><input type="checkbox" id="toggle-llm-diagnosis"> LLM</label>
+      <button class="btn-sm" id="btn-incidents">Incidents</button>
+    </div>
+    <div class="hdr-tool-group" data-mode-scope="fleet">
+      <button class="btn-sm" id="btn-blueprint">Blueprint</button>
+      <button class="btn-sm" id="btn-open-fleet" type="button">Open Fleet</button>
+    </div>
+    <details class="hdr-settings">
+      <summary>Settings</summary>
+      <div class="explain-toolbar">
+        <label class="explain-toolbar-select">Depth
+          <select id="sel-explain-level">
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="operator">Operator</option>
+          </select>
+        </label>
+        <label class="explain-toolbar-select">Role
+          <select id="sel-explain-role">
+            <option value="cluster_operator">Cluster Operator</option>
+            <option value="sre">SRE</option>
+            <option value="ml_engineer">ML Engineer</option>
+          </select>
+        </label>
+        <button class="btn-sm" id="btn-reset">Reset</button>
+      </div>
+    </details>
+    <button class="btn-sm logout-btn" id="btn-logout">Logout</button>
   </div>
 </header>
 
@@ -243,12 +262,13 @@
         <div class="terminal-actions">
           <button class="btn-sm" id="btn-clear-term">Clear</button>
           <button class="btn-sm" id="btn-toggle-coach">📘 Guide</button>
-          <button class="btn-sm" id="btn-terminal-mode">⌨ Terminal Mode</button>
+          <button class="btn-sm" id="btn-terminal-mode">Guided Replay</button>
           <button class="btn-sm" id="toggle-ai-btn" style="display:none; background:#f4a261; color:#000; font-weight:bold;">&#128194; VIEW FULL AI DIAGNOSIS</button>
           <button class="btn-sm primary" id="run-btn">▶ Run Step</button>
         </div>
       </div>
       
+      <div class="terminal-mode-status" id="terminal-mode-status"></div>
       <div class="terminal-input-row" id="terminal-input-row">
         <span>$</span>
         <input type="text" id="cmd-input" placeholder="Select a checkpoint, then type the command you want to run..." autocomplete="off" spellcheck="false">

@@ -1,5 +1,6 @@
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -15,6 +16,7 @@ def load_module():
 
     admin_hash = bcrypt.hashpw(b'unit-test-pass', bcrypt.gensalt()).decode('utf-8')
     analyst_hash = bcrypt.hashpw(b'unit-test-analyst', bcrypt.gensalt()).decode('utf-8')
+    incidents_db = Path(tempfile.gettempdir()) / f'aegis-test-incidents-unittest-{os.getpid()}.db'
 
     os.environ['ACTIVE_LLM'] = 'deterministic'
     os.environ['CLAUDE_API_KEY'] = 'your-anthropic-key-here'
@@ -26,7 +28,7 @@ def load_module():
     os.environ['ALLOW_DESTRUCTIVE_REMEDIATION'] = 'false'
     os.environ['ALLOWED_ORIGINS'] = 'https://unit.test'
     os.environ['AEGIS_AUDIT_LOG_PATH'] = '/tmp/aegis-test-audit.log'
-    os.environ['AEGIS_INCIDENTS_DB'] = '/tmp/aegis-test-incidents-unittest.db'
+    os.environ['AEGIS_INCIDENTS_DB'] = str(incidents_db)
 
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))

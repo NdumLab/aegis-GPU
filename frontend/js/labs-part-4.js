@@ -86,14 +86,14 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
             ]
           }
         ],
-        whatsHappening:"You are looking at the shorter storage path where data can move more directly toward GPU memory.",
+        whatsHappening:"You are looking at the shorter storage path where data may avoid the usual CPU bounce buffer on the way to GPU memory.",
         deeperContext:"This step introduces the architectural idea behind GDS. The beginner lesson is that performance can improve when you remove unnecessary handoffs, not only when you buy faster devices.",
         lookFor:[
           "A route with fewer software-managed stops",
           "Less CPU involvement in moving data toward the GPU",
           "A path design that should reduce overhead if it is truly supported"
         ],
-        meaning:"The direct path is meant to reduce extra handling so the system can move storage data more efficiently into GPU memory.",
+        meaning:"The direct path is meant to reduce extra CPU-side handling so the system can move storage data more efficiently into GPU memory.",
         commonMistake:"Assuming the direct-looking diagram proves the feature is active in the real environment.",
         operatorTakeaway:"Operators distinguish between architecture intent and verified runtime reality. A shorter path on paper is only useful if the stack actually provides it.",
         takeAction:[
@@ -116,10 +116,10 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
           weak:[
             {
               match:["fio","dd if=/dev/nvme0n1"],
-              feedback:"Benchmarking is too early here. This checkpoint is the capability gate that proves the GDS runtime is actually present."
+              feedback:"Benchmarking is too early here. This checkpoint is the capability gate that shows the cuFile software path is actually present."
             }
           ],
-          success:"GDS runtime probe accepted. Replaying the authored capability evidence for this checkpoint."
+          success:"GDS runtime probe accepted. Replaying the authored cuFile capability evidence for this checkpoint."
         },
         explainerMode:"beginner_story",
         screenshotReference:"Use the verification snapshot as the gate before benchmarking. The key clue is the runtime actually exposing cuFile support instead of only having a direct-path diagram on paper.",
@@ -131,22 +131,23 @@ window.AEGIS_LABS_PARTS.operations_and_schedulers = {
               ">>> import cufile",
               ">>> cufile.__version__",
               "'1.9.0'",
-              "GPUDirect Storage runtime available"
+              "cuFile runtime available for GDS"
             ]
           }
         ],
-        whatsHappening:"You are checking whether the environment actually exposes the interface needed for GPUDirect Storage.",
-        deeperContext:"This is the proof-of-availability step. Beginners should learn that an optimization is not real just because the hardware and marketing terms exist; the software path has to be present too.",
+        whatsHappening:"You are checking whether the environment actually exposes the cuFile interface needed for GPUDirect Storage.",
+        deeperContext:"This is the proof-of-availability step. Beginners should learn that an optimization is not real just because the hardware and marketing terms exist; the software path has to be present too. In practice, 'enable GDS' means the `nvidia-fs` and cuFile pieces are installed, the storage path uses a supported filesystem or block-device route, and `gdscheck -p` confirms the stack is actually usable.",
         lookFor:[
           "The expected interface appearing in the environment",
-          "A sign that the runtime stack can actually support the direct path",
+          "A sign that the runtime stack can actually support a GDS data path",
           "Whether the optimization is real enough to benchmark meaningfully"
         ],
-        meaning:"This step tells you whether GDS is plausibly available, not just theoretically desirable.",
+        meaning:"This step tells you whether the cuFile software path is available. It also frames enablement correctly: GDS is enabled by the driver and runtime stack plus a supported storage path, not by owning NVIDIA GPUs alone.",
         commonMistake:"Running performance tests first and only later discovering the feature was never present in the environment.",
         operatorTakeaway:"Operators verify capability before they spend time interpreting performance results.",
         takeAction:[
           "Use feature verification as a gate before benchmarking.",
+          "When GDS is missing, check for the `nvidia-fs` kernel module, the cuFile runtime, and whether the filesystem path is one the platform supports.",
           "Treat missing support as a real finding, not a minor inconvenience.",
           "Keep software capability in the same story as hardware capability."
         ],

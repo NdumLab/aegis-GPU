@@ -101,7 +101,7 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         deeperContext:"This is where beginners learn that a topology diagram only tells you the intended route. Error counters tell you whether that route is actually healthy enough to trust under load.",
         lookFor:[
           "CRC or flit error counts staying at 0 or near-clean values",
-          "Any link showing non-zero growth that makes one path look weaker than the rest",
+          "Any link with increasing error counters relative to its peers may indicate a degraded path.",
           "Whether the fabric looks electrically clean before performance testing"
         ],
         meaning:"This step tells you whether the fabric is clean enough to benchmark. Clean counters mean the fast path is not only present, but also behaving like a healthy interconnect.",
@@ -457,8 +457,11 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
             caption:"This is a policy screenshot rather than a low-level device output. Its job is to make the sharing model visible enough that a beginner can reason about blast radius and fairness.",
             lines:[
               "Team A -> GI 1, GI 2",
+              "  CUDA_VISIBLE_DEVICES=MIG-GPU-0:1:0,MIG-GPU-0:2:0",
               "Team B -> GI 3, GI 4",
+              "  CUDA_VISIBLE_DEVICES=MIG-GPU-0:3:0,MIG-GPU-0:4:0",
               "Team C -> GI 5, GI 6, GI 7",
+              "  CUDA_VISIBLE_DEVICES=MIG-GPU-0:5:0,MIG-GPU-0:6:0,MIG-GPU-0:7:0",
               "Isolation boundary: each team stays within assigned MIG instances"
             ]
           }
@@ -504,11 +507,19 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
             title:"MIG disabled and full GPU restored",
             caption:"This screenshot matters because cleanup is a hardware state change too. The operator should confirm that the device really returned to full-GPU mode before declaring the reset complete.",
             lines:[
+              "Destroyed GPU instance ID 1 on GPU 0",
+              "Destroyed GPU instance ID 2 on GPU 0",
+              "Destroyed GPU instance ID 3 on GPU 0",
+              "Destroyed GPU instance ID 4 on GPU 0",
+              "Destroyed GPU instance ID 5 on GPU 0",
+              "Destroyed GPU instance ID 6 on GPU 0",
+              "Destroyed GPU instance ID 7 on GPU 0",
               "Disabled MIG Mode for GPU 00000000:17:00.0",
               "All done.",
               "",
               "GPU  GI  CI  MIG",
-              "  0   -   -  Disabled"
+              "  0   -   -  Disabled",
+              "Full GPU restored: H100 SXM5 80GB available as one device"
             ]
           }
         ],

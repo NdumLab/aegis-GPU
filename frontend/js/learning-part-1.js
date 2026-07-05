@@ -96,7 +96,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "We are checking whether 8 H100 GPUs are communicating over the direct NVLink fabric the node was designed to use. The beginner goal is not just to spot whether GPUs exist. It is to tell the difference between a healthy fast interconnect and a slower fallback path that can quietly waste the whole node.",
+    objectiveText: "NVLink is the high-speed GPU-to-GPU interconnect built to let GPUs within a server exchange data much faster than the PCIe host-bridge (PHB) path. We are checking whether 8 H100 GPUs are actually using that fast fabric. The beginner goal is not just to spot whether GPUs exist. It is to tell the difference between a healthy fast interconnect and a slower fallback path that can quietly waste the whole node.",
     plainPicture: "Picture eight GPUs in one server as eight workers passing heavy crates to each other. NVLink is the private high-speed hallway between those workers. When the hallway is open, crates move directly and training stays fast. If that hallway is blocked, the workers may still pass crates through the building lobby, which is the slower PCIe host-bridge path shown as PHB. The job may still run, but the route is much worse. The topology screenshot is the floor plan that shows whether traffic is using the private hallway or the slow lobby route.",
     whyOperatorsCare: [
       "Operators care about NVLink because distributed training health is not just 'can I see eight GPUs?' The real question is whether those GPUs can exchange data over the fast path the node was designed to use.",
@@ -164,7 +164,46 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are checking whether the software layers above the GPU actually fit together. The beginner goal is to stop treating every CUDA failure like a hardware incident and to learn how to find the exact layer where the contract breaks.",
-    plainPicture: "Picture the GPU as a powerful machine inside a locked hardware room. The NVIDIA driver is the badge reader that lets Linux open the door and talk to that machine. CUDA is the translator that gives programs a common language for sending work to the GPU. A framework such as PyTorch or TensorFlow is the worker using that language, and your training script is the actual job request. A compatibility chain means each person in that line must understand the one before and after it. If Linux can see the GPU but the driver is too old for the CUDA runtime, the door opens but the translator cannot speak correctly. If CUDA is present but the framework was built for a different CUDA version or GPU architecture, the worker misunderstands the job. The GPU can be perfectly healthy and the workload can still fail because the handoff between layers is broken.",
+    plainPicture: "Think of the CUDA stack as a chain of handoffs: GPU hardware -> NVIDIA driver -> CUDA runtime -> framework -> training script.",
+    stackHandoffs: [
+      {
+        title: "GPU hardware",
+        tone: "green",
+        text: "The GPU hardware provides the actual compute and memory, so there is nothing useful to accelerate unless the physical device is present and healthy."
+      },
+      {
+        title: "NVIDIA driver",
+        tone: "blue",
+        text: "The NVIDIA driver makes the GPU available to the Linux OS, because Linux needs a hardware-specific driver before it can control the device, expose it to tools, and accept work for it."
+      },
+      {
+        title: "CUDA",
+        tone: "yellow",
+        text: "CUDA gives applications a supported way to send work through that driver, because most training software does not talk to GPU hardware directly."
+      },
+      {
+        title: "Framework - PyTorch or TensorFlow",
+        tone: "purple",
+        text: "PyTorch or TensorFlow uses CUDA to run model code, because the framework needs CUDA kernels and libraries that match the CUDA version and GPU architecture."
+      },
+      {
+        title: "Training job or script",
+        tone: "cyan",
+        text: "Your training script sits at the top, because it depends on the framework to translate model operations into valid GPU work. That is the compatibility chain."
+      }
+    ],
+    stackProblemSummary: "A GPU can be visible in Linux and still fail a CUDA workload if the driver is too old for the CUDA runtime. CUDA can be installed and still fail if the framework was built for a different CUDA version or GPU architecture. The important operator lesson is this: healthy hardware does not prove a healthy workload path. When a CUDA job fails, check which handoff broke before blaming the GPU.",
+    stackVersionCheck: {
+      title: "How Do I Know The Versions Are Correct?",
+      intro: "A golden image is the fastest trusted baseline, but it is not the only proof. Correct means the whole chain is supported together and the framework can actually run a tiny GPU workload.",
+      checks: [
+        "Collect exact versions: GPU model, driver version, CUDA runtime or toolkit version, framework version, framework CUDA build, container tag, and training code release.",
+        "Compare the chain against a supported source: a golden image manifest, NVIDIA compatibility matrix, NGC container tag, framework install table, or your site-approved build matrix.",
+        "Check the direction of dependency: the driver must support the CUDA runtime, the framework must be built for that CUDA version, and the GPU architecture must be supported by the framework build.",
+        "Prove it with a small framework test, not only `nvidia-smi`. For PyTorch, confirm `torch.cuda.is_available()` and run a tiny tensor operation on the GPU.",
+        "If the custom stack disagrees with the golden image, treat that as evidence to investigate. The golden image is a known-good comparison point, not magic by itself."
+      ]
+    },
     whyOperatorsCare: [
       "Beginners often blame the GPU first when the real problem is software compatibility. Operators check the stack before calling it a hardware incident.",
       "This matters because a stack mismatch can waste expensive debugging time, pull healthy nodes out of service, or make supposedly identical servers behave differently under the same workload.",
