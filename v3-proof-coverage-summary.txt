@@ -1,0 +1,34 @@
+Aegis V3 Phase 2 Evidence Summary
+
+Label: broader-proof-priority1f
+Commit: f1a7d07
+Suite: frontend_browser_proof
+Scenarios: 13
+Passed: 13
+Failed: 0
+All passed: yes
+
+Coverage groups:
+- adaptive guidance:
+  - study_progress_empty: pass (study progress empty state verified)
+  - analytics_recommendation_transition: pass (analytics recommendation transition verified)
+- state-aware Ask Aegis:
+  - ask_aegis_main: pass (main coach Ask Aegis verified)
+- detached coach behavior:
+  - ask_aegis_detached: pass (detached coach Ask Aegis verified)
+- branch consequence flow:
+  - ecc_bad: pass (ecc_bad branch chain and redirected main step verified)
+  - nvlink_bad: pass (nvlink_bad branch chain and redirected main step verified)
+  - storage_warn: pass (storage_warn branch chain and redirected main step verified)
+- fabric path proof:
+  - nccl_fallback_best: pass (nccl_fallback_best best-path stayed on normal route)
+  - nccl_fallback: pass (nccl_fallback branch chain and redirected main step verified)
+- runtime delivery proof:
+  - cuda_stack_best: pass (cuda_stack_best best-path stayed on normal route)
+  - cuda_stack_bad: pass (cuda_stack_bad branch chain and redirected main step verified)
+  - k8s_best: pass (k8s_best best-path stayed on normal route)
+  - k8s_bad: pass (k8s_bad branch chain and redirected main step verified)
+
+Interpretation:
+- The proof set demonstrates state-aware study guidance, in-page Ask Aegis, detached coach behavior, and cross-family branch flows, including fabric-path and runtime-delivery best and degraded behavior.
+- This is evidence for pilot and grant packaging, not a market-ranking claim.

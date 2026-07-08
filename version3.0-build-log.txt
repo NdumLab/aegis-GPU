@@ -1,0 +1,451 @@
+AEGIS-GPU VERSION 3.0 BUILD LOG
+===============================
+
+Started
+-------
+- Date: 2026-04-23
+- Branch: v2.2
+- Local goal: build v3 locally and deploy to local live only
+
+Build Loop Entries
+------------------
+
+Entry 1
+- Status: completed
+- Scope: create v3.0 roadmap, validate it against current architecture, implement Component 1, validate it, and prepare local-live deploy
+- Notes:
+  - Roadmap created in version3.0-plan.txt
+  - Build log created in version3.0-build-log.txt
+  - First implementation target: Reasoning Scorecard
+  - Added reusable reasoning scorecard rendering to guided lab and quiz surfaces
+  - Added frontend smoke coverage for scorecard presence
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+    - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+    - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+
+Entry 2
+- Status: completed
+- Scope: implement Component 2 Differential Diagnosis Blocks, validate it, and prepare local-live deploy
+- Notes:
+  - Added shared lab-specific differential diagnosis comparisons across all 16 lab ids
+  - Rendered the comparison block in the lab coach, guided intro flow, and study guide surfaces
+  - Added frontend smoke coverage for the new diagnosis layer
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+    - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+    - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+
+Entry 3
+- Status: completed
+- Scope: implement Component 3 Incident Mode, validate it, and prepare local-live deploy
+- Notes:
+  - Added a persisted Incident Mode toggle in the main toolbar
+  - Added reduced-scaffolding incident brief rendering for study and lab-coach surfaces
+  - Added frontend smoke coverage for incident mode wiring
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+    - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+    - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+
+Entry 4
+- Status: completed
+- Scope: implement Component 4 Reasoning Analytics and Progress Model, validate it, and prepare local-live deploy
+- Notes:
+  - Added persistent step-level reasoning progress storage in localStorage
+  - Separated troubleshooting judgment tracking from quiz accuracy tracking
+  - Surfaced judgment in the header and detailed progress in the study guide
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+    - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+    - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+
+Entry 5
+- Status: completed
+- Scope: complete Component 5 Production Polish and Validation Hardening
+- Notes:
+  - Bumped local-live cache keys in frontend/index.html:
+    - css/styles.css?v=20260423v3a
+    - js/app.js?v=20260423v3a
+  - Added version3.0-release-notes.txt
+  - Final validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+    - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+    - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+  - Local-live smoke verified:
+    - /var/www/html/index.html references the v3 cache-bumped CSS and JS URLs
+    - https://127.0.0.1/js/app.js?v=20260423v3a serves the v3 reasoning, differential, incident, and analytics functions
+    - https://127.0.0.1/css/styles.css?v=20260423v3a serves the v3 scorecard, diagnosis, incident, and progress styles
+
+Entry 6
+- Status: completed
+- Scope: add consequence-based branching to incident and fault reading surfaces
+- Notes:
+  - Added shared consequence decision branches keyed by reasoning family
+  - Rendered an interactive Decision Drill in the lab coach for incident-mode and fault steps
+  - Added persistent local branching state and reset handling
+  - Extended branching so prior weak or bad choices alter later terminal output, metrics, and event log state in the same lab
+  - Extended branching so prior weak or bad choices also reduce judgment progress and mark end-of-lab outcomes as compromised instead of clean
+  - Added branch-aware next-step routing so weak or bad choices force a recovery detour before the lab can advance
+  - Replaced shared detour copy with domain-specific recovery playbooks for containment, transport, stack-boundary, and feed-path mistakes
+  - Added lab-family-specific recovery playbooks for ECC, XID drill, NVLink topology, NCCL fallback, storage starvation, Slurm, and Kubernetes GPU placement
+  - Added lab-family-specific next-step modifiers so later guided step framing changes after a weak or bad branch
+  - Added alternate authored branch steps for core labs so the graph itself can insert a recovery checkpoint before returning to the main sequence
+  - Expanded alternate authored branch steps into additional families: NVLink topology, CUDA stack, Kubernetes GPU placement, Slurm scheduling, collective performance, and InfiniBand fabric
+  - Expanded alternate authored branch steps into the remaining families so all 16 lab ids now have branch-aware recovery checkpoint coverage, including MIG, containers, training throughput, RoCE, GPUDirect Storage, and monitoring
+  - Added a branch-aware Incident Outcome summary to the end-of-lab coach and the study progress surface so clean versus compromised finishes explain the reasoning debt that created them
+  - Extended alternate authored recovery steps into short two-stage recovery chains so branch mistakes now insert more than one authored recovery checkpoint before the main path resumes
+  - Added redirected main-path steps for core families so branch mistakes can replace the next authored main step instead of only inserting detours around it
+  - Added a browser-driven smoke harness that runs a real ECC branch failure path in Firefox headless and verifies the detour, two-step recovery chain, and redirected main-step flow end to end
+  - Expanded the browser-driven smoke harness into a scenario matrix that now exercises ECC, NVLink, NCCL fallback, and storage branch paths end to end in Firefox headless
+  - Deepened the browser-driven smoke matrix so it now distinguishes weak versus bad branch choices within ECC, NVLink, and storage families instead of testing only one failure path per family
+  - Added best-path browser variants so the matrix now proves the opposite side of the contract too: correct operator choices stay on the normal route without detours or redirected main steps
+  - Expanded redirected main-path coverage into additional families including CUDA stack, Kubernetes GPU placement, Slurm scheduling, collective performance, and InfiniBand fabric so more labs now have truly divergent authored recovery flow
+  - Expanded the browser matrix onto the newly added redirected-main-step families so CUDA stack, Kubernetes, Slurm, collective, and InfiniBand redirected paths are now exercised in real browser scenarios too
+  - Upgraded the reasoning analytics panel so it now names the weakest reasoning category, recommends the next training focus, and surfaces the most recent compromised incident pattern instead of only showing percentages
+  - Made the analytics recommendation actionable by attaching direct drill buttons to the suggested labs, so users can jump straight from a weak category into the right practice path
+  - Made the recommendation domain-aware too, so recent fault-isolation, fabric, runtime, or efficiency misses now bias the suggested drills toward the actual incident family that broke down
+  - Tightened the recommendation again so the most recent compromised lab becomes the first drill target when it fits the weakness, instead of only suggesting a broad family bucket
+  - Added a visible rationale line under the training focus so the recommendation now explains which compromised lab and incident domain caused Aegis to pick that drill path
+  - Made the wording adaptive to improvement inside the same domain, so once the user has at least one clean finish there Aegis switches from pure recovery language to a consolidation prompt
+  - Fixed the study overlay so Reasoning Progress always renders, even for a fresh user with no stored quiz or lab history yet
+  - Added the first bounded Ask Aegis panel inside the lab coach so users can ask grounded step questions like what changed, which layer owns the clue, what to check next, and why a branch was scored the way it was
+  - Fixed Ask Aegis visibility by moving it to the top of the coach, adding a higher-contrast state-aware treatment, and wiring the same prompt actions inside the detached pop-out coach window
+  - Bumped local-live asset versions to:
+    - css/styles.css?v=20260424v3ab
+    - js/app.js?v=20260424v3ab
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+    - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+    - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+
+Entry 7
+- Status: completed
+- Scope: add exportable reasoning analytics reporting for pilot evidence
+- Notes:
+  - Added a shared reasoning-progress report builder that packages judgment summary, recent risk pattern, recovery signal, recent outcomes, recent quiz attempts, and recent step breakdown into JSON
+  - Added an Export reasoning report action to the study-guide analytics surface and mirrored the action in the detached study panel
+  - Persisted the last export timestamp so the analytics surface shows when a pilot-ready snapshot was last generated
+  - Validation passed:
+    - node --check frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+  - Validation blocked by environment:
+    - python3 -m unittest discover -s /home/henry/aegis-gpu/frontend/tests -p 'test_*.py' -v currently fails in browser-proof suites because ports 18080, 18081, 18082, and 18084 were already occupied by pre-existing test/server processes
+
+Entry 8
+- Status: completed
+- Scope: stabilize browser-proof harness port allocation
+- Notes:
+  - Replaced fixed loopback ports in frontend browser smoke and proof tests with runtime-selected free loopback ports
+  - Passed the selected result port through the browser URL explicitly so app-side callback routing stays deterministic
+  - Updated proof-report output to record the actual runtime ports used instead of old fixed values
+  - Validation passed:
+    - python3 -m py_compile /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_smoke.py /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=study_progress_empty python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 9
+- Status: completed
+- Scope: begin frontend refactor by extracting analytics out of app.js
+- Notes:
+  - Added frontend/js/analytics.js and moved the reasoning scorecard, reasoning progress, export-report, and incident-outcome rendering logic into it
+  - Updated frontend/index.html to load analytics.js before app.js in the current no-bundler script order
+  - Updated frontend smoke coverage so split frontend modules are treated as one surface instead of assuming all logic must stay in app.js
+  - Validation passed:
+    - node --check /home/henry/aegis-gpu/frontend/js/analytics.js
+    - node --check /home/henry/aegis-gpu/frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+
+Entry 10
+- Status: completed
+- Scope: continue frontend refactor by extracting branch logic and browser-smoke helpers out of app.js
+- Notes:
+  - Added frontend/js/branching.js and moved branching state helpers, detour routing, alternate recovery-chain execution, and browser-smoke helper functions into it
+  - Updated frontend/index.html to load branching.js before app.js in the current script chain
+  - Extended frontend smoke coverage so split modules continue to be validated as one frontend surface
+  - Validation passed:
+    - node --check /home/henry/aegis-gpu/frontend/js/branching.js
+    - node --check /home/henry/aegis-gpu/frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+
+Entry 11
+- Status: completed
+- Scope: continue frontend refactor by extracting coach and detached-panel logic out of app.js
+- Notes:
+  - Added frontend/js/coach.js and moved Ask Aegis helpers, lab-step coach rendering, detached-panel rendering, and related click helpers into it
+  - Updated frontend/index.html to load coach.js before app.js in the current script chain
+  - Extended frontend smoke coverage so coach-surface checks work across the split module layout
+  - Validation passed:
+    - node --check /home/henry/aegis-gpu/frontend/js/coach.js
+    - node --check /home/henry/aegis-gpu/frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+
+Entry 12
+- Status: completed
+- Scope: continue frontend refactor by extracting study-guide and quiz logic out of app.js
+- Notes:
+  - Added frontend/js/study-quiz.js and moved the exam guide data, study-guide rendering, quiz dataset, and quiz interaction helpers into it
+  - Updated frontend/index.html to load study-quiz.js before app.js in the current script chain
+  - Extended frontend smoke coverage so study and quiz checks work across the split module layout
+  - Validation passed:
+    - node --check /home/henry/aegis-gpu/frontend/js/study-quiz.js
+    - node --check /home/henry/aegis-gpu/frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+
+Entry 13
+- Status: completed
+- Scope: continue frontend refactor by extracting runtime, live telemetry, and incident history orchestration out of app.js
+- Notes:
+  - Added frontend/js/runtime.js and moved lab execution, terminal/tabs, provisioning, parser, live-mode, remediation, and incident-history controller logic into it
+  - Updated frontend/index.html to load runtime.js before app.js in the current script chain
+  - Extended frontend smoke coverage so runtime-surface checks work across the split module layout
+  - Validation passed:
+    - node --check /home/henry/aegis-gpu/frontend/js/runtime.js
+    - node --check /home/henry/aegis-gpu/frontend/js/app.js
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+
+Entry 14
+- Status: completed
+- Scope: harden the live host and release path for production use
+- Notes:
+  - Restricted Prometheus, Alertmanager, node_exporter, and Grafana to loopback-only exposure
+  - Removed NFS service exposure and cleaned disk pressure, compiled bytecode clutter, and stale browser-proof artifacts
+  - Fixed nginx security-header inheritance on the critical HTML and app.js responses
+  - Added fail2ban coverage for sshd, repeated login abuse, and obvious exploit-path probes
+  - Moved Alertmanager SMTP secret handling from alertmanager.yml into smtp_auth_password_file
+  - Added explicit backup, restore, deploy, rollback, and operations documentation under scripts/ and deploy/OPERATIONS.md
+  - Validated representative browser-proof coverage after the hardening changes
+
+Entry 15
+- Status: completed
+- Scope: upgrade Ask Aegis from canned coach copy into a grounded assistant
+- Notes:
+  - Added authenticated backend endpoint /api/v1/ask-aegis in backend/log-analizer.py
+  - Grounded Ask Aegis against the existing diagnosis path, live XID context when available, and checked-in NVIDIA reference material under backend/nvidia_kb/
+  - Reworked frontend/js/coach.js from fixed intent-only output into real question submission with deterministic fallback when unauthenticated or unreachable
+  - Added backend API coverage for the new endpoint and kept frontend smoke/browser proof green
+  - Deployed the updated assistant path to the live host and recorded a fresh rollback snapshot before release
+
+Entry 16
+- Status: completed
+- Scope: deepen Ask Aegis grounding with a broader checked-in NVIDIA source pack and citation links
+- Notes:
+  - Added backend/nvidia_kb/official_sources.json as a curated NVIDIA source index covering XID, NCCL, CUDA compatibility, GPU Operator, DCGM, GDS, and MIG
+  - Extended backend/log-analizer.py to score and return relevant official-source references, including source URLs, alongside the existing XID and maintenance-guide excerpts
+  - Updated the deterministic Ask Aegis path and LLM prompt grounding so citation URLs are available to the answer path
+  - Updated frontend/js/coach.js to render Ask Aegis references as clickable source links
+  - Validation passed:
+    - python3 -m py_compile /home/henry/aegis-gpu/backend/log-analizer.py /home/henry/aegis-gpu/backend/tests/test_api_unittest.py
+    - node --check /home/henry/aegis-gpu/frontend/js/coach.js
+    - python3 -m unittest /home/henry/aegis-gpu/backend/tests/test_api_unittest.py -v
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py -v
+    - AEGIS_BROWSER_PROOF_SCENARIOS=ask_aegis_main,ask_aegis_detached python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 17
+- Status: completed
+- Scope: harden Ask Aegis error handling after live 500s from unreadable local reference files
+- Notes:
+  - Updated backend/log-analizer.py so unreadable maintenance-guide files no longer crash the Ask Aegis reference-loading path
+  - Updated frontend/js/coach.js so non-JSON backend failures surface a readable fallback error instead of a raw JSON parse exception
+  - Updated scripts/deploy.sh to normalize ownership and read permissions under /opt/aegis-gpu and /var/www/html after rsync, preventing unreadable reference files from being preserved into the live deployment
+  - Deployed the permission fix live and confirmed /opt/aegis-gpu/nvidia_kb/gb200_maintenance.txt is now world-readable for the aegis service account
+
+Entry 18
+- Status: completed
+- Scope: improve Ask Aegis explanations for vague confusion questions
+- Notes:
+  - Updated backend/log-analizer.py so confusion-style questions like "I don't understand what's going on" use a plain-language explainer shape instead of the generic grounded template
+  - Added an explanation-oriented deterministic answer format with: What you are looking at, What looks normal vs abnormal, Why it matters, and Next safe check
+  - Strengthened the Ask Aegis LLM system prompt so the grounded assistant uses the same structure when the model is available
+  - Added backend test coverage for the new explainer format
+
+Entry 19
+- Status: completed
+- Scope: make Ask Aegis explanations interpret common lab clues instead of only paraphrasing them
+- Notes:
+  - Added visible-evidence classification in backend/log-analizer.py for healthy signals, degraded signals, hard fault signals, and ambiguous checkpoints
+  - Improved the confusion-question explainer so common clues like a completed forward pass are explained as operationally meaningful healthy signals
+  - Added backend assertions to keep the more concrete explanation wording from regressing
+
+Entry 20
+- Status: completed
+- Scope: begin v3.1 lab-terminal mode with authored typed-command execution
+- Notes:
+  - Upgraded the existing lab command box into a limited terminal interpreter for the NVLink Topology, NCCL Fallback Drill, and Kubernetes GPU Ops labs
+  - Added per-step accepted probe metadata, weak-command feedback, and checkpoint-specific suggestions in frontend/js/labs-part-1.js, frontend/js/labs-part-3.js, and frontend/js/labs-part-4.js
+  - Reworked frontend/js/runtime.js so typed commands can replay the current or next authored checkpoint, while refusing arbitrary shell behavior and surfacing `help` output for accepted probes
+  - Updated frontend/js/coach.js so the guided copy now explains the intentional limited-terminal model
+  - Extended frontend smoke and lab-data structure coverage so the v3.1 terminal metadata and interpreter hooks stay present
+
+Entry 21
+- Status: completed
+- Scope: add browser-proof coverage for v3.1 limited terminal mode
+- Notes:
+  - Added a focused browser-proof scenario for the NVLink limited terminal flow
+  - Proved the in-browser terminal shows checkpoint-specific `help`, returns weak-command guidance for related but insufficient probes, and replays the authored checkpoint evidence for an accepted command
+  - Extended frontend/tests/test_frontend_browser_proof.py so the new terminal-mode path is part of the proof suite instead of only string-based smoke coverage
+  - Validation passed:
+    - python3 -m py_compile /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_nvlink python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 22
+- Status: completed
+- Scope: finish browser-proof coverage for the remaining v3.1 limited terminal labs
+- Notes:
+  - Added focused browser-proof scenarios for the NCCL Fallback Drill and Kubernetes GPU Ops limited terminal flows
+  - Proved the in-browser terminal shows checkpoint-specific `help`, returns weak-command guidance, and replays the authored accepted-output evidence for all three terminalized v3.1 labs
+  - Kept the proof assertions aligned with the compact authored terminal fixtures in frontend/js/labs.js rather than overfitting to longer screenshot copy
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/branching.js contains the new lab_terminal_nvlink, lab_terminal_nccl_fallback, and lab_terminal_k8s proof scenarios
+  - Validation passed:
+    - python3 -m py_compile /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_nccl_fallback,lab_terminal_k8s python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 23
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the Slurm Scheduler lab
+- Notes:
+  - Added per-step limited-terminal metadata for all Slurm Scheduler checkpoints: submission, queue inspection, pending-reason debugging, fairshare inspection, drain, and resume
+  - Extended frontend/tests/test_lab_data_structure.py so Slurm now has the same terminal-metadata coverage requirement as the earlier terminalized labs
+  - Added a focused browser-proof scenario for the Slurm limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-4.js and /var/www/html/js/branching.js contain the new Slurm limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_slurm python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 24
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the DCGM Monitoring lab
+- Notes:
+  - Added per-step limited-terminal metadata for all DCGM Monitoring checkpoints: exporter startup, metrics verification, Prometheus scrape validation, dashboard import, alert-rule creation, and alert-path testing
+  - Extended frontend/tests/test_lab_data_structure.py so Monitoring now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the Monitoring limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-4.js and /var/www/html/js/branching.js contain the new Monitoring limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_monitoring python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 25
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the CUDA Stack Verification lab
+- Notes:
+  - Added per-step limited-terminal metadata for all CUDA Stack Verification checkpoints: driver, CUDA, framework, mismatch simulation, and validated-image recovery
+  - Extended frontend/tests/test_lab_data_structure.py so CUDA Stack Verification now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the CUDA Stack limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-2.js and /var/www/html/js/branching.js contain the new CUDA Stack limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_cuda_stack python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 26
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the NGC Container Flow lab
+- Notes:
+  - Added per-step limited-terminal metadata for all NGC Container Flow checkpoints: image pull, GPU runtime launch, in-container framework validation, workload launch, and live GPU monitoring
+  - Extended frontend/tests/test_lab_data_structure.py so the Container lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the Container limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-2.js and /var/www/html/js/branching.js contain the new Container limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_container python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 27
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the Distributed Training (DDP) lab
+- Notes:
+  - Added per-step limited-terminal metadata for all DDP checkpoints: launch, forward pass, backward pass, AllReduce synchronization, weight update, and storage bottleneck
+  - Extended frontend/tests/test_lab_data_structure.py so the DDP lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the DDP limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-2.js and /var/www/html/js/branching.js contain the new DDP limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_training python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 28
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the AllReduce Deep Dive lab
+- Notes:
+  - Added per-step limited-terminal metadata for all AllReduce Deep Dive checkpoints: path selection, ring reduce, ring gather, throughput benchmark, soft fallback fault, and IB-path restoration
+  - Extended frontend/tests/test_lab_data_structure.py so the AllReduce lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the AllReduce limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-2.js and /var/www/html/js/branching.js contain the new AllReduce limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_allreduce python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 29
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the InfiniBand Fabric lab
+- Notes:
+  - Added per-step limited-terminal metadata for all InfiniBand Fabric checkpoints: port state, error counters, RDMA bandwidth, port-down fault, focused fabric diagnostics, and blast-radius sweep
+  - Extended frontend/tests/test_lab_data_structure.py so the InfiniBand Fabric lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the InfiniBand Fabric limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-3.js and /var/www/html/js/branching.js contain the new InfiniBand limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_ib_fabric python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 30
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the RoCEv2 + PFC/ECN lab
+- Notes:
+  - Added per-step limited-terminal metadata for all RoCE checkpoints: MTU, PFC, ECN, RDMA bandwidth, pause-storm fault, and targeted congestion remediation
+  - Extended frontend/tests/test_lab_data_structure.py so the RoCE lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the RoCE limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-3.js and /var/www/html/js/branching.js contain the new RoCE limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_roce python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 31
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the Storage Bottleneck lab
+- Notes:
+  - Added per-step limited-terminal metadata for all Storage Bottleneck checkpoints: GPU symptom watch, I/O pressure check, stripe inspection, stripe remediation, DataLoader tuning, and post-fix verification
+  - Extended frontend/tests/test_lab_data_structure.py so the Storage lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the Storage limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-3.js and /var/www/html/js/branching.js contain the new Storage limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_storage python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 32
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the GPUDirect Storage lab
+- Notes:
+  - Added per-step limited-terminal metadata for all GPUDirect Storage checkpoints: traditional path baseline, direct-path model, runtime verification, traditional-path benchmark, and direct-path benchmark
+  - Extended frontend/tests/test_lab_data_structure.py so the GPUDirect Storage lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the GPUDirect Storage limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-4.js and /var/www/html/js/branching.js contain the new GPUDirect Storage limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_gds python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v
+
+Entry 33
+- Status: completed
+- Scope: extend v3.1 limited terminal mode into the MIG Partitioning lab
+- Notes:
+  - Added per-step limited-terminal metadata for all MIG Partitioning checkpoints: enablement, instance creation, instance listing, tenant assignment, and cleanup back to full-GPU mode
+  - Extended frontend/tests/test_lab_data_structure.py so the MIG lab now has the same terminal-metadata coverage requirement as the other terminalized labs
+  - Added a focused browser-proof scenario for the MIG limited terminal flow covering `help`, weak-command guidance, and accepted command replay
+  - Deployed the updated frontend locally with scripts/deploy.sh and verified /var/www/html/js/labs-part-1.js and /var/www/html/js/branching.js contain the new MIG limited-terminal wiring
+  - Validation passed:
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py
+    - python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py
+    - AEGIS_BROWSER_PROOF_SCENARIOS=lab_terminal_mig python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v

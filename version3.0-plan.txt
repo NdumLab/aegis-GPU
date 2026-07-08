@@ -1,0 +1,136 @@
+AEGIS-GPU VERSION 3.0 PLAN
+==========================
+
+Goal
+----
+Push Aegis into the top 5% of AI infrastructure learning and troubleshooting tools by shifting from guided content delivery toward operator-grade reasoning training, measured diagnosis quality, and accessible multi-device execution.
+
+Current Starting Point
+----------------------
+- Strong guided labs across 16 AI infrastructure topics.
+- Improved explanation tone, screenshot handling, overlay usability, and mobile support.
+- Still too presentation-heavy in core pedagogy.
+- Missing explicit scoring of operator judgment during labs.
+- Missing stronger proof that the user can distinguish safe actions, strong evidence, and layer ownership.
+
+Version 3.0 Product Principles
+------------------------------
+1. Evidence first:
+   Every major lab surface should reinforce what changed, which layer owns it, what evidence supports the conclusion, and what safe action follows.
+2. Train reasoning, not recall:
+   Aegis should score diagnosis quality, not just completion or quiz accuracy.
+3. Reduce ambiguity debt:
+   The product should surface common wrong interpretations and make users choose between similar failure classes.
+4. Preserve operator credibility:
+   Copy, UI, and assessments must feel like infrastructure operations training, not classroom filler.
+5. Stay deployable:
+   Every component must be shippable to local live with smoke tests and a build-log entry before moving on.
+
+Version 3.0 Build Loop
+----------------------
+For each component:
+1. Implement the component in the repo.
+2. Add or expand tests.
+3. Run validation:
+   - python3 -m unittest discover -s frontend/tests -p 'test_*.py'
+   - python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+   - python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'
+   - node --check frontend/js/app.js
+4. Deploy the updated frontend/backend files to local live as needed.
+5. Append completion notes to version3.0-build-log.txt.
+6. Commit locally.
+7. Move to the next component.
+
+Component Roadmap
+-----------------
+
+Component 1: Reasoning Scorecard
+Owner area:
+- frontend/js/app.js
+- frontend/tests/test_frontend_smoke.py
+
+Purpose:
+- Add a reusable operator-reasoning scorecard to labs and assessment surfaces.
+- Score the user on layer identification, evidence quality, containment judgment, and action safety.
+
+Acceptance criteria:
+- A reusable scoring model exists in shared frontend logic.
+- A visible scorecard can render for current lab context.
+- The scorecard uses current lab and step metadata rather than hardcoded one-off content.
+- Quiz and guided-lab surfaces can consume the same rubric shape.
+
+Component 2: Differential Diagnosis Blocks
+Owner area:
+- frontend/js/app.js
+- labs-part-1.js ... labs-part-4.js
+- learning-part-1.js, learning-part-2.js
+
+Purpose:
+- Add explicit nearby-wrong-path comparisons for each lab family.
+- Teach why a symptom belongs to one layer and not another.
+
+Acceptance criteria:
+- Guided views show “what this is not” or equivalent comparisons for each lab.
+- Repeated categories use shared rendering.
+- No duplicated filler phrasing.
+
+Component 3: Incident Mode
+Owner area:
+- frontend/js/app.js
+- frontend/js/labs*.js
+- frontend/js/learning*.js
+
+Purpose:
+- Add a less-guided mode where users must work from partial evidence.
+
+Acceptance criteria:
+- At least one alternate incident-style path per lab family.
+- Reduced scaffolding versus guided mode.
+- Shared UI mode switching and state persistence.
+
+Component 4: Reasoning Analytics and Progress Model
+Owner area:
+- frontend/js/app.js
+- frontend/index.html
+
+Purpose:
+- Track improvement over time for reasoning quality, not just quiz score.
+
+Acceptance criteria:
+- Store and display per-category reasoning progress.
+- Separate quiz accuracy from troubleshooting judgment.
+- Surface trends in header or study surfaces.
+
+Component 5: Production Polish and Validation Hardening
+Owner area:
+- frontend/tests/
+- backend/tests/
+- deploy/
+
+Purpose:
+- Raise deployment confidence to match a serious training product.
+
+Acceptance criteria:
+- Expanded frontend smoke coverage for v3 features.
+- Final local live smoke checklist executed.
+- Release notes and build log are complete.
+
+Validation of This Plan
+-----------------------
+- Fits current architecture:
+  app.js already owns shared rendering, scoring-adjacent state, overlays, study guide, and quiz rendering.
+- Minimizes risk:
+  shared systems first, data expansion second.
+- Supports continuous local-live rollout:
+  each component can be shipped independently without blocking the next.
+- Moves toward top-5% product traits:
+  judgment, assessment, ambiguity handling, analytics, and polish.
+
+Execution Order
+---------------
+1. Component 1: Reasoning Scorecard
+2. Component 2: Differential Diagnosis Blocks
+3. Component 3: Incident Mode
+4. Component 4: Reasoning Analytics and Progress Model
+5. Component 5: Production Polish and Validation Hardening
+

@@ -214,6 +214,7 @@ function drawRackElevation(svg, faultData = null, isThermal = false) {
 // PRESERVED LAB DRAW FUNCTIONS
 // ════════════════════════════════════════════════════════════════════
 function drawWelcome(svg) {
+  clearCanvas();
   const W = svg.clientWidth||700, H = svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   const g = svgEl('g');
@@ -228,10 +229,11 @@ function drawWelcome(svg) {
 }
 
 function drawNVLink(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
 
-  const isFault = step===3;
+  const isFault = step>=3;
   const gpuW=80, gpuH=52;
 
   const positions = [
@@ -269,37 +271,54 @@ function drawMIG(svg, step=0) {
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 25, 'MIG Partitioning — H100 80GB → 7 × 10GB Isolated Instances', '#c8d4e8', 12,'middle','600');
 
+  if(step < 0) {
+    node(svg, W/2-120, H/2-60, 240, 120, '#1a2535', '#c87941', 'H100 SXM5', '80GB HBM3 · full GPU mode');
+    label(svg, W/2, H/2+90, 'Start state: MIG Mode OFF — full GPU available as one unit', '#5a6a85', 11,'middle');
+    return;
+  }
+
   if(step===0) {
-    node(svg, W/2-120, H/2-60, 240, 120, '#1a2535', '#c87941', 'H100 SXM5', '80GB HBM3 · 80GB available');
-    label(svg, W/2, H/2+90, 'MIG Mode: OFF — full GPU available as one unit', '#5a6a85', 11,'middle');
+    node(svg, W/2-120, H/2-60, 240, 120, '#1a2535', '#76b900', 'H100 SXM5', 'MIG Mode ON · ready to create instances');
+    label(svg, W/2, H/2+90, 'Step 1: MIG mode enabled at the device level', '#76b900', 11,'middle');
+    return;
+  }
+
+  if(step>=4) {
+    node(svg, W/2-120, H/2-60, 240, 120, '#1a2535', '#c87941', 'H100 SXM5', '80GB HBM3 · full GPU restored');
+    label(svg, W/2, H/2+90, 'Step 5: MIG Mode OFF — partition layout removed', '#5a6a85', 11,'middle');
     return;
   }
 
   const colors = ['#1a3a1a','#1a1a3a','#2a1a1a','#1a2a2a','#2a2a1a','#1a2a1a','#2a1a2a'];
   const strokes = ['#76b900','#4a9eff','#e05252','#00d4d4','#f0b429','#9b7fe8','#c87941'];
-  const teams = ['Team A\nInference','Team B\nDev','Team C\nTest','Team D\n—','Team E\n—','Team F\n—','Team G\n—'];
+  const teams = ['Team A\nInference','Team A\nInference','Team B\nDev','Team B\nDev','Team C\nTest','Team C\nTest','Team C\nTest'];
   const iW=70, iH=56;
   const startX = W/2 - (7*(iW+8))/2 + iW/2;
 
   for(let i=0;i<7;i++){
     const ix = startX + i*(iW+8);
     const iy = H/2-iH/2;
-    const active = step>=2 && i<(step===3?3:step===4?1:0);
-    const fill = step>=1 ? (active ? colors[i] : '#1a2535') : '#1a2535';
-    const stroke = step>=1 ? strokes[i] : '#2a3347';
+    const active = step>=1;
+    const fill = active ? colors[i] : '#1a2535';
+    const stroke = active ? strokes[i] : '#2a3347';
     node(svg, ix-iW/2, iy, iW, iH, fill, stroke, `${i+1}g.10gb`, '10GB HBM3');
-    if(step>=3 && i<3) {
+    if(step>=3) {
       label(svg, ix, iy+iH+14, teams[i].split('\n')[0], strokes[i], 9);
       label(svg, ix, iy+iH+25, teams[i].split('\n')[1], '#5a6a85', 8);
     }
-    if(step===4) label(svg, ix, iy+iH+14, i===0?'DISABLED':teams[i].split('\n')[0], i===0?'#2a3347':strokes[i], 9);
   }
 
-  const msgs = ['MIG not enabled','MIG Mode ON — partitioning GPU...','7 instances created — hardware isolated','Instances assigned to 3 teams','MIG Mode disabled — back to full GPU'];
-  label(svg, W/2, H-30, msgs[Math.min(step,4)], '#5a6a85', 11,'middle');
+  const msgs = [
+    '',
+    'Step 2: 7 instances created — hardware-isolated slices now exist',
+    'Step 3: Instance listing verified — reported layout matches the plan',
+    'Step 4: Instances assigned — Team A gets 2, Team B gets 2, Team C gets 3'
+  ];
+  label(svg, W/2, H-30, msgs[Math.min(step,3)], '#5a6a85', 11,'middle');
 }
 
 function drawECC(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 25, 'ECC Error Lifecycle — H100 HBM3 Memory', '#c8d4e8', 12,'middle','600');
@@ -315,7 +334,7 @@ function drawECC(svg, step=0) {
   for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) {
     const idx = r*cols+c;
     let fill = '#1a2a1a', stroke='#2a4a2a';
-    if(step>=1 && idx < [0,2,5,9,14][Math.min(step-1,4)]) {
+    if(step>=1 && idx < [0,6,14,18,18][Math.min(step,4)]) {
       fill = step>=3 ? '#3a1515' : '#2a2a0a';
       stroke = step>=3 ? '#e05252' : '#f0b429';
     }
@@ -325,20 +344,21 @@ function drawECC(svg, step=0) {
 
   const panelX = W/2+80;
   svg.appendChild(svgEl('rect',{x:panelX,y:H/2-70,width:130,height:80,rx:4,fill:'#111520',stroke:'#2a3347','stroke-width':'1'}));
-  const sbe = [0,0,3,16,58,58,58][Math.min(step,6)];
-  const dbe = [0,0,0,0,0,1,2][Math.min(step,6)];
+  const sbe = [0,19,61,61,61][Math.min(step,4)];
+  const dbe = [0,0,0,1,1][Math.min(step,4)];
   label(svg, panelX+65, H/2-52, 'DCGM ECC Monitor', '#5a6a85', 9,'middle');
   label(svg, panelX+65, H/2-33, `SBE (field 156): ${sbe}`, sbe>0?'#f0b429':'#76b900', 11,'middle','600');
   label(svg, panelX+65, H/2-15, `DBE (field 157): ${dbe}`, dbe>0?'#e05252':'#76b900', 11,'middle','600');
-  const status = ['Healthy','Healthy','SBE rising!','Critical!','XID 48!','DRAIN NOW','RMA'];
-  const statColors = ['#76b900','#76b900','#f0b429','#e05252','#e05252','#e05252','#e05252'];
-  label(svg, panelX+65, H/2+5, status[Math.min(step,6)], statColors[Math.min(step,6)], 11,'middle','700');
+  const status = ['Healthy','SBE rising','Trend persists','XID 48 / DBE','DRAINED'];
+  const statColors = ['#76b900','#f0b429','#f0b429','#e05252','#e05252'];
+  label(svg, panelX+65, H/2+5, status[Math.min(step,4)], statColors[Math.min(step,4)], 11,'middle','700');
 
-  const msgs = ['Healthy baseline — all ECC counters at 0','Memory degradation begins — no visible errors yet','SBE trend rising — plan replacement','SBE accelerating — imminent failure','XID 48 detected — uncorrectable error','Node drained — no new workloads','RMA in progress — GPU being replaced'];
-  label(svg, W/2, H-30, msgs[Math.min(step,6)], '#5a6a85', 11,'middle');
+  const msgs = ['Healthy baseline — SBE/DBE counters at 0','SBE trend rising — corrected errors accumulating','Persistent SBE trend — maintenance planning needed','XID 48 detected — uncorrectable DBE event','Node drained — no new workloads scheduled'];
+  label(svg, W/2, H-30, msgs[Math.min(step,4)], '#5a6a85', 11,'middle');
 }
 
 function drawFaultDrill(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 25, 'XID Fault Drill — Responding to Hardware Failures', '#c8d4e8', 12,'middle','600');
@@ -377,47 +397,51 @@ function drawFaultDrill(svg, step=0) {
 }
 
 function drawCUDAStack(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'NVIDIA Software Stack — Layer Compatibility Check', '#c8d4e8', 12,'middle','600');
 
   const layers = [
     {name:'Application / Model',  ver:'GPT, LLaMA, BERT...', own:false,  color:'#2a3a1a', stroke:'#76b900'},
-    {name:'AI Framework',          ver:'PyTorch 2.2 / TF 2.15', own:false, color:'#1a2a3a', stroke:'#4a9eff'},
-    {name:'cuDNN / NCCL / TensorRT',ver:'cuDNN 8.9.7',       own:true,  color:'#2a1a3a', stroke:'#9b7fe8'},
-    {name:'CUDA Runtime',          ver:'CUDA 12.3',           own:true,  color:'#1a2a2a', stroke:'#00d4d4'},
-    {name:'NVIDIA Driver',         ver:'545.23.08',           own:true,  color:'#2a1a1a', stroke:'#c87941'},
+    {name:'AI Framework',          ver:'PyTorch 2.4 / TF 2.16', own:false, color:'#1a2a3a', stroke:'#4a9eff'},
+    {name:'cuDNN / NCCL / TensorRT',ver:'cuDNN 9.x',         own:true,  color:'#2a1a3a', stroke:'#9b7fe8'},
+    {name:'CUDA Runtime',          ver:'CUDA 12.4',           own:true,  color:'#1a2a2a', stroke:'#00d4d4'},
+    {name:'NVIDIA Driver',         ver:'550.54.15',           own:true,  color:'#2a1a1a', stroke:'#c87941'},
     {name:'GPU Hardware',          ver:'H100 SXM5',           own:true,  color:'#1a1a2a', stroke:'#4a9eff'},
   ];
 
   const layH=38, layW=300, startX=W/2-layW/2, startY=30;
   layers.forEach(({name,ver,own,color,stroke},i) => {
     const y = startY + i*(layH+4);
-    const isMismatch = step===4 && i===1;
+    const isMismatch = step===3 && i===1;
+    const fixed = step>=4;
+    const verified = fixed || (step===0 && i>=4) || (step===1 && i>=3) || (step===2 && (i===1 || i>=3));
     const fill = isMismatch ? '#2a0a0a' : color;
-    const st = isMismatch ? '#e05252' : (step>i ? stroke : '#2a3347');
+    const st = isMismatch ? '#e05252' : (verified ? stroke : '#2a3347');
     svg.appendChild(svgEl('rect',{x:startX,y,width:layW,height:layH,rx:3,fill,stroke:st,'stroke-width':'1.5'}));
     label(svg, startX+layW/2, y+15, name, isMismatch?'#e05252':'#e8eef8', 11,'middle','600');
     label(svg, startX+layW/2, y+28, ver, isMismatch?'#e05252':'#5a6a85', 9,'middle');
     label(svg, startX-8, y+layH/2, own?'←YOU':' ', '#76b900', 8,'end');
-    if(step>0 && i>=5-step && !isMismatch)
+    if(verified && !isMismatch)
       label(svg, startX+layW+8, y+layH/2, '✓', '#76b900', 11,'start');
     if(isMismatch)
       label(svg, startX+layW+8, y+layH/2, '✗', '#e05252', 12,'start');
   });
 
-  const msgs = ['The 5-layer stack','Checking GPU hardware...','Checking driver...','Checking CUDA toolkit...','Checking framework — VERSION MISMATCH!','Fixed with NGC container ✓'];
-  label(svg, W/2, H-20, msgs[Math.min(step,5)], step===4?'#e05252':'#5a6a85', 11,'middle');
+  const msgs = ['Driver layer captured — base of the stack is known','CUDA toolkit checked against the driver','Framework import checked against CUDA','Framework/CUDA version mismatch found','Fixed with validated NGC container ✓'];
+  label(svg, W/2, H-20, msgs[Math.min(step,4)], step===3?'#e05252':'#5a6a85', 11,'middle');
 }
 
 function drawContainer(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'NGC Container Flow — From Registry to GPU', '#c8d4e8', 12,'middle','600');
 
   node(svg, 40, H/2-40, 110, 50, '#1a2535','#c87941','NGC Registry','nvcr.io');
   node(svg, 200, H/2-40, 110, 50, '#1a2535','#4a9eff','Docker Engine','Host runtime');
-  node(svg, 380, H/2-40, 130, 50, step>=3?'#1a3a1a':'#1a2535', step>=3?'#76b900':'#2a3347','Container','pytorch:24.01-py3');
+  node(svg, 380, H/2-40, 130, 50, step>=3?'#1a3a1a':'#1a2535', step>=3?'#76b900':'#2a3347','Container','pytorch:24.03-py3');
   node(svg, 570, H/2-40, 90, 50, step>=4?'#1a2a1a':'#1a2535', step>=4?'#76b900':'#2a3347','GPU 0-7','H100 SXM5');
 
   if(step>=1) arrow(svg, 152,H/2-15, 198,H/2-15,'#c87941','pull');
@@ -433,6 +457,7 @@ function drawContainer(svg, step=0) {
 }
 
 function drawDDP(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'Distributed Data Parallel — 2 Nodes × 8 GPUs = 16 Ranks', '#c8d4e8', 12,'middle','600');
@@ -447,7 +472,7 @@ function drawDDP(svg, step=0) {
     for(let j=0;j<2;j++) {
       const gx = node1X+10+j*130, gy = 80+i*50;
       const rank = i*2+j;
-      const active = step>=1;
+      const active = step>=0;
       const syncing = step===3;
       const fill = syncing?'#1a1a2a':active?'#1a2a1a':'#1a2535';
       const stroke = syncing?'#00d4d4':active?'#76b900':'#2a3347';
@@ -459,8 +484,8 @@ function drawDDP(svg, step=0) {
       const gx = node2X+10+j*130, gy = 80+i*50;
       const rank = 8+i*2+j;
       const syncing = step===3;
-      const fill = syncing?'#1a1a2a':step>=1?'#1a2a1a':'#1a2535';
-      const stroke = syncing?'#00d4d4':step>=1?'#76b900':'#2a3347';
+      const fill = syncing?'#1a1a2a':step>=0?'#1a2a1a':'#1a2535';
+      const stroke = syncing?'#00d4d4':step>=0?'#76b900':'#2a3347';
       node(svg, gx, gy, 110, 36, fill, stroke, `Rank ${rank}`, step>=2?`grad[${rank}]`:'');
     }
   }
@@ -471,11 +496,12 @@ function drawDDP(svg, step=0) {
 
   if(step===3) animPackets(svg,[[node1X+280,H/2,node2X-10,H/2],[node2X-10,H/2,node1X+280,H/2]],'#00d4d4',4,600);
 
-  const msgs=['Idle — no distributed job running','Forward pass: each rank processes 1/16 of batch','Backward pass: local gradients computed per rank','AllReduce: NCCL averages gradients across all 16 ranks','Weights updated — all 16 replicas now identical ✓','Storage bottleneck! GPUs idle waiting for next batch'];
+  const msgs=['DDP launched — all ranks joined the world','Forward pass: each rank processes 1/16 of batch','Backward pass: local gradients computed per rank','AllReduce: NCCL averages gradients across all 16 ranks','Weights updated — all 16 replicas now identical ✓','Storage bottleneck! GPUs idle waiting for next batch'];
   label(svg, W/2, H-18, msgs[Math.min(step,5)], step===5?'#e05252':'#5a6a85', 11,'middle');
 }
 
 function drawAllReduce(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'NCCL AllReduce — Ring Algorithm', '#c8d4e8', 12,'middle','600');
@@ -531,6 +557,7 @@ function drawAllReduce(svg, step=0) {
 }
 
 function drawIBFabric(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'InfiniBand NDR Fabric — 400 Gb/s per port', '#c8d4e8', 12,'middle','600');
@@ -558,6 +585,7 @@ function drawIBFabric(svg, step=0) {
 }
 
 function drawRoCE(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'RoCEv2 + PFC/ECN — Lossless Ethernet for RDMA', '#c8d4e8', 12,'middle','600');
@@ -598,6 +626,7 @@ function drawRoCE(svg, step=0) {
 }
 
 function drawNCCLFallback(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'NCCL Fallback — Diagnosing TCP Socket vs InfiniBand', '#c8d4e8', 12,'middle','600');
@@ -625,6 +654,7 @@ function drawNCCLFallback(svg, step=0) {
 }
 
 function drawStorage(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'Storage Bottleneck — GPU Sawtooth Pattern', '#c8d4e8', 12,'middle','600');
@@ -670,36 +700,40 @@ function drawStorage(svg, step=0) {
 }
 
 function drawGDS(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'GPUDirect Storage — Traditional vs GDS Data Path', '#c8d4e8', 12,'middle','600');
 
   node(svg, 40, H/2-80, 90, 45, '#1a2535','#9b7fe8','NVMe SSD','7 GB/s local');
-  node(svg, 40, H/2+20, 90, 45, '#1a2535', step<=2?'#c87941':'#2a3347', 'CPU/RAM', step<=2?'in hot path':'bypassed!');
+  const traditionalPath = step===0 || step===3;
+  const directPath = !traditionalPath;
+  node(svg, 40, H/2+20, 90, 45, '#1a2535', traditionalPath?'#c87941':'#2a3347', 'CPU/RAM', traditionalPath?'in hot path':'bypassed!');
   node(svg, W-130, H/2-30, 100, 50, '#1a2535','#76b900','GPU VRAM','80GB HBM3');
 
-  if(step<=2) {
+  if(traditionalPath) {
     const c='#c87941';
     arrow(svg, 130, H/2-57, W/2, H/2+30, c, '');  
     arrow(svg, W/2, H/2+30, W-130, H/2, c, '');   
     label(svg, W/2-50, H/2-20, '① NVMe→CPU', c, 9);
     label(svg, W/2+50, H/2+45, '② CPU→GPU', c, 9);
-    if(step>=1) animPackets(svg,[[130,H/2-57,W/2,H/2+35],[W/2,H/2+35,W-130,H/2]],'#c87941',2,900);
-    label(svg, W/2, H/2-60, '2 copies · CPU in hot path · ~890 MB/s', '#c87941', 10,'middle');
+    if(step>=3) animPackets(svg,[[130,H/2-57,W/2,H/2+35],[W/2,H/2+35,W-130,H/2]],'#c87941',2,900);
+    label(svg, W/2, H/2-60, step===3?'Traditional benchmark · ~890 MB/s':'2 copies · CPU in hot path', '#c87941', 10,'middle');
   } else {
     const c='#00d4d4';
     arrow(svg, 130, H/2-57, W-130, H/2, c, 'DMA direct');
     if(step>=4) animPackets(svg,[[130,H/2-57,W-130,H/2]],'#00d4d4',4,500);
-    label(svg, W/2, H/2-60, '1 copy · CPU not in hot path · 2.4 GB/s (+2.7×)', '#00d4d4', 10,'middle');
+    label(svg, W/2, H/2-60, step>=4?'GDS benchmark · 2.4 GB/s (+2.7×)':'Fewer CPU copies · DMA data path', '#00d4d4', 10,'middle');
     label(svg, 85, H/2+42, 'CPU', '#2a3347', 10,'middle');
-    label(svg, 85, H/2+55, 'bypassed', '#2a3347', 9,'middle');
+    label(svg, 85, H/2+55, 'control path', '#2a3347', 9,'middle');
   }
 
-  const msgs=['Traditional: NVMe→CPU RAM→GPU VRAM (2 copies)','Traditional path active — CPU in I/O critical path','Traditional path: 890 MB/s — CPU at 35%','GDS: NVMe→GPU VRAM direct DMA (1 copy)','GDS path active — CPU not involved','GDS benchmark: 2.4 GB/s — CPU at 4% ✓'];
-  label(svg, W/2, H-20, msgs[Math.min(step,5)], step>=3?'#00d4d4':'#5a6a85', 11,'middle');
+  const msgs=['Traditional: NVMe→CPU RAM→GPU VRAM (2 copies)','GDS concept: storage DMA reaches GPU memory without the usual CPU bounce buffer','GDS runtime verified — cuFile software path available','Traditional benchmark: 890 MB/s — CPU at 35%','GDS benchmark: 2.4 GB/s — CPU at 4% ✓'];
+  label(svg, W/2, H-20, msgs[Math.min(step,4)], directPath?'#00d4d4':'#5a6a85', 11,'middle');
 }
 
 function drawMonitoring(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'DCGM Monitoring Stack — node_exporter for GPUs', '#c8d4e8', 12,'middle','600');
@@ -735,6 +769,7 @@ function drawMonitoring(svg, step=0) {
 }
 
 function drawSlurm(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'Slurm Scheduler — Job Lifecycle', '#c8d4e8', 12,'middle','600');
@@ -774,6 +809,7 @@ function drawSlurm(svg, step=0) {
 }
 
 function drawK8s(svg, step=0) {
+  if(step < 0) step = 0;
   const W=svg.clientWidth||700, H=svg.clientHeight||380;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   label(svg, W/2, 22, 'Kubernetes GPU Operations', '#c8d4e8', 12,'middle','600');

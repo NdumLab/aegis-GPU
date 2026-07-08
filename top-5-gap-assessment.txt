@@ -1,0 +1,181 @@
+AEGIS-GPU TOP-5 GAP ASSESSMENT
+==============================
+
+Date
+----
+2026-04-23
+
+Scope
+-----
+This document does not claim a market rank. It defines what would be needed for a defensible "top 5%" position in the narrower category of AI infrastructure learning and troubleshooting tools, then compares that bar against the currently verified Aegis v3 state in this repo and local-live deployment.
+
+Category Definition
+-------------------
+Target category:
+- AI infrastructure learning tools
+- AI infrastructure troubleshooting trainers
+- GPU and distributed-systems operator training products
+
+This assessment does not compare Aegis against:
+- general observability platforms
+- cloud platforms as a whole
+- generic LMS products
+- all AI infrastructure software broadly defined
+
+Why a Top-5% Claim Needs More Than Product Intuition
+----------------------------------------------------
+A top-5% claim should be backed by at least one of these:
+- comparative product benchmarking against a defined peer set
+- measured user outcomes
+- production adoption and retention evidence
+- third-party recognition or market usage data
+
+None of those were established in this build cycle.
+
+Verified Aegis v3 State
+-----------------------
+The following are verified in the repo and local-live state:
+
+1. Reasoning Scorecards
+- Shared reasoning scorecards render in guided lab and quiz surfaces.
+- Current scoring dimensions include layer call, evidence quality, and action safety.
+
+2. Differential Diagnosis
+- Shared differential diagnosis blocks exist across all 16 lab ids.
+- They render in the lab coach, guided intro flow, and learning/study surfaces.
+
+3. Incident Mode
+- A persisted Incident Mode toggle exists in the main toolbar.
+- Incident Mode reduces scaffolding and shifts coach/guide content toward evidence, uncertainty, and next safe move.
+
+4. Reasoning Analytics
+- Step-level troubleshooting judgment is stored persistently in localStorage.
+- Quiz accuracy is tracked separately from troubleshooting judgment.
+- Judgment is surfaced in the header and in study-guide progress views.
+
+5. Product Readability And Usability
+- Local-live assets include the v3 reading surfaces and cache-bumped app/css asset versions.
+- Frontend smoke, backend compile, and backend unittest smoke all passed on the final v3 state.
+
+Top-5 Criteria
+--------------
+For a defensible top-5% position in this narrower category, Aegis would need strength in all or most of the following:
+
+1. Judgment Training Quality
+- The tool must teach evidence-first reasoning, not just command recall.
+- Users should be forced to separate similar failure classes.
+- The product should reward safe narrowing of the fault domain.
+
+2. Dynamic Troubleshooting Depth
+- Labs should adapt to user choices, not only replay fixed authored flows.
+- Wrong paths should produce consequences or feedback, not just alternate reading copy.
+- The system should support partial evidence, ambiguity, and branching diagnosis.
+
+3. Outcome Measurement
+- The product should show that users become better troubleshooters over time.
+- Success should be measured with diagnosis quality, false escalation rate, unsafe-action rate, and time-to-correct-layer-call.
+
+4. Operational Credibility
+- The UI and wording must read like operator tooling, not classroom filler.
+- Scenarios must reflect realistic AI infrastructure incidents across hardware, software, network, storage, and schedulers.
+
+5. Product Polish And Trust
+- Accessibility, mobile usability, clear navigation, and low-friction learning flow should all be strong.
+- Deployment confidence should be supported by repeatable validation and smoke coverage.
+
+6. External Proof
+- There should be benchmark evidence against peer tools or at least measurable outcomes from real users.
+
+Current Strengths
+-----------------
+Based on the verified v3 state, Aegis is now strong in these areas:
+
+1. Shared reasoning architecture
+- v3 adds a consistent layer for reasoning scorecards, differential diagnosis, incident briefings, and progress analytics.
+
+2. Learning/troubleshooting alignment
+- The product is no longer only a content explainer. It now explicitly scores and frames reasoning quality.
+
+3. Multi-surface consistency
+- The same reasoning concepts appear in lab coach, intro flow, study guide, and quiz surfaces.
+
+4. Operator direction
+- The incident and diagnosis framing is closer to real troubleshooting than a standard tutorial flow.
+
+5. Usability baseline
+- The repo already had recent work on pop-outs, scrolling, readability, and mobile improvements before the v3 loop.
+
+Current Gaps
+------------
+These are the main reasons a top-5% claim is still not defensible:
+
+1. No verified peer benchmark
+- There is no defined comparison set and no measured position against it.
+
+2. Limited branching behavior
+- The current v3 system still mainly overlays stronger reasoning support on top of authored lab flows.
+- It does not yet create deep user-driven branching with different outcomes based on investigative choices.
+
+3. Limited consequence modeling
+- The user is coached and scored, but the system does not yet strongly simulate bad operator choices causing downstream operational consequences.
+
+4. Limited outcome evidence
+- The progress model stores scores locally, but there is no verified study showing that users diagnose incidents better after training with Aegis.
+
+5. Analytics are local and lightweight
+- Reasoning progress is currently localStorage-based, which is useful for product direction but not enough for robust cohort analysis, instructor reporting, or cross-session enterprise evidence.
+
+6. Validation depth is still moderate
+- Final validation is solid for repo smoke and local-live checks, but this is not the same as full browser E2E coverage, device matrix coverage, or large-scale production validation.
+
+7. No external trust signal in this cycle
+- No verified customer usage, adoption stats, published benchmarks, or third-party evaluation was added here.
+
+Current Position Estimate
+-------------------------
+Strictly from the verified product state:
+- Aegis v3 is substantially stronger and more differentiated than the earlier simulator-focused version.
+- Aegis now has features that move it toward a serious operator-training product.
+- Aegis is directionally capable of becoming top-tier in its niche.
+
+But:
+- A top-5% claim is not yet evidenced.
+
+What Would Make The Claim Defensible
+------------------------------------
+The next milestone should be evidence, not just more features.
+
+Priority 1
+- Define a peer set of comparable tools in the AI infrastructure learning/troubleshooting category.
+- Create a scoring rubric and benchmark Aegis against that set.
+
+Priority 2
+- Add consequence-based branching:
+  - wrong layer call
+  - unsafe action
+  - over-broad fix
+  - delayed containment
+
+Priority 3
+- Expand the reasoning analytics model beyond localStorage into durable reporting suitable for measured outcomes.
+
+Priority 4
+- Run structured user evaluation:
+  - before/after troubleshooting performance
+  - time to correct diagnosis
+  - false escalation rate
+  - unsafe action rate
+
+Priority 5
+- Add stronger browser-level and device-level validation to support higher product trust.
+
+Bottom Line
+-----------
+Verified conclusion:
+- Aegis v3 is improved enough to justify serious investment toward a top-5% goal.
+- Aegis v3 is not yet proven top 5%.
+
+Most accurate phrasing right now:
+- "Aegis is building toward a top-tier AI infrastructure learning and troubleshooting product."
+- Not:
+- "Aegis is already in the top 5%."

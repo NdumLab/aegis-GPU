@@ -1,0 +1,323 @@
+AEGIS-GPU VERSION 3.2 BUILD LOG
+===============================
+
+Loop 1 - Simulator State Foundation
+-----------------------------------
+- Status: completed
+- Goal: introduce a shared cluster simulator state module and wire it into the existing Aegis boot flow.
+- Added `frontend/js/cluster-sim.js` as the shared simulator-state foundation for:
+  - cluster topology/config
+  - nodes and GPUs
+  - jobs and workload profiles
+  - alerts
+  - tick/update progression
+  - fleet summary aggregation
+- Added `clusterSimStore` bootstrapping in `frontend/js/app.js` and summary helpers:
+  - `ensureClusterSimStore`
+  - `getClusterSimSummary`
+  - `describeClusterSimStatus`
+  - `describeClusterSimIdleView`
+- Wired `frontend/js/runtime.js` to:
+  - initialize simulator state during app boot
+  - run a lightweight simulator tick loop in simulation mode
+  - surface simulator summary text in the existing header / idle view
+  - reset simulator state during `resetAll`
+- Added test coverage:
+  - `frontend/tests/test_cluster_sim_state.py`
+  - expanded `frontend/tests/test_frontend_smoke.py`
+- Added tracking artifacts:
+  - `v3.2-plan.txt`
+  - `v3.2-build-log.txt`
+
+Validation
+----------
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m py_compile /home/henry/aegis-gpu/backend/log-analizer.py /home/henry/aegis-gpu/backend/node_scraper.py /home/henry/aegis-gpu/backend/tests/test_api.py /home/henry/aegis-gpu/backend/tests/test_api_unittest.py` passed
+- `python3 -m unittest discover -s /home/henry/aegis-gpu/backend/tests -p 'test_*unittest.py'` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-sim.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/app.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest discover -s /home/henry/aegis-gpu/frontend/tests -p 'test_*.py'` was still running through long browser-proof scenarios during loop closeout; targeted Loop 1 checks above were green and sufficient for the shared-state foundation slice.
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Local-live HTML now references:
+  - `js/cluster-sim.js?v=20260507a`
+  - `js/runtime.js?v=20260507c`
+  - `js/app.js?v=20260507c`
+- Verified deployed asset contents at `/var/www/html/js/cluster-sim.js`
+- Deploy script recorded local-live version metadata as `v3.2@56f641e` because Loop 1 changes were not yet committed at deploy time
+
+Exit Notes
+----------
+- Loop 1 intentionally stops at shared state and boot/runtime wiring.
+- No fleet dashboard UI was added yet beyond summary/idle status hooks.
+- Loop 2 should render the first dedicated cluster dashboard view using the existing shared simulator state instead of introducing new mock globals.
+
+Loop 2 - Fleet Dashboard Upgrade
+--------------------------------
+- Status: completed
+- Goal: render the first dedicated cluster fleet view inside Aegis using the shared simulator state from Loop 1.
+- Added `frontend/js/cluster-dashboard.js` as a dedicated rendering module for:
+  - fleet KPI cards
+  - node grid / GPU strip cards
+  - simulator-side summary and alert panels
+- Added a new simulator navigation entry in `frontend/index.html`:
+  - `nav-cluster_fleet`
+- Added a dedicated HTML dashboard pane in the existing diagram area:
+  - `cluster-dashboard-pane`
+  - `cluster-dashboard-grid`
+- Wired `frontend/js/runtime.js` to:
+  - open the cluster dashboard from sidebar navigation
+  - hide the SVG diagram and show the HTML fleet pane
+  - render KPI, node-grid, and sidebar content from shared simulator state
+  - keep the fleet view updated as the simulator tick loop advances
+- Added dashboard styling in `frontend/css/styles.css` for:
+  - KPI cards
+  - node status cards
+  - GPU utilization cells
+  - running-jobs and alerts side panels
+- Expanded smoke coverage in `frontend/tests/test_frontend_smoke.py` to assert the new dashboard entrypoints and renderer hooks.
+
+Validation
+----------
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-dashboard.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Verified local-live HTML references:
+  - `js/cluster-dashboard.js?v=20260507a`
+  - `nav-cluster_fleet`
+  - `cluster-dashboard-pane`
+- Verified deployed asset contents at `/var/www/html/js/cluster-dashboard.js`
+- Deploy script recorded local-live version metadata as `v3.2@ec01f27` because Loop 2 changes were not yet committed at deploy time
+
+Exit Notes
+----------
+- Loop 2 intentionally introduces the fleet dashboard as a read-only simulator surface.
+- Job submission, queue transitions, and scheduler interaction remain the focus of Loop 3.
+
+Loop 3 - Scheduler And Workload Simulation
+------------------------------------------
+- Status: completed
+- Goal: make the shared simulator state operational by allowing workloads to be submitted, queued, placed, and cancelled from the new fleet dashboard.
+- Extended `frontend/js/cluster-sim.js` to support:
+  - job preset catalog
+  - job id allocation
+  - pending-to-running placement when capacity is available
+  - running-to-completed progression during scheduler ticks
+  - cancellation and capacity release
+  - alert generation for submit, placement, completion, and cancellation events
+- Extended `frontend/js/cluster-dashboard.js` to render:
+  - workload preset submission buttons
+  - live job queue table
+  - `scancel` actions for running and pending jobs
+- Extended `frontend/js/runtime.js` to:
+  - submit simulator workloads from dashboard controls
+  - cancel workloads from the queue table
+  - log scheduler actions into the existing terminal surface
+- Added new fleet-pane placeholders in `frontend/index.html`:
+  - `cluster-workload-controls`
+  - `cluster-jobs-table`
+- Added scheduler UI styling in `frontend/css/styles.css` for:
+  - submit cards
+  - preset buttons
+  - job queue table
+  - cancel action buttons
+- Expanded test coverage:
+  - `frontend/tests/test_cluster_sim_state.py` now verifies submit/cancel state mutation
+  - `frontend/tests/test_frontend_smoke.py` now verifies workload-control and queue renderer hooks
+
+Validation
+----------
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-sim.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-dashboard.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Verified local-live HTML references:
+  - `cluster-workload-controls`
+  - `cluster-jobs-table`
+  - `js/cluster-dashboard.js?v=20260507a`
+- Verified deployed `cluster-sim.js` contains the scheduler preset and placement logic
+- Deploy script recorded local-live version metadata as `v3.2@0ec8c31` because Loop 3 changes were not yet committed at deploy time
+
+Exit Notes
+----------
+- Loop 3 adds dashboard-driven scheduler realism and workload lifecycle changes to shared state.
+- Terminal command-family expansion remains the focus of Loop 4.
+
+Loop 4 - Cluster Terminal Command Routing
+-----------------------------------------
+- Status: completed
+- Goal: let the existing Aegis terminal inspect and act on the shared cluster simulator state while the Cluster Fleet dashboard is active.
+- Added `frontend/js/cluster-terminal.js` as a deterministic cluster terminal router for:
+  - `squeue`
+  - `sinfo`
+  - `sacct`
+  - `nvidia-smi`
+  - `nvidia-smi -L`
+  - `nvidia-smi topo -m`
+  - `nvidia-smi -i <id>`
+  - `ibstat`
+  - `hostname`
+  - `uname -a`
+  - `free -h`
+  - `ssh gb200-node-XX`
+  - `scancel <jobid>`
+  - `exit`
+- Extended `frontend/js/runtime.js` to:
+  - route terminal input to the cluster command engine whenever the fleet dashboard is active
+  - update the terminal placeholder so the fleet view advertises supported commands even when lab terminal mode is off
+  - log a fleet-terminal hint when the Cluster Fleet view opens
+  - convert `scancel <jobid>` terminal actions into the same scheduler cancellation flow used by dashboard buttons
+- Updated `frontend/index.html` to load `js/cluster-terminal.js` and bump the runtime/app cache keys for the new command-routing behavior.
+- Expanded test coverage:
+  - `frontend/tests/test_frontend_smoke.py` now verifies the new asset reference and runtime entrypoints
+  - added `frontend/tests/test_cluster_terminal_state.py` to validate deterministic cluster terminal output and action payloads
+
+Validation
+----------
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-terminal.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_terminal_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Verified local-live HTML references:
+  - `js/cluster-terminal.js?v=20260507a`
+  - `js/runtime.js?v=20260507e`
+  - `js/app.js?v=20260507e`
+- Verified deployed assets in `/var/www/html` contain:
+  - the Loop 4 fleet-terminal hint in `js/runtime.js`
+  - `runClusterTerminalCommand` in `js/runtime.js`
+  - deterministic cluster command handlers in `js/cluster-terminal.js`
+- Deploy script recorded local-live version metadata as `v3.2@230a114` because Loop 4 changes were not yet committed at deploy time
+
+Exit Notes
+----------
+- Loop 4 makes the Cluster Fleet view inspectable from the existing terminal without introducing live shell execution.
+- Fault injection and degraded-state modeling remain the focus of Loop 5.
+
+Loop 5 - Fault Injection And Degraded-State Modeling
+----------------------------------------------------
+- Status: completed
+- Goal: let the simulator inject realistic degraded cluster conditions so fleet cards, alerts, and terminal output stay synchronized under failure scenarios.
+- Extended `frontend/js/cluster-sim.js` to add:
+  - `DEFAULT_FAULT_PRESETS`
+  - `activeFaults` state
+  - `injectFault`, `clearFault`, and `clearAllFaults` store actions
+  - deterministic degraded-state mutations for:
+    - ECC surge
+    - NVLink CRC / replay pressure
+    - InfiniBand congestion
+    - XID 79 / fell-off-bus
+- Updated node reconciliation so injected faults alter:
+  - node health state
+  - node notes
+  - fabric health and throughput
+  - GPU ECC counters
+  - GPU XID state
+  - GPU utilization, temperature, and power behavior
+- Extended `frontend/js/cluster-dashboard.js` to render:
+  - an injected-faults count in the sidebar
+  - fault injection controls
+  - per-fault clear actions
+  - a clear-all-faults action
+  - node note chips on degraded and critical cards
+- Extended `frontend/js/runtime.js` to:
+  - inject simulator faults from the fleet view
+  - clear one injected fault
+  - clear all injected faults
+  - log those fault actions into the existing terminal
+- Extended `frontend/js/cluster-terminal.js` so terminal output now exposes degraded evidence:
+  - `nvidia-smi` includes XID and ECC fault notes
+  - `ibstat` reflects degraded fabric state
+  - `nvidia-smi topo -m` warns when NVLink health is no longer clean
+- Added styling in `frontend/css/styles.css` for:
+  - node note chips
+  - secondary fault-control section
+  - warning/critical fault buttons
+  - clear-all action button
+- Expanded test coverage:
+  - `frontend/tests/test_cluster_sim_state.py` now verifies fault injection and clearing at the shared-state layer
+  - `frontend/tests/test_cluster_terminal_state.py` now verifies injected fault evidence appears in terminal output
+  - `frontend/tests/test_frontend_smoke.py` now verifies the new fault-control surface and runtime hooks
+
+Validation
+----------
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-sim.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-dashboard.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/cluster-terminal.js` passed
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_terminal_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Verified deployed assets in `/var/www/html` contain:
+  - `DEFAULT_FAULT_PRESETS`, `injectFault`, and `clearAllFaults` in `js/cluster-sim.js`
+  - injected-fault controls in `js/cluster-dashboard.js`
+  - fault action handlers in `js/runtime.js`
+- Verified local-live version metadata is now `v3.2@dc030cb` at `/opt/aegis-gpu/.aegis-version`
+
+Exit Notes
+----------
+- Loop 5 gives the simulator its first bounded incident-injection surface without mixing in real remediation or live cluster control.
+- Guided scenarios and teaching-layer fault walkthroughs remain the focus of Loop 6.
+
+Loop 5.5 - Fleet Layout Correction
+----------------------------------
+- Status: completed
+- Goal: stop the Cluster Fleet dashboard from competing with legacy lab layout regions and give the node grid a dedicated center column.
+- Reworked `frontend/index.html` so `cluster-dashboard-pane` now owns its own layout shell:
+  - `cluster-fleet-kpis`
+  - `cluster-fleet-main`
+  - `cluster-fleet-side`
+- Updated `frontend/js/runtime.js` so Cluster Fleet no longer renders into:
+  - `step-controls`
+  - `metrics-sidebar`
+- Updated cluster visibility toggling so the legacy top strip and legacy right sidebar are hidden while the fleet dashboard is active, then restored when returning to labs.
+- Added new fleet-layout CSS in `frontend/css/styles.css`:
+  - three-column desktop layout
+  - left vertical KPI rail
+  - centered node/workload/jobs column
+  - right summary/alerts rail
+  - responsive collapse for narrower widths
+- Expanded smoke coverage in `frontend/tests/test_frontend_smoke.py` to assert the new fleet-shell anchors and runtime targets.
+
+Validation
+----------
+- `node --check /home/henry/aegis-gpu/frontend/js/runtime.js` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py` passed
+- `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_cluster_terminal_state.py` passed
+
+Local-live Deployment / Proof
+-----------------------------
+- Deployed with `sudo bash /home/henry/aegis-gpu/scripts/deploy.sh`
+- Verified deployed files contain:
+  - `cluster-fleet-layout`, `cluster-fleet-kpis`, and `cluster-fleet-side` in `/var/www/html/index.html`
+  - `cluster-fleet-kpis` and `cluster-fleet-side` render targets in `/var/www/html/js/runtime.js`
+  - the new three-column layout rules in `/var/www/html/css/styles.css`
+- Verified local-live version metadata remained aligned at `v3.2@5f4c9da` during deploy
+
+Exit Notes
+----------
+- Cluster Fleet now has a cleaner layout contract and more horizontal room for node cards.
+- Loop 6 can continue on top of this without inheriting the old step-controls/sidebar coupling.

@@ -12,7 +12,8 @@ Monorepo for the Aegis-GPU production deployment.
 - The backend exposes diagnose/remediate flows used by the frontend live mode.
 
 ## Validation
-- Frontend smoke: `python3 -m unittest discover -s frontend/tests -p "test_*.py"`
+- Frontend deterministic smoke: `python3 -m unittest frontend/tests/test_auth_session_reset.py frontend/tests/test_cluster_sim_state.py frontend/tests/test_cluster_terminal_state.py frontend/tests/test_frontend_smoke.py frontend/tests/test_lab_data_structure.py`
+- Frontend browser proof: `AEGIS_BROWSER_PROOF_SCENARIOS=study_progress_empty,cluster_fleet_layout,lab_terminal_nvlink,ecc_bad python3 -m unittest frontend/tests/test_frontend_browser_proof.py -v`
 - Backend syntax: `python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py`
 - Backend unittest smoke: `python3 -m unittest discover -s backend/tests -p "test_*unittest.py"`
 

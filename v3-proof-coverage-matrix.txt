@@ -1,0 +1,163 @@
+V3 Proof Coverage Matrix
+
+Purpose
+- Define the next proof-expansion phase after v3 phase 2.
+- Separate high-value browser proof from lighter smoke coverage so validation stays disciplined and affordable.
+
+Current Proven Scope
+- Adaptive guidance:
+  - `study_progress_empty`
+- State-aware Ask Aegis:
+  - `ask_aegis_main`
+- Detached coach behavior:
+  - `ask_aegis_detached`
+- Branch consequence flow:
+  - `ecc_bad`
+  - `nvlink_bad`
+  - `storage_warn`
+
+Validation Levels
+- Browser proof:
+  - Use for branch routing, detached behavior, analytics state transitions, and state-aware interaction.
+- Frontend smoke only:
+  - Use for static rendering, text presence, and simple deterministic sections that do not depend on multi-step browser behavior.
+- Backend unittest smoke:
+  - Keep for API/auth/regression checks, not frontend teaching-flow proof.
+
+Priority Matrix
+
+Priority 1
+- `nccl_fallback`
+  - Path types:
+    - `best`
+    - `bad`
+  - Why:
+    - Fabric-path reasoning is central to AI infra troubleshooting and already partially modeled in v3.
+  - Validation:
+    - Browser proof
+
+- `cuda_stack`
+  - Path types:
+    - `bad`
+    - `best`
+  - Why:
+    - Runtime-delivery reasoning is a major category in the product and currently under-proven at browser level.
+  - Validation:
+    - Browser proof
+
+- `k8s`
+  - Path types:
+    - `bad`
+    - `best`
+  - Why:
+    - Scheduler/orchestration reasoning is a core differentiator for junior operators.
+  - Validation:
+    - Browser proof
+
+- Analytics recommendation state
+  - Surfaces:
+    - `Next training focus`
+    - `Recent risk pattern`
+    - exact-lab recommendation after compromised run
+    - adapted wording after same-domain clean finish
+  - Why:
+    - This is one of the clearest product differentiators and should have stronger browser-level proof.
+  - Validation:
+    - Browser proof
+
+Priority 2
+- `slurm`
+  - Path types:
+    - `bad`
+    - `best`
+  - Validation:
+    - Browser proof
+
+- `allreduce`
+  - Path types:
+    - `bad`
+    - `best`
+  - Validation:
+    - Browser proof
+
+- `ib_fabric`
+  - Path types:
+    - `bad`
+    - `best`
+  - Validation:
+    - Browser proof
+
+- Clean vs compromised completion reporting
+  - Surfaces:
+    - end-of-lab `Incident Outcome`
+    - reasoning progress clean-finish counters
+  - Validation:
+    - Browser proof
+
+Priority 3
+- `roce`
+  - Path types:
+    - `bad`
+    - `best`
+  - Validation:
+    - Browser proof if phase time allows, otherwise smoke + one browser representative
+
+- `mig`
+  - Path types:
+    - `bad`
+    - `best`
+  - Validation:
+    - Smoke first, browser proof second
+
+- Additional Ask Aegis intents
+  - Intents:
+    - `What changed?`
+    - `What should I check next?`
+    - `Why is this branch scored this way?`
+  - Validation:
+    - Browser proof for at least one lab family per intent
+
+Best/Warn/Bad Combinations
+- Browser proof should aim for:
+  - one `best` path per major domain
+  - one `warn` path per major domain
+  - one `bad` path per major domain
+
+Domain mapping
+- `fault_isolation`
+  - `ecc`
+  - `nvlink_fault`
+- `fabric_path`
+  - `nvlink`
+  - `nccl_fallback`
+  - `allreduce`
+  - `ib_fabric`
+  - `roce`
+- `runtime_delivery`
+  - `cuda_stack`
+  - `container`
+  - `mig`
+- `platform_efficiency`
+  - `storage`
+  - `k8s`
+  - `slurm`
+
+Recommended Phase Order
+1. Add browser proof for analytics recommendation transitions.
+2. Add `best` and `bad` proof for `nccl_fallback`, `cuda_stack`, and `k8s`.
+3. Add `best` and `bad` proof for `slurm`, `allreduce`, and `ib_fabric`.
+4. Add clean vs compromised completion proof.
+5. Add remaining representative browser proof for `roce`, `mig`, and more Ask Aegis intents.
+
+Stop Rule
+- Stop the broader-proof phase when:
+  - each major domain has at least one `best` and one degraded browser-proven path
+  - analytics recommendation transitions are browser-proven
+  - clean vs compromised completion is browser-proven
+  - incremental proof additions are no longer uncovering new classes of issues
+
+What This Phase Would Produce
+- larger targeted browser proof matrix
+- updated JSON proof artifacts
+- updated evidence summaries
+- a more credible release/pilot validation package

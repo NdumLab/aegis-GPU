@@ -1,0 +1,90 @@
+{
+  "report_label": "broader-proof-priority1f",
+  "commit": "f1a7d07",
+  "suite": "frontend_browser_proof",
+  "scenario_count": 13,
+  "pass_count": 13,
+  "fail_count": 0,
+  "all_passed": true,
+  "result_port": 18082,
+  "app_port": 18084,
+  "groups": {
+    "adaptive guidance": [
+      {
+        "scenario": "study_progress_empty",
+        "status": "pass",
+        "summary": "study progress empty state verified"
+      },
+      {
+        "scenario": "analytics_recommendation_transition",
+        "status": "pass",
+        "summary": "analytics recommendation transition verified"
+      }
+    ],
+    "state-aware Ask Aegis": [
+      {
+        "scenario": "ask_aegis_main",
+        "status": "pass",
+        "summary": "main coach Ask Aegis verified"
+      }
+    ],
+    "detached coach behavior": [
+      {
+        "scenario": "ask_aegis_detached",
+        "status": "pass",
+        "summary": "detached coach Ask Aegis verified"
+      }
+    ],
+    "branch consequence flow": [
+      {
+        "scenario": "ecc_bad",
+        "status": "pass",
+        "summary": "ecc_bad branch chain and redirected main step verified"
+      },
+      {
+        "scenario": "nvlink_bad",
+        "status": "pass",
+        "summary": "nvlink_bad branch chain and redirected main step verified"
+      },
+      {
+        "scenario": "storage_warn",
+        "status": "pass",
+        "summary": "storage_warn branch chain and redirected main step verified"
+      }
+    ],
+    "fabric path proof": [
+      {
+        "scenario": "nccl_fallback_best",
+        "status": "pass",
+        "summary": "nccl_fallback_best best-path stayed on normal route"
+      },
+      {
+        "scenario": "nccl_fallback",
+        "status": "pass",
+        "summary": "nccl_fallback branch chain and redirected main step verified"
+      }
+    ],
+    "runtime delivery proof": [
+      {
+        "scenario": "cuda_stack_best",
+        "status": "pass",
+        "summary": "cuda_stack_best best-path stayed on normal route"
+      },
+      {
+        "scenario": "cuda_stack_bad",
+        "status": "pass",
+        "summary": "cuda_stack_bad branch chain and redirected main step verified"
+      },
+      {
+        "scenario": "k8s_best",
+        "status": "pass",
+        "summary": "k8s_best best-path stayed on normal route"
+      },
+      {
+        "scenario": "k8s_bad",
+        "status": "pass",
+        "summary": "k8s_bad branch chain and redirected main step verified"
+      }
+    ]
+  }
+}

@@ -1,0 +1,87 @@
+V3 Phase 2 Build Log
+
+Entry 1
+- Phase opened from the frozen v3 phase 1 state at local commit e3c9089
+- Focus selected: proof and validation rather than additional broad feature expansion
+- First target component: browser-level coverage for Ask Aegis and reasoning-progress recommendation surfaces
+- Added browser-smoke scenarios for:
+  - fresh-user study-guide Reasoning Progress visibility
+  - in-page Ask Aegis interaction
+  - detached coach Ask Aegis interaction
+- Split those proof scenarios into a dedicated browser proof file so phase-2 iterations can validate the new surfaces without rerunning the full long branch matrix
+- Root cause found during validation: the browser-smoke callback path was hardcoded to port 18080, and detached pop-outs are blocked in headless Firefox when opened by the proof harness
+- Fixes applied:
+  - browser-smoke callback port is now configurable through the page URL
+  - targeted proof file runs on its own isolated result/app ports with readiness checks
+  - detached coach proof uses a browser-smoke-only detached document shim when `window.open` is blocked in headless mode
+- Final validation for component 1:
+  - `python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
+  - `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
+  - `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
+- Component 1 status: complete
+
+Entry 2
+- Second target component: machine-readable proof output for the targeted browser harness
+- Added optional JSON artifact output to `frontend/tests/test_frontend_browser_proof.py` using the `AEGIS_BROWSER_PROOF_REPORT` environment variable
+- Verified artifact generation at `/tmp/aegis-browser-proof.json`
+- Verified artifact contents contain pass results for:
+  - `study_progress_empty`
+  - `ask_aegis_main`
+  - `ask_aegis_detached`
+- Final validation for component 2:
+  - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
+  - `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
+- Component 2 status: complete
+
+Entry 3
+- Third target component: expanded targeted browser proof across more lab families without reverting to the full long browser matrix
+- Extended `frontend/tests/test_frontend_browser_proof.py` from 3 scenarios to 6 scenarios
+- Added cross-family branch coverage for:
+  - `ecc_bad`
+  - `nvlink_bad`
+  - `storage_warn`
+- Verified expanded machine-readable artifact at `/tmp/aegis-browser-proof-expanded.json`
+- Verified expanded artifact contains pass results for:
+  - study/progress empty state
+  - main coach Ask Aegis
+  - detached coach Ask Aegis
+  - ECC degraded branch path
+  - NVLink degraded branch path
+  - storage warning branch path
+- Final validation for component 3:
+  - `AEGIS_BROWSER_PROOF_REPORT=/tmp/aegis-browser-proof-expanded.json python3 -m unittest frontend/tests/test_frontend_browser_proof.py` passed
+- `python3 -m unittest frontend/tests/test_frontend_smoke.py` passed
+- `python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'` passed
+- Component 3 status: complete
+
+Entry 4
+- Fourth target component: evaluation/reporting artifact for pilot and grant packaging
+- Added `tests/frontend/build_phase2_evidence_report.py`
+- Generated repo evidence outputs:
+  - `v3-phase2-evidence-summary.json`
+  - `v3-phase2-evidence-summary.txt`
+- Generated local-live evidence outputs:
+  - `/tmp/aegis-phase2-live-evidence-summary.json`
+  - `/tmp/aegis-phase2-live-evidence-summary.txt`
+- Synced reporting artifacts and generator into `/var/www/html/tests`
+- Verified summary coverage groups:
+  - adaptive guidance
+  - state-aware Ask Aegis
+  - detached coach behavior
+  - branch consequence flow
+- Final validation for component 4:
+  - `python3 tests/frontend/build_phase2_evidence_report.py --input /tmp/aegis-browser-proof-expanded.json ...` passed
+  - `python3 /var/www/html/tests/build_phase2_evidence_report.py --input /tmp/aegis-browser-proof-live-expanded.json ...` passed
+  - deployed and workspace summary files both show `6/6` scenarios passed
+- Component 4 status: complete
+
+Entry 5
+- Phase 2 closeout prepared at local commit 6786f95
+- Added `v3-phase2-summary.txt` to freeze the current proof scope, artifacts, and next-phase options
+- Phase 2 final state:
+  - browser proof harness: complete
+  - JSON proof artifact: complete
+  - expanded targeted cross-family proof: complete
+  - pilot/grant evidence summary generator: complete
+- Closeout recommendation: stop phase-2 expansion here and either move into broader proof coverage or pilot packaging as a new phase
