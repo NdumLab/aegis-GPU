@@ -5,7 +5,7 @@ This deployment model treats the repo as the source of truth and the live host a
 - backend code in `/opt/aegis-gpu`
 - frontend assets in `/var/www/html`
 - runtime env in `/etc/aegis-gpu/aegis.env`
-- nginx config in `/etc/nginx/conf.d/aegis-gpu.conf`
+- nginx config in `/etc/nginx/conf.d/aegis-gpu.conf` (IP/hostname default vhost, self-signed TLS) and `/etc/nginx/conf.d/aegis-domain.conf` (`aegis.yerikasystems.com`, Let's Encrypt TLS via certbot webroot, auto-renewed by `certbot.timer`)
 - systemd unit in `/etc/systemd/system/aegis-gpu.service`
 
 ## Backup

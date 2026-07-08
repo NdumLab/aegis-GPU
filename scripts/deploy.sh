@@ -80,6 +80,10 @@ run install -o root -g root -m 644 \
   "${REPO_ROOT}/deploy/nginx/aegis-gpu.conf" \
   /etc/nginx/conf.d/aegis-gpu.conf
 
+run install -o root -g root -m 644 \
+  "${REPO_ROOT}/deploy/nginx/aegis-domain.conf" \
+  /etc/nginx/conf.d/aegis-domain.conf
+
 if [ "${DRY_RUN}" -eq 1 ]; then
   run bash "${REPO_ROOT}/scripts/ensure_tls_cert.sh" --dry-run
 else

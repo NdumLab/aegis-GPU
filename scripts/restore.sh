@@ -41,6 +41,7 @@ restore_tree "${SRC}/opt/aegis-gpu" /opt/aegis-gpu
 restore_tree "${SRC}/var/www/html" /var/www/html
 restore_tree "${SRC}/etc/aegis-gpu" /etc/aegis-gpu
 restore_tree "${SRC}/etc/nginx/conf.d/aegis-gpu.conf" /etc/nginx/conf.d/aegis-gpu.conf
+restore_tree "${SRC}/etc/nginx/conf.d/aegis-domain.conf" /etc/nginx/conf.d/aegis-domain.conf
 restore_tree "${SRC}/etc/ssl/certs/aegis-gpu.crt" /etc/ssl/certs/aegis-gpu.crt
 restore_tree "${SRC}/etc/ssl/private/aegis-gpu.key" /etc/ssl/private/aegis-gpu.key
 restore_tree "${SRC}/etc/systemd/system/aegis-gpu.service" /etc/systemd/system/aegis-gpu.service
