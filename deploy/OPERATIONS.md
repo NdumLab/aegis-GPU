@@ -104,7 +104,7 @@ Before deployment:
 
 - `python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_auth_session_reset.py /home/henry/aegis-gpu/frontend/tests/test_cluster_sim_state.py /home/henry/aegis-gpu/frontend/tests/test_cluster_terminal_state.py /home/henry/aegis-gpu/frontend/tests/test_frontend_smoke.py /home/henry/aegis-gpu/frontend/tests/test_lab_data_structure.py -v`
 - `AEGIS_BROWSER_PROOF_SCENARIOS=study_progress_empty,cluster_fleet_layout,lab_terminal_nvlink,ecc_bad python3 -m unittest /home/henry/aegis-gpu/frontend/tests/test_frontend_browser_proof.py -v`
-- `python3 -m py_compile /home/henry/aegis-gpu/backend/log-analizer.py /home/henry/aegis-gpu/backend/node_scraper.py`
+- `python3 -m py_compile /home/henry/aegis-gpu/backend/aegis_api.py /home/henry/aegis-gpu/backend/node_scraper.py`
 
 After deployment:
 

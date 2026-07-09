@@ -33,7 +33,7 @@ def load_module():
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
 
-    spec = importlib.util.spec_from_file_location('aegis_api_under_test_unittest', ROOT / 'log-analizer.py')
+    spec = importlib.util.spec_from_file_location('aegis_api_under_test_unittest', ROOT / 'aegis_api.py')
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
