@@ -256,6 +256,43 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'command_palette') {
+      const paletteShown = () => document.getElementById('palette-overlay')?.style.display !== 'none';
+      const pressCtrlK = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }));
+      pressCtrlK();
+      await browserSmokeWait(80);
+      if (!paletteShown()) throw new Error('Ctrl+K did not open the palette');
+      details.push('palette-opens');
+      const input = document.getElementById('palette-input');
+      input.value = 'fleet mode';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await browserSmokeWait(80);
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      await browserSmokeWait(120);
+      if (paletteShown()) throw new Error('palette did not close after running a command');
+      if (document.body.dataset.workspaceMode !== 'fleet') throw new Error('palette command did not switch to fleet mode');
+      details.push('palette-runs-mode-command');
+      pressCtrlK();
+      await browserSmokeWait(80);
+      input.value = 'nvlink topology';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await browserSmokeWait(80);
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      await browserSmokeWait(120);
+      document.getElementById('btn-intro-close')?.click();
+      if (currentLab !== 'nvlink') throw new Error('palette lab jump did not load the nvlink lab');
+      if (document.body.dataset.workspaceMode !== 'training') throw new Error('palette lab jump did not return to training mode');
+      details.push('palette-jumps-to-lab');
+      pressCtrlK();
+      await browserSmokeWait(80);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await browserSmokeWait(80);
+      if (paletteShown()) throw new Error('Escape did not close the palette');
+      details.push('palette-escape-closes');
+      setBrowserSmokeResult('pass', 'command palette verified', details);
+      return;
+    }
+
     if (scenario === 'progressive_disclosure') {
       const metricsVisible = () => window.getComputedStyle(document.getElementById('metrics-sidebar')).display !== 'none';
       setWorkspaceMode('training', { openFleet: false });

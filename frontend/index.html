@@ -23,6 +23,7 @@
 <script src="js/cluster-sim.js?v=20260507b" defer></script>
 <script src="js/cluster-dashboard.js?v=20260507b" defer></script>
 <script src="js/cluster-terminal.js?v=20260507b" defer></script>
+<script src="js/palette.js?v=20260709a" defer></script>
 <script src="js/runtime.js?v=20260507g" defer></script>
 <script src="js/app.js?v=20260507g" defer></script>
 </head>
@@ -386,6 +387,14 @@
     <div id="remediation-log" style="color:#5dbf80; font-size:11px; word-break:break-word;"></div>
   </div>
   <button id="btn-dismiss-remediation" style="flex-shrink:0; background:#00e676; color:#000; border:none; padding:8px 18px; font-weight:bold; cursor:pointer; border-radius:3px; font-family:monospace; font-size:12px;">Dismiss</button>
+</div>
+
+<div id="palette-overlay" style="display:none">
+  <div class="palette-box">
+    <input id="palette-input" type="text" placeholder="Jump to a lab, mode, or tool…" autocomplete="off" spellcheck="false" aria-label="Command palette">
+    <div id="palette-list" class="palette-list"></div>
+    <div class="palette-footer">↑↓ navigate · Enter run · Esc close · Ctrl+K anytime</div>
+  </div>
 </div>
 
 <!-- Incident History Overlay -->
