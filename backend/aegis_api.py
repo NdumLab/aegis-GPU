@@ -193,6 +193,13 @@ def ensure_incidents_db() -> bool:
             existing_cols = {row[1] for row in conn.execute('PRAGMA table_info(users)')}
             if 'recovery_hash' not in existing_cols:
                 conn.execute('ALTER TABLE users ADD COLUMN recovery_hash TEXT')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS progress (
+                    username   TEXT PRIMARY KEY,
+                    payload    TEXT NOT NULL,
+                    updated_ts INTEGER NOT NULL
+                )
+            ''')
             conn.commit()
         _DB_READY = True
         _DB_ERROR = ''
@@ -302,7 +309,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=['GET', 'POST'],
+    allow_methods=['GET', 'POST', 'PUT'],
     allow_headers=['Authorization', 'Content-Type', 'X-Forwarded-Proto'],
 )
 security = HTTPBearer()
@@ -1814,6 +1821,48 @@ def login(body: LoginRequest, request: Request):
 @app.get('/api/v1/auth/me')
 def me(payload: dict = Depends(verify_token)):
     return {'username': payload['sub'], 'role': payload['role']}
+
+
+MAX_PROGRESS_BYTES = 200_000
+
+
+class ProgressUpdate(BaseModel):
+    payload: str
+
+
+@app.get('/api/v1/progress')
+def get_progress(payload: dict = Depends(verify_token)):
+    if not ensure_incidents_db():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='Progress store unavailable.')
+    with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute('SELECT payload, updated_ts FROM progress WHERE username = ?',
+                           (payload['sub'],)).fetchone()
+    if not row:
+        return {'payload': None, 'updated_ts': 0}
+    return {'payload': row['payload'], 'updated_ts': row['updated_ts']}
+
+
+@app.put('/api/v1/progress')
+def put_progress(body: ProgressUpdate, payload: dict = Depends(verify_token)):
+    if len(body.payload.encode('utf-8')) > MAX_PROGRESS_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            detail='Progress payload too large.')
+    try:
+        json.loads(body.payload)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Progress payload must be JSON.')
+    if not ensure_incidents_db():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='Progress store unavailable.')
+    now = int(time.time())
+    with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+        conn.execute(
+            'INSERT INTO progress (username, payload, updated_ts) VALUES (?,?,?) '
+            'ON CONFLICT(username) DO UPDATE SET payload = excluded.payload, updated_ts = excluded.updated_ts',
+            (payload['sub'], body.payload, now),
+        )
+        conn.commit()
+    return {'updated_ts': now}
 
 
 @app.get('/api/v1/hardware/metrics')

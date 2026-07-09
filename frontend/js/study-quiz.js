@@ -860,6 +860,7 @@ function submitQuiz() {
   `;
   document.getElementById('h-score').textContent = pct+'%';
   localStorage.setItem('gpusim_score', pct);
+  if (typeof window.scheduleProgressSync === 'function') window.scheduleProgressSync();
   renderDetachedPanel('quizOverlay');
 }
 

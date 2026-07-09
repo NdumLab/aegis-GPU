@@ -105,6 +105,7 @@ function getReasoningStatusValue(status) {
 
 function persistReasoningProgress() {
   localStorage.setItem('gpusim_reasoning_progress', JSON.stringify(reasoningProgress));
+  if (typeof window.scheduleProgressSync === 'function') window.scheduleProgressSync();
 }
 
 function getReasoningProgressSummary() {

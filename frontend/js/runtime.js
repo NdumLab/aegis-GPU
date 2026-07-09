@@ -352,6 +352,7 @@ function runStep(labId, stepIdx, options = {}) {
     const cleanFinish = isLabCompletionClean(labId);
     completedLabs.add(labId);
     localStorage.setItem('gpusim_completed', JSON.stringify([...completedLabs]));
+    if (typeof window.scheduleProgressSync === 'function') window.scheduleProgressSync();
     recordLabCompletionOutcome(labId, cleanFinish);
     document.getElementById('b-'+labId).textContent = cleanFinish ? '✓' : '!';
     document.getElementById('nav-'+labId).classList.add('done');
@@ -1282,7 +1283,13 @@ window.addEventListener('load', async ()=>{
   if (JWT_TOKEN) {
     try {
       const r = await fetch(`${API_BASE}/auth/me`, { headers: authHdr() });
-      if (r.ok) { hideLoginOverlay(); initApp(); return; }
+      if (r.ok) {
+        if (typeof syncProgressOnLogin === 'function') await syncProgressOnLogin();
+        hideLoginOverlay();
+        initApp();
+        if (typeof pushProgressToServer === 'function') setInterval(pushProgressToServer, 60000);
+        return;
+      }
     } catch(e) {
     }
   }

@@ -17,6 +17,7 @@ function loadBranchingState() {
 
 function persistBranchingState() {
   localStorage.setItem('gpusim_branching_state', JSON.stringify(branchingState));
+  if (typeof window.scheduleProgressSync === 'function') window.scheduleProgressSync();
 }
 
 function getBranchingFamily(labId, step) {
@@ -458,6 +459,16 @@ async function runBrowserSmokeScenario() {
       $('btn-reveal-continue').click();
       if (!await browserSmokeWaitFor(overlayHidden, 10000)) throw new Error('register did not auto-login');
       details.push('register-auto-login');
+
+      // progress sync roundtrip against the real backend
+      localStorage.setItem('gpusim_score', '77');
+      markProgressChanged();
+      await pushProgressToServer();
+      localStorage.removeItem('gpusim_score');
+      localStorage.setItem('gpusim_progress_changed_ts', '0');
+      await syncProgressOnLogin();
+      if (localStorage.getItem('gpusim_score') !== '77') throw new Error('server progress was not restored');
+      details.push('progress-sync-roundtrip');
 
       aegisLogout();
       if (!await browserSmokeWaitFor(overlayShown, 4000)) throw new Error('logout did not show login');

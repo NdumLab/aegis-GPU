@@ -599,6 +599,50 @@ class BackendSmokeTest(unittest.TestCase):
             'username': 'admin', 'recovery_code': 'AAAA-BBBB-CCCC', 'new_password': 'newpassword'})
         self.assertEqual(res.status_code, 401)
 
+    # --- account-synced progress ---
+
+    def test_progress_requires_auth(self):
+        self.assertIn(self.client.get('/api/v1/progress').status_code, (401, 403))
+        self.assertIn(self.client.put('/api/v1/progress', json={'payload': '{}'}).status_code, (401, 403))
+
+    def test_progress_roundtrip_scoped_to_user(self):
+        reg_a = self.client.post('/api/v1/auth/register',
+                                 json={'username': 'proguser_a', 'password': 'longenough8'})
+        reg_b = self.client.post('/api/v1/auth/register',
+                                 json={'username': 'proguser_b', 'password': 'longenough8'})
+        hdr_a = {'Authorization': f"Bearer {reg_a.json()['token']}"}
+        hdr_b = {'Authorization': f"Bearer {reg_b.json()['token']}"}
+
+        empty = self.client.get('/api/v1/progress', headers=hdr_a)
+        self.assertEqual(empty.status_code, 200)
+        self.assertIsNone(empty.json()['payload'])
+
+        put = self.client.put('/api/v1/progress', headers=hdr_a,
+                              json={'payload': '{"gpusim_score":"88","_syncedAt":123}'})
+        self.assertEqual(put.status_code, 200)
+        self.assertGreater(put.json()['updated_ts'], 0)
+
+        got_a = self.client.get('/api/v1/progress', headers=hdr_a)
+        self.assertIn('"gpusim_score":"88"', got_a.json()['payload'])
+        got_b = self.client.get('/api/v1/progress', headers=hdr_b)
+        self.assertIsNone(got_b.json()['payload'], 'progress leaked across users')
+
+        # overwrite wins
+        self.client.put('/api/v1/progress', headers=hdr_a,
+                        json={'payload': '{"gpusim_score":"92","_syncedAt":456}'})
+        again = self.client.get('/api/v1/progress', headers=hdr_a)
+        self.assertIn('"92"', again.json()['payload'])
+
+    def test_progress_rejects_non_json_and_oversized_payloads(self):
+        reg = self.client.post('/api/v1/auth/register',
+                               json={'username': 'proguser_c', 'password': 'longenough8'})
+        hdr = {'Authorization': f"Bearer {reg.json()['token']}"}
+        bad = self.client.put('/api/v1/progress', headers=hdr, json={'payload': 'not json'})
+        self.assertEqual(bad.status_code, 400)
+        huge = self.client.put('/api/v1/progress', headers=hdr,
+                               json={'payload': '"' + 'x' * 300_000 + '"'})
+        self.assertEqual(huge.status_code, 413)
+
 
 if __name__ == '__main__':
     unittest.main()

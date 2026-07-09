@@ -137,6 +137,7 @@ class AuthBrowserFlowTest(unittest.TestCase):
                 'register-mode',
                 'registered-code-shown',
                 'register-auto-login',
+                'progress-sync-roundtrip',
                 'reset-mode',
                 'reset-code-rotated',
                 'reset-auto-login',

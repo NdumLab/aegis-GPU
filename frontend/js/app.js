@@ -1292,13 +1292,84 @@ function toggleForgotMode(e) {
   setAuthMode(AUTH_MODE === 'reset' ? 'login' : 'reset');
 }
 
-function applyAuthSuccess(data) {
+// --- account-synced progress -------------------------------------------
+// Progress keeps working from localStorage when logged out or offline; when a
+// JWT is present it is mirrored to the account so learners can switch devices.
+const PROGRESS_SYNC_KEYS = [
+  'gpusim_reasoning_progress', 'gpusim_completed', 'gpusim_score',
+  'gpusim_branching_state', 'gpusim_beginner_mode', 'gpusim_explain_level',
+  'gpusim_explain_role', 'gpusim_lab_coach_open', 'gpusim_hub_seen',
+];
+let _progressSyncTimer = null;
+
+function collectProgressSnapshot() {
+  const snap = { _syncedAt: Number(localStorage.getItem('gpusim_progress_changed_ts') || 0) };
+  for (const key of PROGRESS_SYNC_KEYS) {
+    const value = localStorage.getItem(key);
+    if (value !== null) snap[key] = value;
+  }
+  return snap;
+}
+
+function markProgressChanged() {
+  localStorage.setItem('gpusim_progress_changed_ts', String(Date.now()));
+}
+
+function snapshotHasProgress(snap) {
+  return Boolean(snap && (snap.gpusim_reasoning_progress || snap.gpusim_completed || snap.gpusim_score));
+}
+
+function applyProgressSnapshot(snap) {
+  for (const key of PROGRESS_SYNC_KEYS) {
+    if (typeof snap[key] === 'string') localStorage.setItem(key, snap[key]);
+  }
+  localStorage.setItem('gpusim_progress_changed_ts', String(snap._syncedAt || Date.now()));
+}
+
+async function pushProgressToServer() {
+  if (!JWT_TOKEN) return;
+  try {
+    await fetch(`${API_BASE}/progress`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHdr() },
+      body: JSON.stringify({ payload: JSON.stringify(collectProgressSnapshot()) }),
+    });
+  } catch (_e) { /* offline is fine; localStorage remains authoritative locally */ }
+}
+
+function scheduleProgressSync() {
+  markProgressChanged();
+  if (!JWT_TOKEN) return;
+  if (_progressSyncTimer) clearTimeout(_progressSyncTimer);
+  _progressSyncTimer = setTimeout(pushProgressToServer, 4000);
+}
+window.scheduleProgressSync = scheduleProgressSync;
+
+async function syncProgressOnLogin() {
+  try {
+    const r = await fetch(`${API_BASE}/progress`, { headers: authHdr() });
+    if (!r.ok) return;
+    const data = await r.json();
+    const server = data.payload ? JSON.parse(data.payload) : null;
+    const local = collectProgressSnapshot();
+    if (snapshotHasProgress(server) &&
+        (!snapshotHasProgress(local) || (server._syncedAt || 0) > (local._syncedAt || 0))) {
+      applyProgressSnapshot(server);
+    } else if (snapshotHasProgress(local)) {
+      pushProgressToServer();
+    }
+  } catch (_e) { /* offline: keep local state */ }
+}
+
+async function applyAuthSuccess(data) {
   JWT_TOKEN = data.token;
   USER_ROLE  = data.role;
   sessionStorage.setItem('aegis_jwt', JWT_TOKEN);
   sessionStorage.setItem('aegis_role', USER_ROLE);
+  await syncProgressOnLogin();
   hideLoginOverlay();
   initApp();
+  setInterval(pushProgressToServer, 60000);
 }
 
 function showRecoveryReveal(data) {
