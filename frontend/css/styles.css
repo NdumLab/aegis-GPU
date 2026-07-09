@@ -446,6 +446,10 @@ body[data-workspace-mode="training"] .hdr-tool-group[data-mode-scope="training"]
 .panel p { color: var(--text); font-size: 13px; line-height: 1.7; margin-bottom: 12px; }
 .quiz-panel { width: 760px; }
 .study-panel { width: min(980px, calc(100vw - 36px)); }
+.learn-tabs { display: flex; gap: 6px; margin-bottom: 16px; padding-right: 72px; }
+.learn-tab { border: 1px solid var(--border); border-radius: 3px; background: transparent; color: var(--dim); cursor: pointer; font-family: var(--font-mono); font-size: 10px; padding: 5px 12px; text-transform: uppercase; transition: all .15s; }
+.learn-tab:hover { color: var(--text); background: rgba(255,255,255,.04); }
+.learn-tab.active { color: #06100a; background: var(--green); border-color: var(--green); font-weight: 700; }
 .quiz-panel-header,
 .study-panel-header { margin-bottom: 20px; padding-right: 36px; }
 .quiz-panel-header p,

@@ -1472,12 +1472,6 @@ function syncBeginnerModeUI() {
   const coachBtn = document.getElementById('btn-toggle-coach');
   if (coachBtn) coachBtn.classList.toggle('active', labCoachOpen);
   syncDetachedPanelButtons();
-  const learnBtn = document.getElementById('btn-learn');
-  if (learnBtn) {
-    const engine = getExplainEngine();
-    const level = engine ? engine.getLevel(explanationLevel).label : explanationLevel;
-    learnBtn.textContent = beginnerMode ? `📘 ${level} Guide` : '📘 Lab Brief';
-  }
 }
 
 function refreshExplanationSurfaces() {
