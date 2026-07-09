@@ -12,6 +12,7 @@ BRANCHING_JS = (ROOT / 'js' / 'branching.js').read_text(encoding='utf-8')
 COACH_JS = (ROOT / 'js' / 'coach.js').read_text(encoding='utf-8')
 STUDY_QUIZ_JS = (ROOT / 'js' / 'study-quiz.js').read_text(encoding='utf-8')
 RUNTIME_JS = (ROOT / 'js' / 'runtime.js').read_text(encoding='utf-8')
+HISTORY_JS = (ROOT / 'js' / 'history.js').read_text(encoding='utf-8')
 RENDER_JS = (ROOT / 'js' / 'render.js').read_text(encoding='utf-8')
 LEARNING_PART1_JS = (ROOT / 'js' / 'learning-part-1.js').read_text(encoding='utf-8')
 LABS_JS = (ROOT / 'js' / 'labs.js').read_text(encoding='utf-8')
@@ -53,6 +54,13 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('id="palette-overlay"', INDEX)
         self.assertIn('id="palette-input"', INDEX)
         self.assertIn('js/palette.js', INDEX)
+
+    def test_history_back_navigation_is_wired(self):
+        self.assertIn('js/history.js', INDEX)
+        self.assertIn('initAppHistory', RUNTIME_JS)
+        self.assertIn('popstate', HISTORY_JS)
+        self.assertIn('pushState', HISTORY_JS)
+        self.assertIn('replaceState', HISTORY_JS)
 
     def test_exam_prep_section_is_available(self):
         self.assertIn('id="btn-learn-hub"', INDEX)
