@@ -940,6 +940,39 @@ function resetAll() {
   updateClusterSimFoundationUI();
 }
 
+function showLandingHub() {
+  const hub = document.getElementById('hub-overlay');
+  if (hub) hub.style.display = 'flex';
+}
+
+function maybeShowLandingHub() {
+  if (isBrowserSmokeMode()) return false;
+  if (localStorage.getItem('gpusim_hub_seen')) return false;
+  showLandingHub();
+  return true;
+}
+
+function dismissLandingHub(choice) {
+  localStorage.setItem('gpusim_hub_seen', 'true');
+  const hub = document.getElementById('hub-overlay');
+  if (hub) hub.style.display = 'none';
+  if (choice === 'blueprint') {
+    const recon = document.getElementById('recon-overlay');
+    if (recon) recon.style.display = 'flex';
+    return;
+  }
+  if (!isProvisioned) applyProvisioning();
+  if (choice === 'incident') {
+    setWorkspaceMode('incident');
+  } else if (choice === 'fleet') {
+    setWorkspaceMode('fleet');
+  } else {
+    setWorkspaceMode('training', { openFleet: false });
+    const firstLab = typeof LABS !== 'undefined' ? Object.keys(LABS)[0] : null;
+    if (!currentLab && firstLab) loadLab(firstLab);
+  }
+}
+
 function setWorkspaceMode(mode, options = {}) {
   const allowedModes = new Set(['training', 'incident', 'fleet']);
   const nextMode = allowedModes.has(mode) ? mode : 'training';
@@ -966,6 +999,13 @@ function bindUIHandlers() {
   on('btn-login',  'click', aegisLogin);
   const passEl = document.getElementById('login-pass');
   if (passEl) passEl.addEventListener('keydown', e => { if(e.key==='Enter') aegisLogin(); });
+
+  on('hub-card-learn', 'click', () => dismissLandingHub('learn'));
+  on('hub-card-incident', 'click', () => dismissLandingHub('incident'));
+  on('hub-card-fleet', 'click', () => dismissLandingHub('fleet'));
+  on('hub-card-blueprint', 'click', () => dismissLandingHub('blueprint'));
+  on('brand-home', 'click', showLandingHub);
+  on('brand-home', 'keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showLandingHub(); } });
 
   on('btn-learn-hub', 'click', () => switchLearnTab('study'));
   document.querySelectorAll('[data-learn-tab]').forEach(btn => {
@@ -1151,8 +1191,10 @@ function initApp() {
   currentBlueprint = null;
   updateClusterSimFoundationUI();
   runInstantSentinel();
-  const reconOverlay = document.getElementById('recon-overlay');
-  if (reconOverlay) reconOverlay.style.display = 'flex';
+  if (!maybeShowLandingHub()) {
+    const reconOverlay = document.getElementById('recon-overlay');
+    if (reconOverlay) reconOverlay.style.display = 'flex';
+  }
   const initialSvg = document.getElementById('diagram-canvas');
   if (initialSvg && typeof drawWelcome === 'function') drawWelcome(initialSvg);
 

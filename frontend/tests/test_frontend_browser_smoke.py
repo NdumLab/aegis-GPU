@@ -57,6 +57,7 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
         scenarios = [
             'workspace_mode_scoping',
             'learn_hub_merged',
+            'landing_hub',
             'study_progress_empty',
             'ask_aegis_main',
             'ask_aegis_detached',
@@ -113,6 +114,12 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
                         self.assertTrue(result_event.wait(timeout=35), f'browser smoke result was not reported in time for {scenario}')
                         result = dict(_ResultHandler.result)
                         self.assertEqual(result.get('status'), 'pass', result)
+                        if scenario == 'landing_hub':
+                            self.assertIn('hub-visible', result.get('details', ''))
+                            self.assertIn('hub-learn-starts-lab', result.get('details', ''))
+                            self.assertIn('hub-fleet-routes', result.get('details', ''))
+                            self.assertIn('hub-blueprint-path', result.get('details', ''))
+                            continue
                         if scenario == 'learn_hub_merged':
                             self.assertIn('learn-hub-study', result.get('details', ''))
                             self.assertIn('learn-hub-quiz', result.get('details', ''))
