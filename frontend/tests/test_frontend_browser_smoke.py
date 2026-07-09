@@ -59,6 +59,7 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
             'learn_hub_merged',
             'landing_hub',
             'progressive_disclosure',
+            'command_palette',
             'study_progress_empty',
             'ask_aegis_main',
             'ask_aegis_detached',
@@ -115,6 +116,12 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
                         self.assertTrue(result_event.wait(timeout=35), f'browser smoke result was not reported in time for {scenario}')
                         result = dict(_ResultHandler.result)
                         self.assertEqual(result.get('status'), 'pass', result)
+                        if scenario == 'command_palette':
+                            self.assertIn('palette-opens', result.get('details', ''))
+                            self.assertIn('palette-runs-mode-command', result.get('details', ''))
+                            self.assertIn('palette-jumps-to-lab', result.get('details', ''))
+                            self.assertIn('palette-escape-closes', result.get('details', ''))
+                            continue
                         if scenario == 'progressive_disclosure':
                             self.assertIn('metrics-hidden-prelab', result.get('details', ''))
                             self.assertIn('terminal-idle-hint', result.get('details', ''))

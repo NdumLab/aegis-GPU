@@ -211,7 +211,6 @@ function loadLab(id) {
   currentLab = id;
   currentStep = -1;
   document.body.classList.add('lab-active');
-  if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
 
   const lab = LABS[id];
   document.getElementById('scen-title').textContent = lab.name;
@@ -263,7 +262,6 @@ function stageSelectedStep(labId, stepIdx, options = {}) {
   const { lab, redirectedMainStep, step, stepModifier } = context;
   currentStep = stepIdx;
   activeMainRedirectStep = redirectedMainStep;
-  if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
 
   document.querySelectorAll('.step-btn').forEach((btn,i) => {
     btn.classList.toggle('active', i===stepIdx);
