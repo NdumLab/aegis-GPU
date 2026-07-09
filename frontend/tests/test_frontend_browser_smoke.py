@@ -60,6 +60,7 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
             'landing_hub',
             'progressive_disclosure',
             'command_palette',
+            'history_back',
             'study_progress_empty',
             'ask_aegis_main',
             'ask_aegis_detached',
@@ -121,6 +122,12 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
                             self.assertIn('palette-runs-mode-command', result.get('details', ''))
                             self.assertIn('palette-jumps-to-lab', result.get('details', ''))
                             self.assertIn('palette-escape-closes', result.get('details', ''))
+                            continue
+                        if scenario == 'history_back':
+                            self.assertIn('labs-loaded', result.get('details', ''))
+                            self.assertIn('back-reopens-intro', result.get('details', ''))
+                            self.assertIn('back-returns-to-previous-lab', result.get('details', ''))
+                            self.assertIn('back-restores-mode', result.get('details', ''))
                             continue
                         if scenario == 'progressive_disclosure':
                             self.assertIn('metrics-hidden-prelab', result.get('details', ''))

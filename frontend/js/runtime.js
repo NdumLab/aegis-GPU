@@ -1262,6 +1262,7 @@ function initApp() {
   updateTerminalInputHint();
   startClusterSimFoundationLoop();
   renderClusterDashboardView();
+  if (typeof initAppHistory === 'function') initAppHistory();
 }
 
 window.addEventListener('load', async ()=>{

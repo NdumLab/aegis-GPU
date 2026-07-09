@@ -293,6 +293,41 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'history_back') {
+      const introShown = () => !!document.getElementById('intro-overlay')?.classList.contains('show');
+      const settle = () => browserSmokeWait(200);
+      document.getElementById('nav-nvlink')?.click();
+      await settle();
+      if (currentLab !== 'nvlink') throw new Error('nav click did not load the nvlink lab');
+      document.getElementById('btn-intro-close')?.click();
+      await settle();
+      document.getElementById('nav-mig')?.click();
+      await settle();
+      document.getElementById('btn-intro-close')?.click();
+      await settle();
+      if (currentLab !== 'mig') throw new Error('nav click did not load the mig lab');
+      details.push('labs-loaded');
+      history.back();
+      await browserSmokeWaitFor(introShown, 2000);
+      if (currentLab !== 'mig' || !introShown()) throw new Error('back did not reopen the mig intro');
+      details.push('back-reopens-intro');
+      history.back();
+      await browserSmokeWaitFor(() => currentLab === 'nvlink', 2000);
+      if (currentLab !== 'nvlink') throw new Error('back did not return to the nvlink lab');
+      if (introShown()) throw new Error('intro stayed open after backing to nvlink');
+      details.push('back-returns-to-previous-lab');
+      document.querySelector('[data-workspace-mode="fleet"]')?.click();
+      await settle();
+      if (document.body.dataset.workspaceMode !== 'fleet') throw new Error('fleet tab did not switch mode');
+      history.back();
+      await browserSmokeWaitFor(() => document.body.dataset.workspaceMode === 'training', 2000);
+      if (document.body.dataset.workspaceMode !== 'training') throw new Error('back did not restore training mode');
+      if (currentLab !== 'nvlink') throw new Error('back did not restore the nvlink lab view');
+      details.push('back-restores-mode');
+      setBrowserSmokeResult('pass', 'history back navigation verified', details);
+      return;
+    }
+
     if (scenario === 'progressive_disclosure') {
       const metricsVisible = () => window.getComputedStyle(document.getElementById('metrics-sidebar')).display !== 'none';
       setWorkspaceMode('training', { openFleet: false });
