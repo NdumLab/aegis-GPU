@@ -1,0 +1,11 @@
+# Log rotation for Aegis-GPU host logs (watchdog + smoke-CI).
+# The backend itself logs to the systemd journal, which is size-capped separately.
+/var/log/aegis-gpu/*.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

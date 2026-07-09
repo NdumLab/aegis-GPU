@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Aegis-GPU watchdog every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+Unit=aegis-watchdog.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -56,4 +56,13 @@ backup_root=${DEST}
 EOF
 fi
 
+# Retention: keep the newest 14 backups so a permanently-running host
+# never fills its disk with deploy snapshots.
+KEEP=${AEGIS_BACKUP_KEEP:-14}
+if [ "${DRY_RUN}" -eq 1 ]; then
+  printf '[dry-run] prune backups beyond newest %s in %s\n' "${KEEP}" "${BACKUP_ROOT}"
+else
+  ls -1d "${BACKUP_ROOT}"/*/ 2>/dev/null | sort | head -n -"${KEEP}" | xargs -r rm -rf
+fi
+
 printf '%s\n' "${DEST}"

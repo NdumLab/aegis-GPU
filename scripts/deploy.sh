@@ -106,8 +106,25 @@ run install -o root -g root -m 644 \
   "${REPO_ROOT}/deploy/systemd/aegis-smoke-ci.timer" \
   /etc/systemd/system/aegis-smoke-ci.timer
 
+run install -o root -g root -m 755 \
+  "${REPO_ROOT}/deploy/systemd/aegis-watchdog.sh" \
+  /usr/local/bin/aegis-watchdog.sh
+
+run install -o root -g root -m 644 \
+  "${REPO_ROOT}/deploy/systemd/aegis-watchdog.service" \
+  /etc/systemd/system/aegis-watchdog.service
+
+run install -o root -g root -m 644 \
+  "${REPO_ROOT}/deploy/systemd/aegis-watchdog.timer" \
+  /etc/systemd/system/aegis-watchdog.timer
+
+run install -o root -g root -m 644 \
+  "${REPO_ROOT}/deploy/logrotate/aegis-gpu" \
+  /etc/logrotate.d/aegis-gpu
+
 run systemctl daemon-reload
 run systemctl enable --now aegis-smoke-ci.timer
+run systemctl enable --now aegis-watchdog.timer
 run nginx -t
 run systemctl restart nginx aegis-gpu
 
