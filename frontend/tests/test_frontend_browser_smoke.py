@@ -55,6 +55,7 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
         result_port = _get_free_loopback_port()
         app_port = _get_free_loopback_port()
         scenarios = [
+            'workspace_mode_scoping',
             'study_progress_empty',
             'ask_aegis_main',
             'ask_aegis_detached',
@@ -111,6 +112,12 @@ class FrontendBrowserSmokeTest(unittest.TestCase):
                         self.assertTrue(result_event.wait(timeout=35), f'browser smoke result was not reported in time for {scenario}')
                         result = dict(_ResultHandler.result)
                         self.assertEqual(result.get('status'), 'pass', result)
+                        if scenario == 'workspace_mode_scoping':
+                            self.assertIn('mode-training-scoped', result.get('details', ''))
+                            self.assertIn('mode-incident-scoped', result.get('details', ''))
+                            self.assertIn('mode-fleet-scoped', result.get('details', ''))
+                            self.assertIn('status-always-visible', result.get('details', ''))
+                            continue
                         if scenario == 'study_progress_empty':
                             self.assertIn('study-progress-visible', result.get('details', ''))
                             self.assertIn('empty-state-visible', result.get('details', ''))

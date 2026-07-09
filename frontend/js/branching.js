@@ -230,6 +230,32 @@ async function runBrowserSmokeScenario() {
     if (!isProvisioned) throw new Error('provisioning did not complete');
     details.push('provisioned');
 
+    if (scenario === 'workspace_mode_scoping') {
+      const groupVisible = scope => {
+        const group = document.querySelector(`.hdr-tool-group[data-mode-scope="${scope}"]`);
+        return !!group && window.getComputedStyle(group).display !== 'none';
+      };
+      for (const mode of ['training', 'incident', 'fleet']) {
+        setWorkspaceMode(mode, { openFleet: false });
+        await browserSmokeWait(80);
+        if (document.body.dataset.workspaceMode !== mode) throw new Error(`body mode did not switch to ${mode}`);
+        const activeTab = document.querySelector('.mode-tab.active');
+        if (activeTab?.getAttribute('data-workspace-mode') !== mode) throw new Error(`active tab did not follow ${mode} mode`);
+        for (const scope of ['training', 'incident', 'fleet']) {
+          if (groupVisible(scope) !== (scope === mode)) {
+            throw new Error(`${scope} tool group ${scope === mode ? 'hidden' : 'visible'} in ${mode} mode`);
+          }
+        }
+        const statusGroup = document.querySelector('.hdr-status-group');
+        if (!statusGroup || window.getComputedStyle(statusGroup).display === 'none') throw new Error(`status group hidden in ${mode} mode`);
+        details.push(`mode-${mode}-scoped`);
+      }
+      setWorkspaceMode('training', { openFleet: false });
+      details.push('status-always-visible');
+      setBrowserSmokeResult('pass', 'workspace mode scoping verified', details);
+      return;
+    }
+
     if (scenario === 'study_progress_empty') {
       openStudyGuide('nca_aiio');
       await browserSmokeWait(80);
