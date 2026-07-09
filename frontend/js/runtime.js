@@ -210,6 +210,7 @@ function loadLab(id) {
   activeMainRedirectStep = null;
   currentLab = id;
   currentStep = -1;
+  document.body.classList.add('lab-active');
   if (beginnerMode && !labCoachOpen) setLabCoachOpen(true);
 
   const lab = LABS[id];
@@ -512,6 +513,16 @@ function logTerm(lines) {
 function clearTerminal() {
   document.getElementById('terminal-output').innerHTML = '';
   termLines.term = [];
+}
+
+function logTermIdleHint() {
+  const out = document.getElementById('terminal-output');
+  if (out && !out.childElementCount) {
+    logTerm([
+      { t: 'dim', v: '# No lab selected yet.' },
+      { t: 'dim', v: '# Pick a lab in the left sidebar to begin — the commands you run will appear here.' },
+    ]);
+  }
 }
 
 function scrollTerminal() {
@@ -921,6 +932,8 @@ function resetAll() {
   activeAlternateStep = null;
   activeMainRedirectStep = null;
   currentLab=null; currentStep=-1;
+  document.body.classList.remove('lab-active');
+  logTermIdleHint();
   setClusterDashboardVisible(false);
   clusterDashboardActive = false;
   document.getElementById('scen-title').textContent='GPU Infrastructure Simulator';
@@ -1195,6 +1208,8 @@ function initApp() {
     const reconOverlay = document.getElementById('recon-overlay');
     if (reconOverlay) reconOverlay.style.display = 'flex';
   }
+  document.body.classList.toggle('lab-active', !!currentLab);
+  logTermIdleHint();
   const initialSvg = document.getElementById('diagram-canvas');
   if (initialSvg && typeof drawWelcome === 'function') drawWelcome(initialSvg);
 
