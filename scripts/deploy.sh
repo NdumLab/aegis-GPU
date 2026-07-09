@@ -94,7 +94,20 @@ run install -o root -g root -m 644 \
   "${REPO_ROOT}/deploy/systemd/aegis-gpu.service" \
   /etc/systemd/system/aegis-gpu.service
 
+run install -o root -g root -m 755 \
+  "${REPO_ROOT}/deploy/systemd/aegis-smoke-ci.sh" \
+  /usr/local/bin/aegis-smoke-ci.sh
+
+run install -o root -g root -m 644 \
+  "${REPO_ROOT}/deploy/systemd/aegis-smoke-ci.service" \
+  /etc/systemd/system/aegis-smoke-ci.service
+
+run install -o root -g root -m 644 \
+  "${REPO_ROOT}/deploy/systemd/aegis-smoke-ci.timer" \
+  /etc/systemd/system/aegis-smoke-ci.timer
+
 run systemctl daemon-reload
+run systemctl enable --now aegis-smoke-ci.timer
 run nginx -t
 run systemctl restart nginx aegis-gpu
 
