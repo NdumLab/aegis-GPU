@@ -14,6 +14,7 @@ LABS_PARTS = [
     ROOT / 'js' / 'labs-part-2.js',
     ROOT / 'js' / 'labs-part-3.js',
     ROOT / 'js' / 'labs-part-4.js',
+    ROOT / 'js' / 'labs-part-5.js',
 ]
 LEARNING_PARTS = [
     ROOT / 'js' / 'learning-part-1.js',
@@ -64,7 +65,7 @@ def load_frontend_data():
               steps: lab.steps.length,
               missingScreenshotReference: lab.steps.filter(step => !step.screenshotReference).map(step => step.label),
               missingScreenshots: lab.steps.filter(step => !Array.isArray(step.screenshots) || step.screenshots.length === 0).map(step => step.label),
-              missingTerminalMetadata: ['nvlink', 'mig', 'nccl_fallback', 'k8s', 'slurm', 'monitoring', 'cuda_stack', 'container', 'training', 'allreduce', 'ib_fabric', 'roce', 'storage', 'gds'].includes(id)
+              missingTerminalMetadata: ['nvlink', 'mig', 'nccl_fallback', 'k8s', 'slurm', 'monitoring', 'cuda_stack', 'container', 'training', 'allreduce', 'ib_fabric', 'roce', 'storage', 'gds', 'ai_concepts', 'inference', 'nvidia_stack', 'infra_planning', 'dpu_cloud', 'vgpu'].includes(id)
                 ? lab.steps.filter(step => !step.terminal || !Array.isArray(step.terminal.examples) || step.terminal.examples.length === 0).map(step => step.label)
                 : [],
             }}])
@@ -99,7 +100,7 @@ class FrontendDataStructureTest(unittest.TestCase):
         cls.summary = load_frontend_data()
 
     def test_expected_lab_count(self):
-        self.assertEqual(len(self.summary['labKeys']), 16)
+        self.assertEqual(len(self.summary['labKeys']), 22)
 
     def test_learning_and_lab_keys_stay_aligned(self):
         self.assertEqual(sorted(self.summary['labKeys']), sorted(self.summary['learningKeys']))
