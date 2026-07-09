@@ -256,6 +256,37 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'learn_hub_merged') {
+      const overlayShown = id => !!document.getElementById(id)?.classList.contains('show');
+      if (document.getElementById('btn-study') || document.getElementById('btn-quiz') || document.getElementById('sidebar-btn-study')) {
+        throw new Error('old learning buttons are still present');
+      }
+      document.getElementById('btn-learn-hub')?.click();
+      await browserSmokeWait(80);
+      if (!overlayShown('study-overlay')) throw new Error('Learn button did not open the study guide');
+      details.push('learn-hub-study');
+      document.querySelector('#study-overlay [data-learn-tab="quiz"]')?.click();
+      await browserSmokeWait(80);
+      if (!overlayShown('quiz-overlay')) throw new Error('quiz tab did not open the quiz');
+      if (overlayShown('study-overlay')) throw new Error('study guide stayed open behind the quiz');
+      details.push('learn-hub-quiz');
+      document.querySelector('#quiz-overlay [data-learn-tab="study"]')?.click();
+      await browserSmokeWait(80);
+      if (!overlayShown('study-overlay') || overlayShown('quiz-overlay')) throw new Error('study tab did not switch back from quiz');
+      details.push('learn-hub-roundtrip');
+      loadLab('nvlink');
+      document.getElementById('btn-intro-close')?.click();
+      document.getElementById('btn-learn-hub')?.click();
+      await browserSmokeWait(80);
+      document.querySelector('#study-overlay [data-learn-tab="intro"]')?.click();
+      await browserSmokeWait(80);
+      if (!overlayShown('intro-overlay')) throw new Error('intro tab did not open the lab intro');
+      if (overlayShown('study-overlay')) throw new Error('study guide stayed open behind the lab intro');
+      details.push('learn-hub-intro');
+      setBrowserSmokeResult('pass', 'merged learn hub verified', details);
+      return;
+    }
+
     if (scenario === 'study_progress_empty') {
       openStudyGuide('nca_aiio');
       await browserSmokeWait(80);

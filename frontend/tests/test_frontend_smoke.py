@@ -42,8 +42,12 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('h-judgment', INDEX)
 
     def test_exam_prep_section_is_available(self):
-        self.assertIn('id="btn-study"', INDEX)
-        self.assertIn('id="sidebar-btn-study"', INDEX)
+        self.assertIn('id="btn-learn-hub"', INDEX)
+        self.assertIn('data-learn-tab="study"', INDEX)
+        self.assertIn('data-learn-tab="quiz"', INDEX)
+        self.assertIn('data-learn-tab="intro"', INDEX)
+        self.assertNotIn('id="btn-study"', INDEX)
+        self.assertNotIn('id="sidebar-btn-study"', INDEX)
         self.assertIn('id="study-overlay"', INDEX)
         self.assertIn('EXAM_STUDY_GUIDES', FRONTEND_JS)
         self.assertIn('NVIDIA-Certified Associate: AI Infrastructure and Operations', FRONTEND_JS)

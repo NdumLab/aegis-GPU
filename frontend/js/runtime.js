@@ -967,11 +967,12 @@ function bindUIHandlers() {
   const passEl = document.getElementById('login-pass');
   if (passEl) passEl.addEventListener('keydown', e => { if(e.key==='Enter') aegisLogin(); });
 
-  on('btn-quiz',    'click', openQuiz);
-  on('btn-study',   'click', () => openStudyGuide('nca_aiio'));
+  on('btn-learn-hub', 'click', () => switchLearnTab('study'));
+  document.querySelectorAll('[data-learn-tab]').forEach(btn => {
+    btn.addEventListener('click', () => switchLearnTab(btn.getAttribute('data-learn-tab')));
+  });
   on('btn-blueprint', 'click', () => { document.getElementById('recon-overlay').style.display = 'flex'; });
   on('btn-open-fleet', 'click', () => openClusterDashboard());
-  on('btn-learn',   'click', () => { if (currentLab) showIntro(currentLab); });
   on('btn-logout',  'click', aegisLogout);
   on('btn-reset',   'click', resetAll);
   on('toggle-beginner', 'change', e => setBeginnerMode(e.target.checked));
@@ -989,8 +990,6 @@ function bindUIHandlers() {
   const coachEl = document.getElementById('lab-step-coach');
   if (coachEl) coachEl.addEventListener('click', handleLabCoachClick);
 
-  on('sidebar-btn-study', 'click', () => openStudyGuide('nca_aiio'));
-  on('sidebar-btn-quiz', 'click', openQuiz);
 
   on('sel-blueprint', 'change', runInstantSentinel);
   on('sel-fabric',    'change', runInstantSentinel);

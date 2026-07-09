@@ -69,9 +69,7 @@
       <div class="hdr-stat">Judgment: <span id="h-judgment">—</span></div>
     </div>
     <div class="hdr-tool-group" data-mode-scope="training">
-      <button class="btn-sm" id="btn-study">Exam Prep</button>
-      <button class="btn-sm" id="btn-learn">Learn</button>
-      <button class="btn-sm" id="btn-quiz">Quiz</button>
+      <button class="btn-sm" id="btn-learn-hub">📚 Learn</button>
       <label class="explain-toolbar-check"><input type="checkbox" id="toggle-beginner" checked> Beginner</label>
     </div>
     <div class="hdr-tool-group" data-mode-scope="incident">
@@ -165,12 +163,6 @@
       <div class="nav-item" id="nav-slurm"><span class="icon">📋</span> Slurm Scheduler <span class="badge" id="b-slurm">OPS</span></div>
       <div class="nav-item" id="nav-k8s"><span class="icon">☸️</span> Kubernetes GPU Ops <span class="badge" id="b-k8s">OPS</span></div>
 
-      <div class="sidebar-section" style="margin-top:8px">
-        <div class="sidebar-action-row">
-          <button class="btn-sm primary" id="sidebar-btn-study">📚 Exam Prep</button>
-          <button class="btn-sm" id="sidebar-btn-quiz">📋 Take Quiz</button>
-        </div>
-      </div>
   </nav>
 
   <div class="main">
@@ -324,6 +316,11 @@
       <button class="panel-popout-btn" id="btn-popout-study" type="button" title="Open exam prep in a separate window">Pop out</button>
       <button class="close-btn" id="btn-study-close">✕</button>
     </div>
+    <div class="learn-tabs" role="tablist" aria-label="Learning tools">
+      <button class="learn-tab active" type="button" data-learn-tab="study">Study Path</button>
+      <button class="learn-tab" type="button" data-learn-tab="quiz">Practice Quiz</button>
+      <button class="learn-tab" type="button" data-learn-tab="intro" title="Opens the intro for the lab you are working on">Lab Intro</button>
+    </div>
     <div class="study-panel-header">
       <h2>NVIDIA Exam Prep</h2>
       <p id="study-panel-subtitle">NCA-AIIO study path mapped to Aegis-GPU labs, operator concepts, and exam-style traps.</p>
@@ -337,6 +334,11 @@
     <div class="panel-tools">
       <button class="panel-popout-btn" id="btn-popout-quiz" type="button" title="Open quiz in a separate window">Pop out</button>
       <button class="close-btn" id="btn-quiz-close">✕</button>
+    </div>
+    <div class="learn-tabs" role="tablist" aria-label="Learning tools">
+      <button class="learn-tab" type="button" data-learn-tab="study">Study Path</button>
+      <button class="learn-tab active" type="button" data-learn-tab="quiz">Practice Quiz</button>
+      <button class="learn-tab" type="button" data-learn-tab="intro" title="Opens the intro for the lab you are working on">Lab Intro</button>
     </div>
     <div class="quiz-panel-header">
       <h2>NCA-AIIO Practice Quiz</h2>

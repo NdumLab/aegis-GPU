@@ -247,12 +247,37 @@ function renderStudyGuide(examId = 'nca_aiio') {
   `;
 }
 
+function updateLearnTabs(view) {
+  document.querySelectorAll('[data-learn-tab]').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-learn-tab') === view);
+  });
+}
+
+function switchLearnTab(view) {
+  if (view === 'intro') {
+    if (typeof currentLab !== 'undefined' && currentLab) {
+      closeStudyGuide();
+      closeQuiz();
+      showIntro(currentLab);
+    }
+    return;
+  }
+  if (view === 'quiz') {
+    closeStudyGuide();
+    openQuiz();
+  } else {
+    closeQuiz();
+    openStudyGuide('nca_aiio');
+  }
+}
+
 function openStudyGuide(examId = 'nca_aiio') {
   const content = document.getElementById('study-content');
   if (!content) return;
   content.dataset.examId = examId;
   content.innerHTML = renderStudyGuide(examId);
   document.getElementById('study-overlay')?.classList.add('show');
+  updateLearnTabs('study');
   renderDetachedPanel('studyOverlay');
 }
 
@@ -589,6 +614,7 @@ function openQuiz() {
   el.appendChild(actions);
   el.appendChild(result);
   document.getElementById('quiz-overlay').classList.add('show');
+  updateLearnTabs('quiz');
   renderDetachedPanel('quizOverlay');
 }
 
