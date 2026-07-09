@@ -1259,6 +1259,64 @@ async function refreshLoginVersion() {
   }
 }
 
+let AUTH_MODE = 'login';
+
+function toggleAuthMode(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  AUTH_MODE = AUTH_MODE === 'login' ? 'register' : 'login';
+  const registering = AUTH_MODE === 'register';
+  const confirmRow = document.getElementById('login-confirm-row');
+  const hintEl = document.getElementById('login-hint');
+  const btnEl = document.getElementById('btn-login');
+  const toggleEl = document.getElementById('login-toggle');
+  const errEl = document.getElementById('login-err');
+  if (confirmRow) confirmRow.style.display = registering ? 'block' : 'none';
+  if (hintEl) hintEl.style.display = registering ? 'block' : 'none';
+  if (btnEl) btnEl.textContent = registering ? 'CREATE ACCOUNT' : 'AUTHENTICATE';
+  if (toggleEl) toggleEl.textContent = registering ? 'Have an account? Sign in' : 'Need an account? Create one';
+  if (errEl) errEl.style.display = 'none';
+}
+
+function applyAuthSuccess(data) {
+  JWT_TOKEN = data.token;
+  USER_ROLE  = data.role;
+  sessionStorage.setItem('aegis_jwt', JWT_TOKEN);
+  sessionStorage.setItem('aegis_role', USER_ROLE);
+  hideLoginOverlay();
+  initApp();
+}
+
+function showAuthError(errEl, message) {
+  if (errEl) { errEl.textContent = message; errEl.style.display = 'block'; }
+}
+
+async function aegisAuthSubmit() {
+  if (AUTH_MODE === 'register') return aegisRegister();
+  return aegisLogin();
+}
+
+async function aegisRegister() {
+  const u = (document.getElementById('login-user') || {}).value?.trim() || '';
+  const p = (document.getElementById('login-pass') || {}).value || '';
+  const p2 = (document.getElementById('login-pass2') || {}).value || '';
+  const errEl = document.getElementById('login-err');
+  if (errEl) errEl.style.display = 'none';
+  if (p.length < 8) return showAuthError(errEl, 'Password must be at least 8 characters.');
+  if (p !== p2) return showAuthError(errEl, 'Passwords do not match.');
+  try {
+    const r = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await r.json();
+    if (!r.ok) return showAuthError(errEl, data.detail || 'Registration failed.');
+    applyAuthSuccess(data);
+  } catch(e) {
+    showAuthError(errEl, 'Connection error. Is the backend reachable?');
+  }
+}
+
 async function aegisLogin() {
   const u = (document.getElementById('login-user') || {}).value?.trim() || '';
   const p = (document.getElementById('login-pass') || {}).value || '';
@@ -1271,18 +1329,10 @@ async function aegisLogin() {
       body: JSON.stringify({ username: u, password: p })
     });
     const data = await r.json();
-    if (!r.ok) {
-      if (errEl) { errEl.textContent = data.detail || 'Login failed.'; errEl.style.display = 'block'; }
-      return;
-    }
-    JWT_TOKEN = data.token;
-    USER_ROLE  = data.role;
-    sessionStorage.setItem('aegis_jwt', JWT_TOKEN);
-    sessionStorage.setItem('aegis_role', USER_ROLE);
-    hideLoginOverlay();
-    initApp();
+    if (!r.ok) return showAuthError(errEl, data.detail || 'Login failed.');
+    applyAuthSuccess(data);
   } catch(e) {
-    if (errEl) { errEl.textContent = 'Connection error. Is the backend reachable?'; errEl.style.display = 'block'; }
+    showAuthError(errEl, 'Connection error. Is the backend reachable?');
   }
 }
 

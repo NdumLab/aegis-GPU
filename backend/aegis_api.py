@@ -180,6 +180,14 @@ def ensure_incidents_db() -> bool:
                     summary   TEXT
                 )
             ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    username   TEXT PRIMARY KEY,
+                    hash       TEXT NOT NULL,
+                    role       TEXT NOT NULL DEFAULT 'user',
+                    created_ts INTEGER NOT NULL
+                )
+            ''')
             conn.commit()
         _DB_READY = True
         _DB_ERROR = ''
@@ -312,6 +320,37 @@ async def prometheus_middleware(request: Request, call_next):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+
+USERNAME_RE = re.compile(r'^[A-Za-z0-9](?:[A-Za-z0-9_.-]{1,30})[A-Za-z0-9]$')
+MIN_PASSWORD_LENGTH = 8
+
+
+def get_db_user(username: str) -> Optional[dict]:
+    try:
+        if not ensure_incidents_db():
+            return None
+        with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute('SELECT username, hash, role FROM users WHERE username = ?', (username,)).fetchone()
+            return dict(row) if row else None
+    except Exception as exc:
+        logging.getLogger('aegis.audit').warning('user lookup failed: %s', exc)
+        return None
+
+
+def create_db_user(username: str, password_hash: str, role: str = 'user') -> None:
+    with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+        conn.execute(
+            'INSERT INTO users (username, hash, role, created_ts) VALUES (?,?,?,?)',
+            (username, password_hash, role, int(time.time())),
+        )
+        conn.commit()
 
 
 class DiagnoseRequest(BaseModel):
@@ -1663,9 +1702,38 @@ def metrics_endpoint():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
+@app.post('/api/v1/auth/register', status_code=status.HTTP_201_CREATED)
+def register(body: RegisterRequest, request: Request):
+    username = body.username.strip()
+    if not USERNAME_RE.match(username):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail='Username must be 3-32 characters: letters, digits, dot, dash, underscore.')
+    if len(body.password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f'Password must be at least {MIN_PASSWORD_LENGTH} characters.')
+    if username.lower() in {name.lower() for name in USERS} or get_db_user(username):
+        audit(request, 'register_conflict', f'username={username}')
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='That username is taken.')
+    if not ensure_incidents_db():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail='Account store unavailable; try again shortly.')
+    password_hash = bcrypt.hashpw(body.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    try:
+        create_db_user(username, password_hash)
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='That username is taken.')
+    audit(request, 'register_success', f'username={username} role=user', user=username)
+    token = create_token(username, 'user')
+    return {'token': token, 'role': 'user', 'expires_in': JWT_HOURS * 3600}
+
+
 @app.post('/api/v1/auth/login')
 def login(body: LoginRequest, request: Request):
     user = USERS.get(body.username)
+    if not (user and user['hash']):
+        db_user = get_db_user(body.username)
+        if db_user:
+            user = db_user
     dummy = b'$2b$12$123456789012345678901uM9Q2L1qO3JicQ0JGvN9zeps2sonMSK.'
     stored_hash = user['hash'].encode('utf-8') if (user and user['hash']) else dummy
     try:

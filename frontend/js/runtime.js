@@ -1007,9 +1007,12 @@ function bindUIHandlers() {
   _uiHandlersBound = true;
   const on = (id, ev, fn) => { const el = document.getElementById(id); if(el) el.addEventListener(ev, fn); };
 
-  on('btn-login',  'click', aegisLogin);
+  on('btn-login',  'click', aegisAuthSubmit);
+  on('login-toggle', 'click', toggleAuthMode);
   const passEl = document.getElementById('login-pass');
-  if (passEl) passEl.addEventListener('keydown', e => { if(e.key==='Enter') aegisLogin(); });
+  if (passEl) passEl.addEventListener('keydown', e => { if(e.key==='Enter') aegisAuthSubmit(); });
+  const pass2El = document.getElementById('login-pass2');
+  if (pass2El) pass2El.addEventListener('keydown', e => { if(e.key==='Enter') aegisAuthSubmit(); });
 
   on('hub-card-learn', 'click', () => dismissLandingHub('learn'));
   on('hub-card-incident', 'click', () => dismissLandingHub('incident'));

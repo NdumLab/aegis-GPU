@@ -485,6 +485,56 @@ class BackendSmokeTest(unittest.TestCase):
         self.assertEqual(payload['status'], 'manual_required')
         self.assertEqual(payload['fault'], 'XID 79')
 
+    # --- self-service registration ---
+
+    def test_register_creates_account_and_allows_login(self):
+        res = self.client.post('/api/v1/auth/register',
+                               json={'username': 'learner1', 'password': 'longenough8'})
+        self.assertEqual(res.status_code, 201)
+        payload = res.json()
+        self.assertEqual(payload['role'], 'user')
+        self.assertTrue(payload['token'])
+
+        me = self.client.get('/api/v1/auth/me', headers={'Authorization': f"Bearer {payload['token']}"})
+        self.assertEqual(me.status_code, 200)
+        self.assertEqual(me.json()['username'], 'learner1')
+
+        login = self.client.post('/api/v1/auth/login',
+                                 json={'username': 'learner1', 'password': 'longenough8'})
+        self.assertEqual(login.status_code, 200)
+        self.assertEqual(login.json()['role'], 'user')
+
+    def test_register_rejects_short_password(self):
+        res = self.client.post('/api/v1/auth/register',
+                               json={'username': 'shortpw', 'password': 'seven77'})
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('at least 8', res.json()['detail'])
+
+    def test_register_rejects_bad_usernames(self):
+        for bad in ('ab', 'a' * 33, 'has space', 'semi;colon', '-leadingdash'):
+            res = self.client.post('/api/v1/auth/register',
+                                   json={'username': bad, 'password': 'longenough8'})
+            self.assertEqual(res.status_code, 400, f'username {bad!r} should be rejected')
+
+    def test_register_rejects_duplicates_and_reserved_names(self):
+        first = self.client.post('/api/v1/auth/register',
+                                 json={'username': 'dupuser', 'password': 'longenough8'})
+        self.assertEqual(first.status_code, 201)
+        dup = self.client.post('/api/v1/auth/register',
+                               json={'username': 'dupuser', 'password': 'longenough8'})
+        self.assertEqual(dup.status_code, 409)
+        for reserved in ('admin', 'Admin', 'analyst'):
+            res = self.client.post('/api/v1/auth/register',
+                                   json={'username': reserved, 'password': 'longenough8'})
+            self.assertEqual(res.status_code, 409, f'{reserved} must stay reserved')
+
+    def test_registered_user_cannot_use_wrong_password(self):
+        self.client.post('/api/v1/auth/register',
+                         json={'username': 'wrongpw', 'password': 'longenough8'})
+        res = self.client.post('/api/v1/auth/login',
+                               json={'username': 'wrongpw', 'password': 'not-the-password'})
+        self.assertEqual(res.status_code, 401)
+
 
 if __name__ == '__main__':
     unittest.main()
