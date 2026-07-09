@@ -256,6 +256,34 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'progressive_disclosure') {
+      const metricsVisible = () => window.getComputedStyle(document.getElementById('metrics-sidebar')).display !== 'none';
+      setWorkspaceMode('training', { openFleet: false });
+      await browserSmokeWait(80);
+      if (metricsVisible()) throw new Error('metrics sidebar visible before any lab is active');
+      details.push('metrics-hidden-prelab');
+      const termText = String(document.getElementById('terminal-output')?.textContent || '');
+      if (!termText.includes('Pick a lab in the left sidebar')) throw new Error('terminal idle hint missing');
+      details.push('terminal-idle-hint');
+      loadLab('nvlink');
+      document.getElementById('btn-intro-close')?.click();
+      await browserSmokeWait(80);
+      if (!metricsVisible()) throw new Error('metrics sidebar hidden while a lab is active');
+      details.push('metrics-visible-in-lab');
+      setWorkspaceMode('incident');
+      await browserSmokeWait(80);
+      if (!metricsVisible()) throw new Error('metrics sidebar hidden in incident mode');
+      setWorkspaceMode('training', { openFleet: false });
+      details.push('metrics-visible-incident');
+      resetAll();
+      applyProvisioning();
+      await browserSmokeWait(80);
+      if (metricsVisible()) throw new Error('metrics sidebar still visible after reset');
+      details.push('metrics-hidden-after-reset');
+      setBrowserSmokeResult('pass', 'progressive disclosure verified', details);
+      return;
+    }
+
     if (scenario === 'landing_hub') {
       const hubVisible = () => document.getElementById('hub-overlay')?.style.display !== 'none';
       localStorage.removeItem('gpusim_hub_seen');
