@@ -25,7 +25,12 @@ let clusterDashboardActive = false;
 
 let isProvisioned = false;
 let currentBlueprint = null;
-const API_BASE = window.__AEGIS_API_BASE__ || `${window.location.origin}/api/v1`;
+// Test hook: ?apiBase= override is honored only on loopback hosts (browser
+// test harness points the static frontend at a locally spawned backend).
+const _LOOPBACK_API_OVERRIDE = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
+  ? new URLSearchParams(window.location.search).get('apiBase')
+  : null;
+const API_BASE = window.__AEGIS_API_BASE__ || _LOOPBACK_API_OVERRIDE || `${window.location.origin}/api/v1`;
 // Sprint 16: JWT-based authentication — token fetched at login, never hard-coded.
 let JWT_TOKEN = sessionStorage.getItem('aegis_jwt') || '';
 let _appInitialized = false;

@@ -430,6 +430,78 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'auth_register_reset') {
+      const $ = id => document.getElementById(id);
+      const overlayShown = () => $('login-overlay') && $('login-overlay').style.display !== 'none';
+      const overlayHidden = () => $('login-overlay') && $('login-overlay').style.display === 'none';
+      const revealShown = () => $('login-reveal') && $('login-reveal').style.display !== 'none';
+      const codePattern = /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
+      const uniq = 'smoke_' + Date.now().toString(36);
+
+      showLoginOverlay();
+      $('login-toggle').click();
+      if ($('login-confirm-row').style.display === 'none') throw new Error('register mode did not reveal confirm field');
+      if ($('btn-login').textContent !== 'CREATE ACCOUNT') throw new Error('register mode did not relabel button');
+      details.push('register-mode');
+
+      $('login-user').value = uniq;
+      $('login-pass').value = 'firstpass1';
+      $('login-pass2').value = 'firstpass1';
+      $('btn-login').click();
+      if (!await browserSmokeWaitFor(revealShown, 10000)) {
+        throw new Error('register reveal missing; err=' + String($('login-err')?.textContent || 'none'));
+      }
+      const code1 = String($('login-reveal-code').textContent || '').trim();
+      if (!codePattern.test(code1)) throw new Error('recovery code shape wrong: ' + code1);
+      details.push('registered-code-shown');
+
+      $('btn-reveal-continue').click();
+      if (!await browserSmokeWaitFor(overlayHidden, 10000)) throw new Error('register did not auto-login');
+      details.push('register-auto-login');
+
+      aegisLogout();
+      if (!await browserSmokeWaitFor(overlayShown, 4000)) throw new Error('logout did not show login');
+      $('login-forgot').click();
+      if ($('login-recovery-row').style.display === 'none') throw new Error('reset mode did not reveal recovery field');
+      if ($('btn-login').textContent !== 'RESET PASSWORD') throw new Error('reset mode did not relabel button');
+      details.push('reset-mode');
+
+      $('login-user').value = uniq;
+      $('login-recovery').value = code1.toLowerCase().replace(/-/g, '');
+      $('login-pass').value = 'secondpass2';
+      $('login-pass2').value = 'secondpass2';
+      $('btn-login').click();
+      if (!await browserSmokeWaitFor(revealShown, 10000)) {
+        throw new Error('reset reveal missing; err=' + String($('login-err')?.textContent || 'none'));
+      }
+      const code2 = String($('login-reveal-code').textContent || '').trim();
+      if (!codePattern.test(code2)) throw new Error('rotated code shape wrong: ' + code2);
+      if (code2 === code1) throw new Error('recovery code did not rotate on reset');
+      details.push('reset-code-rotated');
+
+      $('btn-reveal-continue').click();
+      if (!await browserSmokeWaitFor(overlayHidden, 10000)) throw new Error('reset did not auto-login');
+      details.push('reset-auto-login');
+
+      aegisLogout();
+      if (!await browserSmokeWaitFor(overlayShown, 4000)) throw new Error('second logout did not show login');
+      $('login-user').value = uniq;
+      $('login-pass').value = 'firstpass1';
+      $('btn-login').click();
+      if (!await browserSmokeWaitFor(() => $('login-err').style.display === 'block', 10000)) {
+        throw new Error('old password was not rejected after reset');
+      }
+      details.push('old-password-rejected');
+
+      $('login-pass').value = 'secondpass2';
+      $('btn-login').click();
+      if (!await browserSmokeWaitFor(overlayHidden, 10000)) throw new Error('new password login failed');
+      details.push('new-password-login');
+
+      setBrowserSmokeResult('pass', 'register + reset flow verified against live backend', details);
+      return;
+    }
+
     if (scenario === 'ask_aegis_main') {
       setLabCoachOpen(true);
       loadLab('nvlink');
