@@ -60,7 +60,11 @@ make this safe:
 - Backend syntax: `python3 -m py_compile backend/aegis_api.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py`
 - Backend unittest smoke: `python3 -m unittest discover -s backend/tests -p "test_*unittest.py"`
 
-The same deterministic suites run in CI on every push and pull request.
+CI runs on every push and pull request: the deterministic suites
+(`frontend-smoke`, `backend-smoke`) plus a `browser-tests` job that installs
+Firefox on the runner and executes the headless browser smoke scenarios, the
+end-to-end registration/password-reset flow against a real spawned backend,
+and a proof-scenario subset.
 
 ## Security & configuration
 

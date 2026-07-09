@@ -1,0 +1,28 @@
+name: browser-tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: browser-actions/setup-firefox@v1
+        with:
+          firefox-version: latest
+      - name: Install backend dependencies (auth flow test spawns the real API)
+        run: python3 -m pip install -r backend/requirements.txt
+      - name: Browser smoke scenarios (headless Firefox)
+        run: python3 -m unittest frontend/tests/test_frontend_browser_smoke.py -v
+      - name: Auth register + reset flow (real backend + headless Firefox)
+        run: python3 -m unittest frontend/tests/test_auth_browser_flow.py -v
+      - name: Browser proof scenarios
+        env:
+          AEGIS_BROWSER_PROOF_SCENARIOS: study_progress_empty,cluster_fleet_layout,lab_terminal_nvlink,ecc_bad
+        run: python3 -m unittest frontend/tests/test_frontend_browser_proof.py -v
