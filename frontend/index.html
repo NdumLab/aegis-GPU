@@ -52,7 +52,7 @@
 
 
 <header>
-  <div class="hdr-brand">
+  <div class="hdr-brand" id="brand-home" title="Open the start menu" role="button" tabindex="0">
     <h1>Aegis<span>-GPU</span></h1>
     <div class="hdr-badge">NCA-AIIO</div>
   </div>
@@ -130,6 +130,31 @@
     <div id="sentinel-warning" style="display:none; margin-top:20px; padding:12px; background:rgba(224,82,82,0.1); border:1px solid var(--red); color:var(--red); font-family:var(--font-mono); font-size:10px; line-height:1.4;"></div>
 
     <button id="btn-apply" style="width:100%; margin-top:25px; padding:12px; background:var(--green); border:none; font-weight:700; cursor:pointer; font-family:var(--font-mono);">APPLY BLUEPRINT</button>
+  </div>
+</div>
+
+<div id="hub-overlay" class="modal-overlay" style="display:none">
+  <div class="hub-box">
+    <h2>Welcome to Aegis-GPU</h2>
+    <p class="hub-sub">Pick a starting point. You can switch anytime with the Training / Incident / Fleet tabs up top, or come back here by clicking the Aegis logo.</p>
+    <div class="hub-cards">
+      <button class="hub-card" type="button" id="hub-card-learn">
+        <span class="hub-card-icon">📚</span>
+        <span class="hub-card-title">Learn GPU ops</span>
+        <span class="hub-card-desc">Guided hands-on labs with a coach that explains every step. Best place to start.</span>
+      </button>
+      <button class="hub-card" type="button" id="hub-card-incident">
+        <span class="hub-card-icon">🚨</span>
+        <span class="hub-card-title">Practice an incident</span>
+        <span class="hub-card-desc">Diagnose live faults on a simulated cluster and work through real runbooks.</span>
+      </button>
+      <button class="hub-card" type="button" id="hub-card-fleet">
+        <span class="hub-card-icon">🖥</span>
+        <span class="hub-card-title">Manage a fleet</span>
+        <span class="hub-card-desc">Scan nodes, jobs, and faults across a full cluster in the fleet dashboard.</span>
+      </button>
+    </div>
+    <button class="hub-blueprint-link" type="button" id="hub-card-blueprint">Configure the hardware blueprint yourself →</button>
   </div>
 </div>
 

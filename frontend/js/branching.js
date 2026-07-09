@@ -256,6 +256,37 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'landing_hub') {
+      const hubVisible = () => document.getElementById('hub-overlay')?.style.display !== 'none';
+      localStorage.removeItem('gpusim_hub_seen');
+      showLandingHub();
+      await browserSmokeWait(80);
+      if (!hubVisible()) throw new Error('landing hub did not show');
+      details.push('hub-visible');
+      document.getElementById('hub-card-learn')?.click();
+      await browserSmokeWait(120);
+      if (hubVisible()) throw new Error('hub did not dismiss after choosing learn');
+      if (!isProvisioned) throw new Error('learn card did not provision the cluster');
+      if (document.body.dataset.workspaceMode !== 'training') throw new Error('learn card did not enter training mode');
+      if (!currentLab) throw new Error('learn card did not open a first lab');
+      if (localStorage.getItem('gpusim_hub_seen') !== 'true') throw new Error('hub seen flag was not set');
+      details.push('hub-learn-starts-lab');
+      showLandingHub();
+      document.getElementById('hub-card-fleet')?.click();
+      await browserSmokeWait(120);
+      if (document.body.dataset.workspaceMode !== 'fleet') throw new Error('fleet card did not enter fleet mode');
+      details.push('hub-fleet-routes');
+      showLandingHub();
+      document.getElementById('hub-card-blueprint')?.click();
+      await browserSmokeWait(80);
+      if (document.getElementById('recon-overlay')?.style.display === 'none') throw new Error('blueprint link did not open the recon overlay');
+      document.getElementById('btn-apply')?.click();
+      details.push('hub-blueprint-path');
+      setWorkspaceMode('training', { openFleet: false });
+      setBrowserSmokeResult('pass', 'landing hub verified', details);
+      return;
+    }
+
     if (scenario === 'learn_hub_merged') {
       const overlayShown = id => !!document.getElementById(id)?.classList.contains('show');
       if (document.getElementById('btn-study') || document.getElementById('btn-quiz') || document.getElementById('sidebar-btn-study')) {

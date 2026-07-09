@@ -41,6 +41,14 @@ class FrontendSmokeTest(unittest.TestCase):
         self.assertIn('toggle-incident-mode', INDEX)
         self.assertIn('h-judgment', INDEX)
 
+    def test_landing_hub_is_available(self):
+        self.assertIn('id="hub-overlay"', INDEX)
+        self.assertIn('id="hub-card-learn"', INDEX)
+        self.assertIn('id="hub-card-incident"', INDEX)
+        self.assertIn('id="hub-card-fleet"', INDEX)
+        self.assertIn('id="hub-card-blueprint"', INDEX)
+        self.assertIn('id="brand-home"', INDEX)
+
     def test_exam_prep_section_is_available(self):
         self.assertIn('id="btn-learn-hub"', INDEX)
         self.assertIn('data-learn-tab="study"', INDEX)
