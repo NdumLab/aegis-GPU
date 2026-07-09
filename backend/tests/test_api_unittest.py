@@ -535,6 +535,70 @@ class BackendSmokeTest(unittest.TestCase):
                                json={'username': 'wrongpw', 'password': 'not-the-password'})
         self.assertEqual(res.status_code, 401)
 
+    # --- password reset via recovery code ---
+
+    def test_register_issues_recovery_code(self):
+        res = self.client.post('/api/v1/auth/register',
+                               json={'username': 'recuser1', 'password': 'longenough8'})
+        self.assertEqual(res.status_code, 201)
+        code = res.json().get('recovery_code', '')
+        self.assertRegex(code, r'^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$')
+
+    def test_reset_with_recovery_code_changes_password_and_rotates_code(self):
+        reg = self.client.post('/api/v1/auth/register',
+                               json={'username': 'recuser2', 'password': 'oldpassword'})
+        code = reg.json()['recovery_code']
+
+        reset = self.client.post('/api/v1/auth/reset', json={
+            'username': 'recuser2', 'recovery_code': code, 'new_password': 'newpassword'})
+        self.assertEqual(reset.status_code, 200)
+        payload = reset.json()
+        self.assertTrue(payload['token'])
+        new_code = payload['recovery_code']
+        self.assertNotEqual(new_code, code)
+
+        old_login = self.client.post('/api/v1/auth/login',
+                                     json={'username': 'recuser2', 'password': 'oldpassword'})
+        self.assertEqual(old_login.status_code, 401)
+        new_login = self.client.post('/api/v1/auth/login',
+                                     json={'username': 'recuser2', 'password': 'newpassword'})
+        self.assertEqual(new_login.status_code, 200)
+
+        # the used code is dead; the rotated one works
+        dead = self.client.post('/api/v1/auth/reset', json={
+            'username': 'recuser2', 'recovery_code': code, 'new_password': 'anotherpass1'})
+        self.assertEqual(dead.status_code, 401)
+        alive = self.client.post('/api/v1/auth/reset', json={
+            'username': 'recuser2', 'recovery_code': new_code, 'new_password': 'anotherpass1'})
+        self.assertEqual(alive.status_code, 200)
+
+    def test_reset_accepts_lowercase_and_missing_dashes(self):
+        reg = self.client.post('/api/v1/auth/register',
+                               json={'username': 'recuser3', 'password': 'oldpassword'})
+        sloppy = reg.json()['recovery_code'].lower().replace('-', '')
+        reset = self.client.post('/api/v1/auth/reset', json={
+            'username': 'recuser3', 'recovery_code': sloppy, 'new_password': 'newpassword'})
+        self.assertEqual(reset.status_code, 200)
+
+    def test_reset_rejects_wrong_code_unknown_user_and_short_password(self):
+        reg = self.client.post('/api/v1/auth/register',
+                               json={'username': 'recuser4', 'password': 'oldpassword'})
+        code = reg.json()['recovery_code']
+        wrong = self.client.post('/api/v1/auth/reset', json={
+            'username': 'recuser4', 'recovery_code': 'AAAA-BBBB-CCCC', 'new_password': 'newpassword'})
+        self.assertEqual(wrong.status_code, 401)
+        ghost = self.client.post('/api/v1/auth/reset', json={
+            'username': 'no-such-user', 'recovery_code': code, 'new_password': 'newpassword'})
+        self.assertEqual(ghost.status_code, 401)
+        short = self.client.post('/api/v1/auth/reset', json={
+            'username': 'recuser4', 'recovery_code': code, 'new_password': 'seven77'})
+        self.assertEqual(short.status_code, 400)
+
+    def test_reset_rejects_env_managed_accounts(self):
+        res = self.client.post('/api/v1/auth/reset', json={
+            'username': 'admin', 'recovery_code': 'AAAA-BBBB-CCCC', 'new_password': 'newpassword'})
+        self.assertEqual(res.status_code, 401)
+
 
 if __name__ == '__main__':
     unittest.main()

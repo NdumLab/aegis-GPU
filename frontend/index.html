@@ -40,8 +40,13 @@
       <div id="login-version" style="font-size:11px;color:#7f8ea3;font-family:'JetBrains Mono',monospace;margin-top:12px;letter-spacing:0.08em">RUNNING VERSION: DETECTING...</div>
       <div style="font-size:9px;color:#4a5568;margin-top:10px;line-height:1.5;font-family:'JetBrains Mono',monospace;">Independent training simulator. Not affiliated with, sponsored by, or endorsed by NVIDIA Corporation.</div>
     </div>
+    <div id="login-form-body">
     <div style="margin-bottom:14px;">
       <input id="login-user" type="text" placeholder="Username" autocomplete="username"
+        style="width:100%;box-sizing:border-box;background:#0a1220;border:1px solid #2a3347;color:#c8d4e8;padding:11px 14px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
+    </div>
+    <div id="login-recovery-row" style="display:none;margin-bottom:14px;">
+      <input id="login-recovery" type="text" placeholder="Recovery code (XXXX-XXXX-XXXX)" autocomplete="off" spellcheck="false"
         style="width:100%;box-sizing:border-box;background:#0a1220;border:1px solid #2a3347;color:#c8d4e8;padding:11px 14px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;">
     </div>
     <div style="margin-bottom:20px;">
@@ -55,10 +60,18 @@
     <div id="login-err" style="display:none;color:#ff5252;font-size:11px;font-family:'JetBrains Mono',monospace;margin-bottom:14px;text-align:center;padding:8px;background:rgba(255,82,82,0.08);border-radius:4px;"></div>
     <button id="btn-login"
       style="width:100%;padding:12px;background:#f4a261;border:none;border-radius:4px;color:#060d16;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.08em;transition:opacity .2s">AUTHENTICATE</button>
-    <div style="text-align:center;margin-top:16px;">
+    <div style="text-align:center;margin-top:16px;display:flex;justify-content:center;gap:16px;">
       <a id="login-toggle" href="#" style="font-size:11px;color:#7f8ea3;font-family:'JetBrains Mono',monospace;text-decoration:underline;cursor:pointer;">Need an account? Create one</a>
+      <a id="login-forgot" href="#" style="font-size:11px;color:#7f8ea3;font-family:'JetBrains Mono',monospace;text-decoration:underline;cursor:pointer;">Forgot password?</a>
     </div>
     <div id="login-hint" style="display:none;font-size:10px;color:#4a5568;font-family:'JetBrains Mono',monospace;margin-top:10px;text-align:center;line-height:1.6;">Username: 3-32 letters/digits/._- &nbsp;·&nbsp; Password: at least 8 characters</div>
+    </div>
+    <div id="login-reveal" style="display:none;">
+      <div style="font-size:12px;color:#c8d4e8;font-family:'JetBrains Mono',monospace;line-height:1.7;margin-bottom:14px;">Save this recovery code somewhere safe. It is the <strong style="color:#f4a261;">only</strong> way to reset your password, and it is shown only once.</div>
+      <div id="login-reveal-code" style="text-align:center;font-size:17px;letter-spacing:0.08em;color:#f4a261;font-family:'JetBrains Mono',monospace;background:#0a1220;border:1px dashed #f4a261;border-radius:4px;padding:14px;margin-bottom:18px;user-select:all;"></div>
+      <button id="btn-reveal-continue"
+        style="width:100%;padding:12px;background:#f4a261;border:none;border-radius:4px;color:#060d16;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.08em;">I SAVED IT — CONTINUE</button>
+    </div>
   </div>
 </div>
 

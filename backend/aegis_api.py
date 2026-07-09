@@ -5,6 +5,7 @@ import logging
 import logging.handlers
 import os
 import re
+import secrets
 import sqlite3
 import subprocess
 import time
@@ -182,12 +183,16 @@ def ensure_incidents_db() -> bool:
             ''')
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS users (
-                    username   TEXT PRIMARY KEY,
-                    hash       TEXT NOT NULL,
-                    role       TEXT NOT NULL DEFAULT 'user',
-                    created_ts INTEGER NOT NULL
+                    username      TEXT PRIMARY KEY,
+                    hash          TEXT NOT NULL,
+                    role          TEXT NOT NULL DEFAULT 'user',
+                    created_ts    INTEGER NOT NULL,
+                    recovery_hash TEXT
                 )
             ''')
+            existing_cols = {row[1] for row in conn.execute('PRAGMA table_info(users)')}
+            if 'recovery_hash' not in existing_cols:
+                conn.execute('ALTER TABLE users ADD COLUMN recovery_hash TEXT')
             conn.commit()
         _DB_READY = True
         _DB_ERROR = ''
@@ -327,8 +332,25 @@ class RegisterRequest(BaseModel):
     password: str
 
 
+class ResetRequest(BaseModel):
+    username: str
+    recovery_code: str
+    new_password: str
+
+
 USERNAME_RE = re.compile(r'^[A-Za-z0-9](?:[A-Za-z0-9_.-]{1,30})[A-Za-z0-9]$')
 MIN_PASSWORD_LENGTH = 8
+# Unambiguous alphabet (no 0/O, 1/I/L) for recovery codes users must transcribe.
+RECOVERY_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+
+
+def generate_recovery_code() -> str:
+    groups = [''.join(secrets.choice(RECOVERY_ALPHABET) for _ in range(4)) for _ in range(3)]
+    return '-'.join(groups)
+
+
+def normalize_recovery_code(code: str) -> str:
+    return re.sub(r'[^A-Z2-9]', '', code.upper())
 
 
 def get_db_user(username: str) -> Optional[dict]:
@@ -337,18 +359,30 @@ def get_db_user(username: str) -> Optional[dict]:
             return None
         with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
             conn.row_factory = sqlite3.Row
-            row = conn.execute('SELECT username, hash, role FROM users WHERE username = ?', (username,)).fetchone()
+            row = conn.execute(
+                'SELECT username, hash, role, recovery_hash FROM users WHERE username = ?',
+                (username,),
+            ).fetchone()
             return dict(row) if row else None
     except Exception as exc:
         logging.getLogger('aegis.audit').warning('user lookup failed: %s', exc)
         return None
 
 
-def create_db_user(username: str, password_hash: str, role: str = 'user') -> None:
+def create_db_user(username: str, password_hash: str, recovery_hash: str, role: str = 'user') -> None:
     with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
         conn.execute(
-            'INSERT INTO users (username, hash, role, created_ts) VALUES (?,?,?,?)',
-            (username, password_hash, role, int(time.time())),
+            'INSERT INTO users (username, hash, role, created_ts, recovery_hash) VALUES (?,?,?,?,?)',
+            (username, password_hash, role, int(time.time()), recovery_hash),
+        )
+        conn.commit()
+
+
+def update_db_user_credentials(username: str, password_hash: str, recovery_hash: str) -> None:
+    with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+        conn.execute(
+            'UPDATE users SET hash = ?, recovery_hash = ? WHERE username = ?',
+            (password_hash, recovery_hash, username),
         )
         conn.commit()
 
@@ -1718,13 +1752,42 @@ def register(body: RegisterRequest, request: Request):
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                             detail='Account store unavailable; try again shortly.')
     password_hash = bcrypt.hashpw(body.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    recovery_code = generate_recovery_code()
+    recovery_hash = bcrypt.hashpw(normalize_recovery_code(recovery_code).encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     try:
-        create_db_user(username, password_hash)
+        create_db_user(username, password_hash, recovery_hash)
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='That username is taken.')
     audit(request, 'register_success', f'username={username} role=user', user=username)
     token = create_token(username, 'user')
-    return {'token': token, 'role': 'user', 'expires_in': JWT_HOURS * 3600}
+    return {'token': token, 'role': 'user', 'expires_in': JWT_HOURS * 3600, 'recovery_code': recovery_code}
+
+
+@app.post('/api/v1/auth/reset')
+def reset_password(body: ResetRequest, request: Request):
+    username = body.username.strip()
+    if len(body.new_password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f'Password must be at least {MIN_PASSWORD_LENGTH} characters.')
+    user = get_db_user(username)
+    dummy = b'$2b$12$123456789012345678901uM9Q2L1qO3JicQ0JGvN9zeps2sonMSK.'
+    stored = user['recovery_hash'].encode('utf-8') if (user and user.get('recovery_hash')) else dummy
+    supplied = normalize_recovery_code(body.recovery_code).encode('utf-8')
+    try:
+        code_matches = bcrypt.checkpw(supplied, stored)
+    except ValueError:
+        code_matches = False
+    if not user or not user.get('recovery_hash') or not code_matches:
+        audit(request, 'reset_failed', f'username={username}')
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail='Invalid username or recovery code.')
+    new_hash = bcrypt.hashpw(body.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    new_code = generate_recovery_code()
+    new_recovery_hash = bcrypt.hashpw(normalize_recovery_code(new_code).encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    update_db_user_credentials(username, new_hash, new_recovery_hash)
+    audit(request, 'reset_success', f'username={username}', user=username)
+    token = create_token(username, user['role'])
+    return {'token': token, 'role': user['role'], 'expires_in': JWT_HOURS * 3600, 'recovery_code': new_code}
 
 
 @app.post('/api/v1/auth/login')

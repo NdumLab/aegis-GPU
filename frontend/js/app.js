@@ -1260,21 +1260,31 @@ async function refreshLoginVersion() {
 }
 
 let AUTH_MODE = 'login';
+let PENDING_AUTH_DATA = null;
+
+function setAuthMode(mode) {
+  AUTH_MODE = mode;
+  const show = (id, on, disp) => { const el = document.getElementById(id); if (el) el.style.display = on ? (disp || 'block') : 'none'; };
+  const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  show('login-confirm-row', mode !== 'login');
+  show('login-recovery-row', mode === 'reset');
+  show('login-hint', mode !== 'login');
+  show('login-err', false);
+  const passEl = document.getElementById('login-pass');
+  if (passEl) passEl.placeholder = mode === 'login' ? 'Password' : (mode === 'reset' ? 'New password' : 'Password');
+  setText('btn-login', mode === 'login' ? 'AUTHENTICATE' : (mode === 'register' ? 'CREATE ACCOUNT' : 'RESET PASSWORD'));
+  setText('login-toggle', mode === 'register' ? 'Have an account? Sign in' : 'Need an account? Create one');
+  setText('login-forgot', mode === 'reset' ? 'Back to sign in' : 'Forgot password?');
+}
 
 function toggleAuthMode(e) {
   if (e && e.preventDefault) e.preventDefault();
-  AUTH_MODE = AUTH_MODE === 'login' ? 'register' : 'login';
-  const registering = AUTH_MODE === 'register';
-  const confirmRow = document.getElementById('login-confirm-row');
-  const hintEl = document.getElementById('login-hint');
-  const btnEl = document.getElementById('btn-login');
-  const toggleEl = document.getElementById('login-toggle');
-  const errEl = document.getElementById('login-err');
-  if (confirmRow) confirmRow.style.display = registering ? 'block' : 'none';
-  if (hintEl) hintEl.style.display = registering ? 'block' : 'none';
-  if (btnEl) btnEl.textContent = registering ? 'CREATE ACCOUNT' : 'AUTHENTICATE';
-  if (toggleEl) toggleEl.textContent = registering ? 'Have an account? Sign in' : 'Need an account? Create one';
-  if (errEl) errEl.style.display = 'none';
+  setAuthMode(AUTH_MODE === 'register' ? 'login' : 'register');
+}
+
+function toggleForgotMode(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  setAuthMode(AUTH_MODE === 'reset' ? 'login' : 'reset');
 }
 
 function applyAuthSuccess(data) {
@@ -1286,12 +1296,36 @@ function applyAuthSuccess(data) {
   initApp();
 }
 
+function showRecoveryReveal(data) {
+  PENDING_AUTH_DATA = data;
+  const body = document.getElementById('login-form-body');
+  const reveal = document.getElementById('login-reveal');
+  const codeEl = document.getElementById('login-reveal-code');
+  if (codeEl) codeEl.textContent = data.recovery_code || '';
+  if (body) body.style.display = 'none';
+  if (reveal) reveal.style.display = 'block';
+}
+
+function confirmRecoverySaved() {
+  const data = PENDING_AUTH_DATA;
+  PENDING_AUTH_DATA = null;
+  const body = document.getElementById('login-form-body');
+  const reveal = document.getElementById('login-reveal');
+  const codeEl = document.getElementById('login-reveal-code');
+  if (codeEl) codeEl.textContent = '';
+  if (reveal) reveal.style.display = 'none';
+  if (body) body.style.display = 'block';
+  setAuthMode('login');
+  if (data) applyAuthSuccess(data);
+}
+
 function showAuthError(errEl, message) {
   if (errEl) { errEl.textContent = message; errEl.style.display = 'block'; }
 }
 
 async function aegisAuthSubmit() {
   if (AUTH_MODE === 'register') return aegisRegister();
+  if (AUTH_MODE === 'reset') return aegisResetPassword();
   return aegisLogin();
 }
 
@@ -1311,7 +1345,33 @@ async function aegisRegister() {
     });
     const data = await r.json();
     if (!r.ok) return showAuthError(errEl, data.detail || 'Registration failed.');
-    applyAuthSuccess(data);
+    showRecoveryReveal(data);
+  } catch(e) {
+    showAuthError(errEl, 'Connection error. Is the backend reachable?');
+  }
+}
+
+async function aegisResetPassword() {
+  const u = (document.getElementById('login-user') || {}).value?.trim() || '';
+  const code = (document.getElementById('login-recovery') || {}).value?.trim() || '';
+  const p = (document.getElementById('login-pass') || {}).value || '';
+  const p2 = (document.getElementById('login-pass2') || {}).value || '';
+  const errEl = document.getElementById('login-err');
+  if (errEl) errEl.style.display = 'none';
+  if (!code) return showAuthError(errEl, 'Enter the recovery code you saved at signup.');
+  if (p.length < 8) return showAuthError(errEl, 'New password must be at least 8 characters.');
+  if (p !== p2) return showAuthError(errEl, 'Passwords do not match.');
+  try {
+    const r = await fetch(`${API_BASE}/auth/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, recovery_code: code, new_password: p })
+    });
+    const data = await r.json();
+    if (!r.ok) return showAuthError(errEl, data.detail || 'Reset failed.');
+    const recEl = document.getElementById('login-recovery');
+    if (recEl) recEl.value = '';
+    showRecoveryReveal(data);
   } catch(e) {
     showAuthError(errEl, 'Connection error. Is the backend reachable?');
   }

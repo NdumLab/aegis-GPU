@@ -1009,6 +1009,8 @@ function bindUIHandlers() {
 
   on('btn-login',  'click', aegisAuthSubmit);
   on('login-toggle', 'click', toggleAuthMode);
+  on('login-forgot', 'click', toggleForgotMode);
+  on('btn-reveal-continue', 'click', confirmRecoverySaved);
   const passEl = document.getElementById('login-pass');
   if (passEl) passEl.addEventListener('keydown', e => { if(e.key==='Enter') aegisAuthSubmit(); });
   const pass2El = document.getElementById('login-pass2');
