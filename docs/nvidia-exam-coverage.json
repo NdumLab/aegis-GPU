@@ -1,0 +1,99 @@
+{
+  "$schema_note": "Machine-readable traceability matrix for NVIDIA certification coverage in the Aegis-GPU labs. Source of truth for docs/nvidia-exam-coverage.md and frontend/tests/test_exam_coverage.py.",
+  "generated": "2026-07-09",
+  "integrity_statement": "Objectives are transcribed from the current official NVIDIA certification blueprint page listed below. No exam dumps, leaked questions, or brain-dumps were used. Completing these labs does not guarantee passing the exam.",
+  "rating_scale": {
+    "Full": 1.0,
+    "Partial": 0.5,
+    "Theory-only": 0.3,
+    "Missing": 0.0
+  },
+  "rating_definitions": {
+    "Full": "Learner can explain the concept (learning guide + observe screenshots), execute it (terminal step with accepted-command validation), and troubleshoot it (a discrete injected-fault step, step.fault === true, in a mapped lab).",
+    "Partial": "Explain + execute, but no discrete injected-fault troubleshooting step is present (often because it is hardware/facility limited, or the lab teaches a fix-flow without a flagged fault).",
+    "Theory-only": "Explanation and observable reasoning only; no command execution possible in a sandbox.",
+    "Missing": "No observable learning outcome in the repository."
+  },
+  "certifications": [
+    {
+      "exam_code": "NCA-AIIO",
+      "name": "NVIDIA-Certified Associate: AI Infrastructure and Operations",
+      "blueprint_url": "https://www.nvidia.com/en-us/learn/certification/ai-infrastructure-operations-associate/",
+      "retrieval_date": "2026-07-09",
+      "exam_facts": {
+        "questions": 50,
+        "duration_minutes": 60,
+        "price_usd": 125,
+        "validity_years": 2
+      },
+      "domains": [
+        {
+          "id": "D1",
+          "name": "Essential AI Knowledge",
+          "weight_pct": 38,
+          "objectives": [
+            {"id": "1.1", "text": "Describe AI, machine learning, and deep learning and how they relate", "labs": ["ai_concepts"], "step_types": ["aic_taxonomy"], "quiz_indices": [20], "validation": "terminal-accepted + fault", "rating_before": "Missing", "rating_after": "Full"},
+            {"id": "1.2", "text": "Explain GPU vs CPU architecture and why GPUs suit AI workloads", "labs": ["ai_concepts"], "step_types": ["aic_cpu", "aic_gpu", "aic_arch"], "quiz_indices": [21], "validation": "terminal-accepted + fault", "rating_before": "Missing", "rating_after": "Full"},
+            {"id": "1.3", "text": "Distinguish training from inference", "labs": ["inference", "training"], "step_types": ["inf_train_profile", "inf_serve_deploy"], "quiz_indices": [22], "validation": "terminal-accepted + fault", "rating_before": "Partial", "rating_after": "Full"},
+            {"id": "1.4", "text": "Identify the factors driving AI adoption", "labs": ["ai_concepts"], "step_types": [], "quiz_indices": [], "validation": "learning-guide theory", "rating_before": "Missing", "rating_after": "Theory-only"},
+            {"id": "1.5", "text": "Describe key AI use cases and the industries applying them", "labs": ["ai_concepts"], "step_types": [], "quiz_indices": [], "validation": "learning-guide theory", "rating_before": "Missing", "rating_after": "Theory-only"},
+            {"id": "1.6", "text": "Describe the NVIDIA software stack (CUDA-X, NeMo, NIM, Triton, RAPIDS)", "labs": ["nvidia_stack", "cuda_stack"], "step_types": ["ns_cudax", "ns_inventory"], "quiz_indices": [23, 24, 25], "validation": "terminal-accepted + fault", "rating_before": "Partial", "rating_after": "Full"},
+            {"id": "1.7", "text": "Describe the AI development lifecycle (data prep, train, optimize, deploy, monitor)", "labs": ["nvidia_stack", "inference"], "step_types": ["ns_lifecycle", "inf_optimize"], "quiz_indices": [26], "validation": "terminal-accepted + fault", "rating_before": "Missing", "rating_after": "Full"},
+            {"id": "1.8", "text": "Describe NVIDIA AI platforms and solutions (DGX, Base Command, AI Enterprise)", "labs": ["nvidia_stack"], "step_types": ["ns_solutions"], "quiz_indices": [], "validation": "terminal-accepted + fault", "rating_before": "Missing", "rating_after": "Full"}
+          ]
+        },
+        {
+          "id": "D2",
+          "name": "AI Infrastructure",
+          "weight_pct": 40,
+          "objectives": [
+            {"id": "2.1", "text": "Explain GPU interconnect: NVLink and NVSwitch", "labs": ["nvlink", "nvlink_fault"], "step_types": ["topo", "nvlink_fault"], "quiz_indices": [], "validation": "terminal-accepted + fault", "rating_before": "Full", "rating_after": "Full"},
+            {"id": "2.2", "text": "Explain multi-GPU communication: NCCL and all-reduce", "labs": ["allreduce", "nccl_fallback"], "step_types": ["ar_bench", "ar_fault"], "quiz_indices": [25], "validation": "terminal-accepted + fault", "rating_before": "Full", "rating_after": "Full"},
+            {"id": "2.3", "text": "Describe InfiniBand fabric for AI clusters", "labs": ["ib_fabric"], "step_types": ["ib_stat", "ib_fault"], "quiz_indices": [], "validation": "terminal-accepted + fault", "rating_before": "Full", "rating_after": "Full"},
+            {"id": "2.4", "text": "Describe RoCE / Ethernet networking for AI", "labs": ["roce"], "step_types": ["roce_pfc", "roce_fault"], "quiz_indices": [], "validation": "terminal-accepted + fault", "rating_before": "Full", "rating_after": "Full"},
+            {"id": "2.5", "text": "Describe AI storage: parallel filesystems and GPUDirect Storage", "labs": ["storage", "gds"], "step_types": ["stor_lustre", "gds_new"], "quiz_indices": [], "validation": "terminal-accepted (fix-flow, no discrete injected fault)", "rating_before": "Partial", "rating_after": "Partial"},
+            {"id": "2.6", "text": "Size cluster compute: GPUs per node and per job", "labs": ["infra_planning"], "step_types": ["ip_sizing"], "quiz_indices": [], "validation": "terminal-accepted + fault", "rating_before": "Missing", "rating_after": "Full"},
+            {"id": "2.7", "text": "Plan facility requirements: power delivery and cooling", "labs": ["infra_planning"], "step_types": ["ip_power", "ip_cooling"], "quiz_indices": [27], "validation": "terminal-accepted (facility not physically reproducible)", "rating_before": "Missing", "rating_after": "Partial"},
+            {"id": "2.8", "text": "Scale with reference architectures: SuperPOD and scalable units", "labs": ["infra_planning"], "step_types": ["ip_scale"], "quiz_indices": [28], "validation": "terminal-accepted + fault", "rating_before": "Missing", "rating_after": "Full"},
+            {"id": "2.9", "text": "Describe DPU / BlueField offload and DOCA", "labs": ["dpu_cloud"], "step_types": ["dpu_host_load", "dpu_identify", "dpu_offload"], "quiz_indices": [29], "validation": "terminal-accepted + fault", "rating_before": "Missing", "rating_after": "Full"},
+            {"id": "2.10", "text": "Compare cloud vs on-prem AI deployment (TCO, control)", "labs": ["dpu_cloud"], "step_types": ["dpu_cloud_decision"], "quiz_indices": [30], "validation": "terminal-accepted (procurement not reproducible)", "rating_before": "Missing", "rating_after": "Partial"}
+          ]
+        },
+        {
+          "id": "D3",
+          "name": "AI Operations",
+          "weight_pct": 22,
+          "objectives": [
+            {"id": "3.1", "text": "Monitor GPU health and telemetry (DCGM, utilization, ECC)", "labs": ["monitoring"], "step_types": ["mon_prom", "mon_alert"], "quiz_indices": [], "validation": "terminal-accepted + fault", "rating_before": "Full", "rating_after": "Full"},
+            {"id": "3.2", "text": "Schedule AI jobs with Slurm and Kubernetes", "labs": ["slurm", "k8s"], "step_types": ["slurm_submit", "k8s_gang"], "quiz_indices": [], "validation": "terminal-accepted (pending/drain fix-flow, no discrete injected fault)", "rating_before": "Partial", "rating_after": "Partial"},
+            {"id": "3.3", "text": "Virtualize GPUs: MIG, vGPU, and time-slicing", "labs": ["mig", "vgpu"], "step_types": ["mig_create", "vgpu_profiles", "vgpu_oversub"], "quiz_indices": [31], "validation": "terminal-accepted + fault", "rating_before": "Partial", "rating_after": "Full"},
+            {"id": "3.4", "text": "Troubleshoot GPU faults: ECC errors, NVLink degradation, NCCL fallback", "labs": ["ecc", "nvlink_fault", "nccl_fallback"], "step_types": ["ecc_xid", "xid48", "fb_fix"], "quiz_indices": [], "validation": "fault steps", "rating_before": "Full", "rating_after": "Full"}
+          ]
+        }
+      ]
+    }
+  ],
+  "hardware_blocked": [
+    {"objective": "2.7", "reason": "Real power draw and cooling behavior require physical DGX/HGX hardware and datacenter facility instrumentation. The lab teaches the sizing math and thermal/PDU reasoning against realistic fixtures but cannot measure real kW or rack inlet temperature in a sandbox. Rated Partial."},
+    {"objective": "2.10", "reason": "Cloud vs on-prem procurement and real TCO depend on live vendor pricing and organizational constraints. The lab teaches the decision framework against representative figures; it cannot execute a real purchase or provision cloud capacity. Rated Partial."},
+    {"objective": "3.3", "reason": "MIG and vGPU require supported NVIDIA GPUs plus a licensed vGPU / NVIDIA AI Enterprise stack. The labs use faithful simulated nvidia-smi / mig / vgpu output; real partitioning cannot run without the hardware and license. Simulated to Full."},
+    {"objective": "2.1", "reason": "NVLink/NVSwitch topology requires multi-GPU NVLink hardware; the lab simulates nvidia-smi nvlink output and a degradation fault."},
+    {"objective": "2.3", "reason": "InfiniBand fabric requires real IB switches/HCAs and a subnet manager; the lab simulates ibstat/ibdiagnet output."},
+    {"objective": "3.2", "reason": "Multi-node Slurm and Kubernetes GPU scheduling require a real cluster; the labs simulate srun/sbatch and kubectl output against fixtures. Rated Partial (no discrete injected-fault step)."}
+  ],
+  "remaining_enhancements": [
+    "Add a discrete injected-fault troubleshooting step (step.fault === true) to the storage/gds labs (obj 2.5) — e.g., GDS not engaging and falling back to CPU bounce buffers — to raise it from Partial to Full.",
+    "Add a discrete injected-fault troubleshooting step to the slurm/k8s labs (obj 3.2) — e.g., a job stuck Pending on an unsatisfiable GRES/gang request — to raise it from Partial to Full.",
+    "Objectives 1.4 and 1.5 remain Theory-only: they are conceptual (adoption drivers, use cases/industries) with no sandbox-executable command."
+  ],
+  "weighted_scores": {
+    "method": "For each domain, score = domain_weight_pct * (sum of objective rating values / objective count). Total = sum of domain scores.",
+    "domains": {
+      "D1": {"weight_pct": 38, "objective_count": 8, "score_before": 4.75, "score_after": 31.35},
+      "D2": {"weight_pct": 40, "objective_count": 10, "score_before": 18.0, "score_after": 34.0},
+      "D3": {"weight_pct": 22, "objective_count": 4, "score_before": 16.5, "score_after": 19.25}
+    },
+    "total_before_pct": 39.25,
+    "total_after_pct": 84.6
+  }
+}

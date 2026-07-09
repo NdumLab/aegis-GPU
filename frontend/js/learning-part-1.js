@@ -22,6 +22,16 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     ],
     coreTerms: [
       {
+        term: "GPU",
+        plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
+        why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "Training",
+        plain: "The learning phase — the model repeatedly sees data and adjusts its internal weights. Long-running GPU work judged by throughput, meaning how much work finishes per second. The opposite end of the lifecycle from inference, which uses the finished model.",
+        why: "Training jobs are the workloads most of this cluster's design exists to serve."
+      },
+      {
         term: "ECC",
         plain: "Error-correcting code, a protection mechanism that checks memory data and can often repair a single bad bit before software sees it.",
         why: "You will see ECC counters in NVIDIA tools, DCGM, and incident reports."
@@ -75,6 +85,26 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
       "So this is not just about reading logs. It is about keeping the platform reliable by turning a short driver signal into a fast, evidence-backed operational decision."
     ],
     coreTerms: [
+      {
+        term: "GPU",
+        plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
+        why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "ECC",
+        plain: "Error-correcting code — memory protection that checks stored bits and can often repair a single flipped bit before software ever sees it.",
+        why: "ECC counters are one of the first places GPU memory trouble becomes visible."
+      },
+      {
+        term: "CRC",
+        plain: "Cyclic redundancy check — a checksum stamped on each transfer so the receiver can detect that data arrived corrupted.",
+        why: "Rising CRC error counts on a link mean the physical connection is degrading."
+      },
+      {
+        term: "Fabric",
+        plain: "The network that connects the nodes into one cluster — the switches, cables, and adapters acting as a single system.",
+        why: "When people say 'the fabric is degraded,' they mean the cluster's internal highway system, not one server."
+      },
       { term: "XID", plain: "An NVIDIA driver event code used to classify GPU faults.", why: "These are often the first hardware fault signals operators see in logs." },
       { term: "XID 48", plain: "A fault code commonly associated with an uncorrectable ECC event.", why: "This usually points toward memory-integrity trouble and containment." },
       { term: "XID 79", plain: "A code associated with a GPU that has fallen off the bus or become unreachable.", why: "This often points toward reset-or-reboot style recovery, not memory-only reasoning." },
@@ -109,6 +139,36 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
       "So this is not just a low-level topology detail. It changes whether the server is still safe to keep in service for distributed work, how large the blast radius is, and whether the rack is actually delivering the performance it promised."
     ],
     coreTerms: [
+      {
+        term: "GPU",
+        plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
+        why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "PCIe",
+        plain: "PCI Express — the standard slot and bus that connects add-in cards (GPUs, network cards) to the rest of the server. It is the ordinary road; NVLink is the express lane built just for GPU-to-GPU traffic.",
+        why: "When GPU traffic says 'PHB' or falls back to PCIe, it means the fast path is not being used."
+      },
+      {
+        term: "Bandwidth",
+        plain: "How much data a link can move per second (GB/s). Think highway width: more lanes, more simultaneous traffic.",
+        why: "Bandwidth numbers are how you compare NVLink, PCIe, InfiniBand, and storage paths."
+      },
+      {
+        term: "Throughput",
+        plain: "How much total work finishes per second — images/s, tokens/s, GB/s. The opposite concern from latency, which is how long one single item takes.",
+        why: "GPUs and training pipelines are judged on throughput; user-facing requests are judged on latency."
+      },
+      {
+        term: "Training",
+        plain: "The learning phase — the model repeatedly sees data and adjusts its internal weights. Long-running GPU work judged by throughput, meaning how much work finishes per second. The opposite end of the lifecycle from inference, which uses the finished model.",
+        why: "Training jobs are the workloads most of this cluster's design exists to serve."
+      },
+      {
+        term: "Fabric",
+        plain: "The network that connects the nodes into one cluster — the switches, cables, and adapters acting as a single system.",
+        why: "When people say 'the fabric is degraded,' they mean the cluster's internal highway system, not one server."
+      },
       { term: "NVLink", plain: "A direct high-bandwidth GPU-to-GPU connection used for fast communication inside systems like DGX or HGX.", why: "This is the fast path that collective workloads expect to use." },
       { term: "Topology", plain: "The map of which GPUs connect directly to which other GPUs and what path traffic takes between them.", why: "The topology screenshot is your baseline for deciding whether later output is healthy or degraded." },
       { term: "PHB", plain: "PCIe Host Bridge, meaning traffic is taking a slower PCIe-and-host path instead of a direct NVLink path.", why: "Seeing PHB where the baseline screenshot showed NV4 is one of the clearest degradation signals in this lab." },
@@ -143,6 +203,21 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
       "So MIG is not only a hardware trick inside one card. It changes how the node presents capacity to Kubernetes, Slurm, and users, and it directly shapes how the rack's GPU inventory is consumed."
     ],
     coreTerms: [
+      {
+        term: "GPU",
+        plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
+        why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "Kubernetes",
+        plain: "A container orchestrator — software that schedules containers across many servers and decides what runs where.",
+        why: "Many AI platforms hand GPU nodes to Kubernetes instead of a traditional HPC scheduler."
+      },
+      {
+        term: "Oversubscription",
+        plain: "Promising users more capacity than physically exists, betting they will not all use it at once. Works for bursty use; hurts when everyone shows up.",
+        why: "Most sharing incidents trace back to oversubscription meeting simultaneous demand."
+      },
       { term: "MIG", plain: "Multi-Instance GPU, a way to carve one physical GPU into smaller isolated hardware slices.", why: "This is how one expensive GPU can be shared more safely across teams." },
       { term: "Instance", plain: "One slice of GPU compute and memory that behaves like its own small accelerator.", why: "Each instance is what a workload actually lands on after partitioning." },
       { term: "Fault domain", plain: "The part of the system affected when something breaks.", why: "Operators use this to reason about isolation and blast radius after partitioning." }
@@ -215,6 +290,16 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
       "So this is not just a developer problem inside one environment. Stack compatibility decides whether the server contributes reliable capacity to the cluster and whether operations can trust the node for production work."
     ],
     coreTerms: [
+      {
+        term: "GPU",
+        plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
+        why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "Training",
+        plain: "The learning phase — the model repeatedly sees data and adjusts its internal weights. Long-running GPU work judged by throughput, meaning how much work finishes per second. The opposite end of the lifecycle from inference, which uses the finished model.",
+        why: "Training jobs are the workloads most of this cluster's design exists to serve."
+      },
       { term: "Driver", plain: "The software that lets the operating system talk to the GPU.", why: "Without it, higher GPU tools and frameworks cannot function correctly." },
       { term: "CUDA runtime", plain: "The software layer applications use to run work on NVIDIA GPUs.", why: "It must be compatible with the driver and the framework above it." },
       { term: "NGC", plain: "NVIDIA GPU Cloud container images with validated software stacks.", why: "These images reduce mismatch risk when you need a known-good baseline." },
@@ -249,6 +334,21 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
       "So container flow is not just packaging detail. It is part of how the rack turns GPU hardware into repeatable, schedulable, user-facing compute."
     ],
     coreTerms: [
+      {
+        term: "GPU",
+        plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
+        why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "CUDA",
+        plain: "NVIDIA's programming platform that lets software run on the GPU. Applications are built against a CUDA version, and the GPU driver must be new enough to support it.",
+        why: "Most 'GPU app won't start' incidents are a mismatch between driver version and CUDA version."
+      },
+      {
+        term: "Training",
+        plain: "The learning phase — the model repeatedly sees data and adjusts its internal weights. Long-running GPU work judged by throughput, meaning how much work finishes per second. The opposite end of the lifecycle from inference, which uses the finished model.",
+        why: "Training jobs are the workloads most of this cluster's design exists to serve."
+      },
       { term: "Container image", plain: "A packaged application environment with code, libraries, and dependencies.", why: "It reduces drift between systems." },
       { term: "NGC", plain: "NVIDIA's registry of GPU-focused container images.", why: "It gives operators a supported starting point and a known-good baseline." },
       { term: "Runtime", plain: "The environment used when the container actually runs with GPU access.", why: "A good image still fails if the runtime is not configured for GPUs." }
@@ -282,6 +382,26 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
       "So this lab matters because it teaches how real workloads experience the platform end to end, not just how one GPU looks in isolation."
     ],
     coreTerms: [
+      {
+        term: "Training",
+        plain: "The learning phase — the model repeatedly sees data and adjusts its internal weights. Long-running GPU work judged by throughput, meaning how much work finishes per second. The opposite end of the lifecycle from inference, which uses the finished model.",
+        why: "Training jobs are the workloads most of this cluster's design exists to serve."
+      },
+      {
+        term: "GPU",
+        plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
+        why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "Batch",
+        plain: "A group of samples processed together in one step. Bigger batches keep the GPU's many cores busier, but need more memory.",
+        why: "Batch size is the first knob everyone turns when GPUs sit idle or memory runs out."
+      },
+      {
+        term: "Fabric",
+        plain: "The network that connects the nodes into one cluster — the switches, cables, and adapters acting as a single system.",
+        why: "When people say 'the fabric is degraded,' they mean the cluster's internal highway system, not one server."
+      },
       { term: "DDP", plain: "Distributed Data Parallel, a way to run the same training process across many GPUs and combine their gradients.", why: "It is a common default for multi-GPU training." },
       { term: "Gradient", plain: "The update signal that tells the model how to change its weights.", why: "Synchronization exists because each GPU computes only part of the batch." },
       { term: "AllReduce", plain: "A collective operation that combines and redistributes gradient data across ranks.", why: "It is often the communication bottleneck." },
@@ -316,6 +436,31 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
       "That is why this lab matters beyond one command. It teaches how users actually experience platform quality during distributed work."
     ],
     coreTerms: [
+      {
+        term: "Training",
+        plain: "The learning phase — the model repeatedly sees data and adjusts its internal weights. Long-running GPU work judged by throughput, meaning how much work finishes per second. The opposite end of the lifecycle from inference, which uses the finished model.",
+        why: "Training jobs are the workloads most of this cluster's design exists to serve."
+      },
+      {
+        term: "GPU",
+        plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
+        why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "Gradient",
+        plain: "The correction signal computed during training — for every weight, how much and in which direction to adjust it. This is the data GPUs exchange after each step.",
+        why: "All-reduce traffic is almost entirely gradients; that is why network health shapes training speed."
+      },
+      {
+        term: "Throughput",
+        plain: "How much total work finishes per second — images/s, tokens/s, GB/s. The opposite concern from latency, which is how long one single item takes.",
+        why: "GPUs and training pipelines are judged on throughput; user-facing requests are judged on latency."
+      },
+      {
+        term: "Fabric",
+        plain: "The network that connects the nodes into one cluster — the switches, cables, and adapters acting as a single system.",
+        why: "When people say 'the fabric is degraded,' they mean the cluster's internal highway system, not one server."
+      },
       { term: "Ring algorithm", plain: "A pattern where each rank passes data to neighbors in stages until the reduction is complete.", why: "It helps beginners picture why one weak link hurts the whole group." },
       { term: "Collective", plain: "An operation involving many ranks at once, not just one sender and one receiver.", why: "Many GPU communication failures are collective failures." },
       { term: "NCCL", plain: "NVIDIA's library for multi-GPU communication collectives.", why: "It is the common tool behind AllReduce performance and failures." },
@@ -350,6 +495,41 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
       "So this lab matters because it teaches how problems spread beyond one host: one bad port, cable, HCA, or switch path can hurt many jobs at once."
     ],
     coreTerms: [
+      {
+        term: "GPU",
+        plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
+        why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "NCCL",
+        plain: "NVIDIA Collective Communications Library — the software layer GPUs use to exchange results with each other during multi-GPU work.",
+        why: "When GPU-to-GPU communication is slow or failing, NCCL logs are where the story is told."
+      },
+      {
+        term: "RDMA",
+        plain: "Remote direct memory access — one server's network card writes data straight into another server's memory, bypassing the CPU. This is why the fabric is so fast, and why it needs special network behavior.",
+        why: "InfiniBand and RoCE are both just ways of delivering RDMA."
+      },
+      {
+        term: "HCA",
+        plain: "Host channel adapter — the InfiniBand network card installed in each server. The IB equivalent of an Ethernet NIC.",
+        why: "Commands like ibstat are reading the state of this card."
+      },
+      {
+        term: "Bandwidth",
+        plain: "How much data a link can move per second (GB/s). Think highway width: more lanes, more simultaneous traffic.",
+        why: "Bandwidth numbers are how you compare NVLink, PCIe, InfiniBand, and storage paths."
+      },
+      {
+        term: "Throughput",
+        plain: "How much total work finishes per second — images/s, tokens/s, GB/s. The opposite concern from latency, which is how long one single item takes.",
+        why: "GPUs and training pipelines are judged on throughput; user-facing requests are judged on latency."
+      },
+      {
+        term: "Training",
+        plain: "The learning phase — the model repeatedly sees data and adjusts its internal weights. Long-running GPU work judged by throughput, meaning how much work finishes per second. The opposite end of the lifecycle from inference, which uses the finished model.",
+        why: "Training jobs are the workloads most of this cluster's design exists to serve."
+      },
       { term: "InfiniBand", plain: "A high-performance network technology used for low-latency cluster communication.", why: "Many GPU clusters depend on it for distributed training." },
       { term: "Port state", plain: "Whether a network port is active, down, or otherwise unhealthy.", why: "A single bad port can collapse an entire path." },
       { term: "perfquery", plain: "A tool that reads InfiniBand performance counters and error counters.", why: "It turns a vague network suspicion into evidence." },
@@ -384,6 +564,46 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
       "So this matters beyond one interface. A RoCE mistake can reduce scaling efficiency across a rack or cluster without creating a simple hard outage."
     ],
     coreTerms: [
+      {
+        term: "Fabric",
+        plain: "The network that connects the nodes into one cluster — the switches, cables, and adapters acting as a single system.",
+        why: "When people say 'the fabric is degraded,' they mean the cluster's internal highway system, not one server."
+      },
+      {
+        term: "GPU",
+        plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
+        why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "RDMA",
+        plain: "Remote direct memory access — one server's network card writes data straight into another server's memory, bypassing the CPU. This is why the fabric is so fast, and why it needs special network behavior.",
+        why: "InfiniBand and RoCE are both just ways of delivering RDMA."
+      },
+      {
+        term: "MTU",
+        plain: "Maximum transmission unit — the largest packet the network will carry in one piece. Both ends and every switch in between must agree on it.",
+        why: "Mismatched MTU is a classic silent killer of RDMA performance."
+      },
+      {
+        term: "Lossless",
+        plain: "A network tuned so switches pause traffic instead of dropping packets when buffers fill. RDMA assumes this — a single dropped packet costs far more than a brief pause.",
+        why: "PFC and ECN exist to make ordinary Ethernet behave losslessly for RoCE."
+      },
+      {
+        term: "Bandwidth",
+        plain: "How much data a link can move per second (GB/s). Think highway width: more lanes, more simultaneous traffic.",
+        why: "Bandwidth numbers are how you compare NVLink, PCIe, InfiniBand, and storage paths."
+      },
+      {
+        term: "Throughput",
+        plain: "How much total work finishes per second — images/s, tokens/s, GB/s. The opposite concern from latency, which is how long one single item takes.",
+        why: "GPUs and training pipelines are judged on throughput; user-facing requests are judged on latency."
+      },
+      {
+        term: "Training",
+        plain: "The learning phase — the model repeatedly sees data and adjusts its internal weights. Long-running GPU work judged by throughput, meaning how much work finishes per second. The opposite end of the lifecycle from inference, which uses the finished model.",
+        why: "Training jobs are the workloads most of this cluster's design exists to serve."
+      },
       { term: "RoCEv2", plain: "RDMA over Converged Ethernet version 2, a way to get low-latency remote memory access over Ethernet.", why: "It is common in Ethernet-based AI clusters." },
       { term: "PFC", plain: "Priority Flow Control, a pause mechanism meant to prevent packet loss for important traffic classes.", why: "Misconfiguration can create serious congestion behavior." },
       { term: "ECN", plain: "Explicit Congestion Notification, a way for the network to signal congestion before packet loss occurs.", why: "It helps keep performance stable without overusing pause frames." },

@@ -6,3 +6,6 @@ __pycache__/
 .env.*
 *.log
 .DS_Store
+.local-runtime/
+.venv/
+.claude/

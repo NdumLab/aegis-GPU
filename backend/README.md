@@ -11,7 +11,7 @@ Deployed FastAPI backend for the Aegis-GPU production service.
 Run syntax checks with:
 
 ```bash
-python3 -m py_compile log-analizer.py node_scraper.py
+python3 -m py_compile aegis_api.py node_scraper.py
 ```
 
 Run tests with:

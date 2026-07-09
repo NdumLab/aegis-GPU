@@ -8,7 +8,8 @@ const LABS = window.AEGIS_LABS = Object.assign(
   window.AEGIS_LABS_PARTS?.fabric_and_partitioning || {},
   window.AEGIS_LABS_PARTS?.runtime_and_training || {},
   window.AEGIS_LABS_PARTS?.network_and_storage || {},
-  window.AEGIS_LABS_PARTS?.operations_and_schedulers || {}
+  window.AEGIS_LABS_PARTS?.operations_and_schedulers || {},
+  window.AEGIS_LABS_PARTS?.exam_coverage_extension || {}
 );
 
 const TERMINAL_OUTPUT = {
@@ -665,6 +666,185 @@ const TERMINAL_OUTPUT = {
     {t:'dim',  v:'NAME            MIN MEMBER  RUNNING  SCHEDULED'},
     {t:'good', v:'training-gang   16          16       True'},
     {t:'good', v:'Distributed workload placed as one coordinated group'}
+  ],
+
+  // --- exam_coverage_extension fixtures (NCA-AIIO Domain 1/2/3 gap labs) ---
+  aic_taxonomy: [
+    {t:'cmd',  v:'$ cat /opt/aegis/ai-taxonomy.txt'},
+    {t:'good', v:'AI  ── any system that mimics human-like reasoning or decisions'},
+    {t:'good', v:' └─ ML  ── systems that learn patterns from data instead of fixed rules'},
+    {t:'good', v:'     └─ DL ── multi-layer neural networks that learn features automatically'},
+    {t:'dim',  v:'GenAI / LLMs are deep learning models specialized for generation'},
+    {t:'dim',  v:'Rule engine = AI but NOT ML | Linear regression = ML but NOT DL'}
+  ],
+  aic_cpu: [
+    {t:'cmd',  v:'$ python3 matmul_bench.py --device cpu --size 8192'},
+    {t:'dim',  v:'device: CPU (32 cores, AVX-512)'},
+    {t:'warn', v:'8192x8192 fp32 matmul ......  9.84 s'},
+    {t:'dim',  v:'sustained throughput ........  ~0.11 TFLOP/s effective'},
+    {t:'dim',  v:'note: cores are latency-optimized, not throughput-optimized'}
+  ],
+  aic_gpu: [
+    {t:'cmd',  v:'$ python3 matmul_bench.py --device gpu --size 8192'},
+    {t:'dim',  v:'device: NVIDIA H100 80GB HBM3 (132 SMs, Tensor Cores)'},
+    {t:'good', v:'8192x8192 fp32 matmul ......  0.061 s   (~161x faster than CPU)'},
+    {t:'good', v:'sustained throughput ........  ~18 TFLOP/s effective (fp32)'},
+    {t:'dim',  v:'note: SIMT execution keeps thousands of ALUs busy in parallel'}
+  ],
+  aic_arch: [
+    {t:'cmd',  v:"$ nvidia-smi -q | grep -A6 'Product Architecture'"},
+    {t:'good', v:'CPU  : few cores, big caches, branch prediction  -> latency-optimized'},
+    {t:'good', v:'GPU  : thousands of ALUs, SIMT, Tensor Cores      -> throughput-optimized'},
+    {t:'dim',  v:'H100 : 132 SMs, HBM3 ~3.35 TB/s memory bandwidth'},
+    {t:'err',  v:"Trap : 'the CPU is defective' -> WRONG, it is a different tool"},
+    {t:'info', v:'Right: match workload shape (serial vs parallel) to the processor'}
+  ],
+  inf_train_profile: [
+    {t:'cmd',  v:'$ nvidia-smi dmon -s um -c 5'},
+    {t:'dim',  v:'# gpu   sm%   mem%   fb_used(MiB)'},
+    {t:'good', v:'    0    97     88        71680   <- large batch + optimizer states'},
+    {t:'good', v:'    0    96     88        71680'},
+    {t:'good', v:'    0    98     89        72704   sustained high utilization = training'}
+  ],
+  inf_serve_deploy: [
+    {t:'cmd',  v:'$ tritonserver --model-repository=/models'},
+    {t:'good', v:"I0709 model_repository_manager: loaded 'resnet50_trt' version 1"},
+    {t:'good', v:'I0709 server: HTTP service listening on 0.0.0.0:8000'},
+    {t:'good', v:'$ curl -s localhost:8000/v2/health/ready  -> HTTP 200 (READY)'},
+    {t:'dim',  v:'backend: TensorRT | dynamic_batching: enabled'}
+  ],
+  inf_latency: [
+    {t:'cmd',  v:'$ perf_analyzer -m resnet50_trt --concurrency-range 1:16'},
+    {t:'dim',  v:'concurrency  throughput(inf/s)   p99 latency(ms)'},
+    {t:'good', v:'   1              1420               6.9   ok'},
+    {t:'good', v:'   8              9100              14.2   ok  (SLA = 15ms)'},
+    {t:'err',  v:'  16             12800              28.6   SLA VIOLATED'}
+  ],
+  inf_optimize: [
+    {t:'cmd',  v:'$ trtexec --onnx=model.onnx --fp16 --saveEngine=model.plan'},
+    {t:'dim',  v:'baseline fp32 : 6.9 ms/req'},
+    {t:'good', v:'optimized fp16: 2.4 ms/req  (2.9x faster, layers fused)'},
+    {t:'warn', v:'trap: over-aggressive INT8 without calibration -> accuracy drop'},
+    {t:'info', v:'action: validate accuracy after quantization, not just speed'}
+  ],
+  ns_inventory: [
+    {t:'cmd',  v:'$ nvidia-smi && cat /opt/aegis/stack-manifest.txt'},
+    {t:'good', v:'hardware   : NVIDIA H100 GPU'},
+    {t:'good', v:'driver     : NVIDIA 550.x kernel module'},
+    {t:'good', v:'CUDA       : CUDA 12.4 toolkit + runtime'},
+    {t:'good', v:'CUDA-X     : cuDNN, cuBLAS, NCCL, cuFFT, TensorRT, RAPIDS'},
+    {t:'dim',  v:'frameworks : PyTorch / TensorFlow / NeMo (from NGC)'}
+  ],
+  ns_cudax: [
+    {t:'cmd',  v:"$ ldconfig -p | grep -E 'cudnn|nccl|cublas'"},
+    {t:'good', v:'libcudnn.so.9   -> deep-learning primitives (conv, attention)'},
+    {t:'good', v:'libcublas.so.12 -> dense linear algebra (matmul, GEMM)'},
+    {t:'good', v:'libnccl.so.2    -> multi-GPU/multi-node collectives (AllReduce)'},
+    {t:'dim',  v:'all present and version-matched to CUDA 12.4'}
+  ],
+  ns_solutions: [
+    {t:'cmd',  v:'$ cat /opt/aegis/nvidia-solutions.txt'},
+    {t:'good', v:'NeMo         -> build/customize LLMs and generative models'},
+    {t:'good', v:'NIM          -> deploy models as inference microservices'},
+    {t:'good', v:'Triton       -> serve any framework models at scale'},
+    {t:'good', v:'RAPIDS       -> GPU-accelerated data science (cuDF/cuML)'},
+    {t:'dim',  v:'Base Command / AI Enterprise -> manage & support the platform'}
+  ],
+  ns_lifecycle: [
+    {t:'cmd',  v:'$ cat /opt/aegis/ai-lifecycle.txt'},
+    {t:'good', v:'data prep  -> RAPIDS / DALI          (clean & load data fast)'},
+    {t:'good', v:'train      -> NeMo / PyTorch on NGC  (learn the model)'},
+    {t:'good', v:'optimize   -> TensorRT               (quantize & fuse)'},
+    {t:'good', v:'deploy     -> Triton / NIM           (serve requests)'},
+    {t:'info', v:'monitor    -> DCGM / Prometheus      (watch health & drift)'}
+  ],
+  ip_sizing: [
+    {t:'cmd',  v:'$ cat /opt/aegis/training-sizing.txt'},
+    {t:'dim',  v:'workload   : 70B-param LLM fine-tune, bf16'},
+    {t:'good', v:'memory est : weights+optimizer+activations ~ 1.1 TB'},
+    {t:'good', v:'per-GPU    : H100 80GB -> needs multi-GPU sharding (FSDP)'},
+    {t:'good', v:'GPU count  : 16x H100 across 2 DGX nodes for target throughput'},
+    {t:'dim',  v:'interconnect: NVLink intra-node + InfiniBand inter-node'}
+  ],
+  ip_power: [
+    {t:'cmd',  v:"$ nvidia-smi -q -d POWER | grep -E 'Power Draw|Power Limit'"},
+    {t:'good', v:'    Power Draw   : 698.4 W    Power Limit : 700.0 W'},
+    {t:'dim',  v:'node estimate : 8 x 700W + CPU/NIC/fans ~ 10.2 kW per DGX H100'},
+    {t:'warn', v:'rack budget   : 40 kW feed -> ~3-4 GPU nodes before you cap out'},
+    {t:'info', v:'planning rule : power, not floor space, usually limits GPU density'}
+  ],
+  ip_cooling: [
+    {t:'cmd',  v:'$ nvidia-smi --query-gpu=temperature.gpu,power.draw --format=csv'},
+    {t:'dim',  v:'temperature.gpu, power.draw'},
+    {t:'good', v:'71 C, 698.4 W   x8 GPUs -> ~5.6 kW of heat per node just from GPUs'},
+    {t:'dim',  v:'air cooling  : practical up to ~30-40 kW/rack'},
+    {t:'info', v:'liquid cooling (DLC/RDHx): enables 40-130+ kW/rack GPU density'}
+  ],
+  ip_scale: [
+    {t:'cmd',  v:'$ cat /opt/aegis/superpod-scaling.txt'},
+    {t:'good', v:'unit        : 1 DGX H100 node = 8 GPUs'},
+    {t:'good', v:'scalable SU : 32 DGX nodes = 256 GPUs + InfiniBand spine'},
+    {t:'good', v:'cluster     : N x SU with non-blocking fat-tree fabric'},
+    {t:'err',  v:'trap        : add nodes but keep old fabric/power -> imbalance'},
+    {t:'info', v:'rule        : scale compute, network, power, cooling together'}
+  ],
+  dpu_host_load: [
+    {t:'cmd',  v:'$ mpstat -P ALL 1 1'},
+    {t:'dim',  v:'CPU   %usr  %sys  %soft  %idle'},
+    {t:'err',  v:'all    18    41     29      12   <- 70% lost to sys+softirq'},
+    {t:'warn', v:'cause : OVS vSwitch + TLS + NVMe-oF handled on host cores'},
+    {t:'err',  v:'effect: GPUs idle-wait for data while CPU drowns in overhead'}
+  ],
+  dpu_identify: [
+    {t:'cmd',  v:'$ lspci | grep -i bluefield'},
+    {t:'good', v:'c1:00.0 NVIDIA BlueField-3 DPU (ConnectX-7 integrated)'},
+    {t:'cmd',  v:'$ dpu-mode -q'},
+    {t:'good', v:'mode: DPU (embedded) | Arm cores: 16 | DOCA services: enabled'},
+    {t:'dim',  v:'role: infrastructure processor separate from host x86 CPU'}
+  ],
+  dpu_offload: [
+    {t:'cmd',  v:'$ doca-offload --enable ovs,storage,security'},
+    {t:'good', v:'offloaded: OVS vSwitch, NVMe-oF initiator, TLS/IPsec, packet filtering'},
+    {t:'good', v:'host CPU sys+softirq : 70% -> 12%   (freed ~24 cores)'},
+    {t:'good', v:'GPU feed : data path no longer waits on host CPU'},
+    {t:'info', v:'bonus    : DPU isolates the infra domain from a compromised host'}
+  ],
+  dpu_cloud_decision: [
+    {t:'cmd',  v:'$ cat /opt/aegis/cloud-vs-onprem.txt'},
+    {t:'good', v:'on-prem : best for high sustained utilization, data gravity, control'},
+    {t:'good', v:'cloud   : best for bursty/variable demand, low CapEx, fast start'},
+    {t:'good', v:'hybrid  : steady base on-prem + burst to cloud for peaks'},
+    {t:'dim',  v:'driver  : sustained utilization -> on-prem TCO wins over time'},
+    {t:'dim',  v:'driver  : uncertain/short-term demand -> cloud OpEx wins'}
+  ],
+  vgpu_profiles: [
+    {t:'cmd',  v:'$ nvidia-smi vgpu -s'},
+    {t:'dim',  v:'GPU 0: NVIDIA H100 80GB'},
+    {t:'good', v:'  H100-8C   : 8 GB fb  | compute vGPU profile'},
+    {t:'good', v:'  H100-16C  : 16 GB fb | compute vGPU profile'},
+    {t:'info', v:'  requires : NVIDIA vGPU manager + licensed guest driver'}
+  ],
+  vgpu_create: [
+    {t:'cmd',  v:'$ mdevctl start -u 7f3a... -p 0000:17:00.0 --type nvidia-H100-8C'},
+    {t:'good', v:'created mdev 7f3a... type nvidia-H100-8C (8 GB fb)'},
+    {t:'cmd',  v:'$ mdevctl list'},
+    {t:'good', v:'7f3a...  0000:17:00.0  nvidia-H100-8C   (ready to attach to VM)'},
+    {t:'dim',  v:'attach  : hypervisor binds this mdev to a guest VM'}
+  ],
+  vgpu_compare: [
+    {t:'cmd',  v:'$ cat /opt/aegis/virtualization-modes.txt'},
+    {t:'good', v:'MIG          : spatial HW partitions | strong isolation | bare metal'},
+    {t:'good', v:'vGPU         : VM slices | fixed fb, time-shared compute | licensed'},
+    {t:'warn', v:'time-slicing : interleave contexts | NO isolation | oversubscribe'},
+    {t:'info', v:'choose MIG   : hard multi-tenant isolation on bare metal'},
+    {t:'dim',  v:'choose vGPU  : virtualized/VDI multi-tenant; time-slice: dev/test'}
+  ],
+  vgpu_oversub: [
+    {t:'cmd',  v:"$ nvidia-smi vgpu -q | grep -A3 'Utilization'"},
+    {t:'err',  v:'vGPU 1 (H100-8C) : sched wait high, effective SM ~ 22%'},
+    {t:'err',  v:'vGPU 2 (H100-8C) : sched wait high, effective SM ~ 21%'},
+    {t:'warn', v:'cause : 6 active time-shared guests contend for one engine'},
+    {t:'info', v:'fix   : reduce oversubscription, or use MIG for isolation'}
   ]
 };
 

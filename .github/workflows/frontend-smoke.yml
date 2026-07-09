@@ -12,6 +12,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Run deterministic frontend smoke tests
         run: >
           python3 -m unittest
@@ -20,3 +23,5 @@ jobs:
           frontend/tests/test_cluster_terminal_state.py
           frontend/tests/test_frontend_smoke.py
           frontend/tests/test_lab_data_structure.py
+          frontend/tests/test_exam_coverage.py
+          frontend/tests/test_glossary_coverage.py

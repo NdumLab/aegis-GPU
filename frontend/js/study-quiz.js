@@ -11,7 +11,8 @@ const EXAM_STUDY_GUIDES = {
         'Questions: 50',
         'Certification level: Associate',
         'Validity: two years from issuance',
-        'Prerequisite: basic data center infrastructure understanding'
+        'Prerequisite: basic data center infrastructure understanding',
+        'Blueprint retrieved from the official NVIDIA certification page on 2026-07-09'
       ],
       weights: [
         { label: 'Essential AI Knowledge', value: '38%' },
@@ -102,6 +103,32 @@ const EXAM_STUDY_GUIDES = {
           'GPUDirect Storage can reduce CPU bounce-buffer overhead when the platform supports it.'
         ],
         trap: 'Low GPU utilization is not always a GPU problem. Check the data path before changing accelerator settings.'
+      },
+      {
+        phase: '6',
+        title: 'Essential AI Knowledge',
+        labs: ['ai_concepts', 'inference', 'nvidia_stack'],
+        examFocus: 'Differentiate AI/ML/DL, compare training vs inference and GPU vs CPU, and map the NVIDIA software stack and solutions to the AI lifecycle.',
+        plain: 'This is the largest exam domain (38%). It is conceptual: place a technique in the AI/ML/DL hierarchy, explain why deep learning runs on GPUs, and name which NVIDIA solution owns which job.',
+        connectDots: [
+          'Deep learning is a subset of machine learning, which is a subset of AI.',
+          'Training is throughput- and memory-heavy; inference is latency-sensitive and request-driven.',
+          'NeMo builds models, Triton and NIM serve them, RAPIDS preps data, TensorRT optimizes.'
+        ],
+        trap: 'Do not answer that a CPU is defective when it loses a parallel benchmark. That is an architecture trade-off, not a fault.'
+      },
+      {
+        phase: '7',
+        title: 'Infrastructure And Virtualization Planning',
+        labs: ['infra_planning', 'dpu_cloud', 'vgpu'],
+        examFocus: 'Size hardware, budget power and cooling, scale in balanced units, offload with a DPU, choose cloud vs on-prem, and pick a GPU virtualization model.',
+        plain: 'This closes the AI Infrastructure (40%) planning objectives and the AI Operations virtualization objective. Reason from workload to facility, and match the sharing model to the isolation need.',
+        connectDots: [
+          'GPU racks are power-dense, so kilowatts and cooling cap density before floor space.',
+          'A DPU offloads networking, storage, and security from the host CPU and isolates the infra domain.',
+          'MIG is spatial hardware isolation; vGPU virtualizes GPUs for VMs; time-slicing has no isolation.'
+        ],
+        trap: 'Do not scale GPU count without scaling fabric, power, and cooling, and do not read oversubscription contention as a hardware fault.'
       }
     ],
     checkpoints: [
@@ -180,6 +207,7 @@ function renderStudyGuide(examId = 'nca_aiio') {
         `).join('')}
       </div>
       <a class="study-source-link" href="${escHtml(guide.officialBlueprint.sourceUrl)}" target="_blank" rel="noreferrer">NVIDIA certification page</a>
+      <p class="study-disclaimer" style="font-size:11px;color:#7f8ea3;margin-top:12px;line-height:1.6;">Aegis-GPU is an independent study tool and is not affiliated with, sponsored by, or endorsed by NVIDIA Corporation. NVIDIA, NCA-AIIO, DGX, and related marks are trademarks of NVIDIA Corporation. Blueprint details above summarize the public NVIDIA certification page; lab environments are simulations, and completing them does not guarantee any exam result.</p>
     </section>
 
     <section class="learn-section study-model">
@@ -381,7 +409,67 @@ const QUIZ = [
 
   {q:"A Kubernetes pod fails with 'CUDA error: no kernel image is available for execution on the device'. Container was built with CUDA 11.8. Cluster nodes have a current NVIDIA driver. What is the correct fix?",
    opts:["Run 'nvidia-smi --gpu-reset' on the node","Rebuild the container using an NGC base image (nvcr.io/nvidia/pytorch:24.03-py3) that includes CUDA 12.x","Downgrade the node driver to match the container","Set CUDA_VISIBLE_DEVICES='' in the pod spec"],
-   ans:1,exp:"CUDA 11.8 does not include sm_90 kernels required by H100 GPUs (compute capability 9.0 was introduced in CUDA 11.8 but full support arrived in CUDA 12.x). Rebuilding with an NGC image based on CUDA 12.x ensures the correct sm_90 PTX/SASS kernels are present. Note: newer drivers ARE backwards-compatible with older CUDA runtimes — the issue here is missing GPU architecture support, not driver version mismatch."}
+   ans:1,exp:"CUDA 11.8 does not include sm_90 kernels required by H100 GPUs (compute capability 9.0 was introduced in CUDA 11.8 but full support arrived in CUDA 12.x). Rebuilding with an NGC image based on CUDA 12.x ensures the correct sm_90 PTX/SASS kernels are present. Note: newer drivers ARE backwards-compatible with older CUDA runtimes — the issue here is missing GPU architecture support, not driver version mismatch."},
+
+  // Essential AI Knowledge — NCA-AIIO Domain 1: AI/ML/DL taxonomy
+  {q:"A team uses a multi-layer neural network to generate text. How should this technique be classified?",
+   opts:["Machine learning but explicitly not AI","Deep learning, which is a subset of machine learning and of AI","A rule-based AI system that does not learn from data","Traditional statistics unrelated to AI"],
+   ans:1,exp:"AI, ML, and DL are nested. A many-layer neural network is deep learning, which is a subset of machine learning, which is a subset of AI. Generative and large language models are deep learning, so they inherit the GPU-heavy training profile."},
+
+  // Essential AI Knowledge — Domain 1: GPU vs CPU architecture
+  {q:"A dense 8192x8192 matrix multiply runs about 160x faster on an H100 than on a 32-core CPU. What is the best explanation?",
+   opts:["The CPU is defective and should be replaced","The GPU's thousands of throughput-optimized cores and Tensor Cores match the parallel workload","The CPU simply lacks enough system RAM","The benchmark is actually measuring network speed"],
+   ans:1,exp:"The GPU wins because dense matrix math is massively parallel and maps onto many throughput-optimized cores plus Tensor Cores. The CPU is latency-optimized for serial/branchy work — it is a design trade-off, not a defect. 'The CPU is broken' is the classic wrong answer."},
+
+  // Essential AI Knowledge — Domain 1: training vs inference architecture
+  {q:"Which statement best distinguishes training from inference resource profiles?",
+   opts:["Inference needs far more memory than training because of optimizer states","Training sustains high utilization and holds gradients and optimizer state, while inference is latency-sensitive and request-driven","Training is latency-bound while inference is throughput-bound","They stress hardware identically"],
+   ans:1,exp:"Training runs forward and backward passes with large batches and holds weights, activations, gradients, and optimizer state, so it is throughput-first and memory-heavy. Inference runs only the forward pass and is judged by latency under load. Their architecture requirements differ."},
+
+  // Essential AI Knowledge — Domain 1: NVIDIA solutions (serve)
+  {q:"You must deploy a trained model as a scalable inference microservice with a standard API. Which NVIDIA solution fits best?",
+   opts:["NeMo","RAPIDS","NVIDIA NIM or Triton Inference Server","DCGM"],
+   ans:2,exp:"Serving trained models is the job of Triton Inference Server and NIM (NVIDIA Inference Microservices). NeMo builds and customizes models, RAPIDS accelerates data science, and DCGM monitors GPUs — none of those serve inference requests."},
+
+  // Essential AI Knowledge — Domain 1: NVIDIA solutions (build)
+  {q:"Which NVIDIA offering is purpose-built for building and customizing large language models?",
+   opts:["NeMo","Triton Inference Server","cuBLAS","Base Command Manager"],
+   ans:0,exp:"NeMo is NVIDIA's framework for building and customizing LLMs and generative models. Triton serves models, cuBLAS is a CUDA-X linear-algebra library, and Base Command Manager is cluster management — they own different jobs in the stack."},
+
+  // Essential AI Knowledge — Domain 1: NVIDIA software stack (CUDA-X)
+  {q:"A PyTorch job runs, but multi-GPU AllReduce is far slower than expected and the collective library is missing. Which CUDA-X library is implicated?",
+   opts:["cuDNN","NCCL","cuFFT","RAPIDS cuDF"],
+   ans:1,exp:"NCCL is the CUDA-X library that provides multi-GPU and multi-node collective communication such as AllReduce. cuDNN accelerates neural-net primitives, cuFFT does Fourier transforms, and cuDF is dataframes — none of those own collectives."},
+
+  // Essential AI Knowledge — Domain 1: AI lifecycle
+  {q:"In the AI development and deployment lifecycle, which stage sits between training and deployment and is owned by TensorRT?",
+   opts:["Data preparation","Model optimization such as quantization and layer fusion","Post-deployment monitoring","Data labeling"],
+   ans:1,exp:"TensorRT optimizes a trained model (kernel fusion, reduced precision like FP16/INT8) before it is deployed on Triton or NIM. Data prep (RAPIDS/DALI) comes before training, and monitoring (DCGM) comes after deployment."},
+
+  // AI Infrastructure — NCA-AIIO Domain 2: power & cooling
+  {q:"A rack has a 40 kW power feed and each DGX H100 node draws about 10.2 kW. What primarily limits how many nodes fit?",
+   opts:["The number of rack units physically available","The rack power and cooling budget, which caps it near 3-4 nodes","The length of the InfiniBand cables","A Kubernetes node-count limit"],
+   ans:1,exp:"GPU nodes are power-dense, so the kilowatt budget of the power feed (and the matching heat the cooling can remove) usually caps density before physical rack space does. A 40 kW feed supports only about three to four 10 kW nodes."},
+
+  // AI Infrastructure — Domain 2: scaling
+  {q:"Why do reference architectures like DGX SuperPOD grow in fixed scalable units (for example 32 nodes plus an InfiniBand spine)?",
+   opts:["To simplify purchasing paperwork only","So compute, network, power, and cooling scale together in a validated, balanced ratio","Because GPUs must be purchased in prime-number counts","To avoid using InfiniBand entirely"],
+   ans:1,exp:"Scalable units keep the interconnect, power, and cooling proportioned to the compute as the cluster grows. Adding GPUs without matching fabric and facility creates bottlenecks and thermal or power faults."},
+
+  // AI Infrastructure — Domain 2: DPU
+  {q:"Host CPU is saturated by OVS virtual switching, TLS, and NVMe-oF storage while the GPUs idle-wait for data. What is the purpose of adding a BlueField DPU?",
+   opts:["To add more GPU memory","To offload networking, storage, and security from the host CPU and isolate the infrastructure domain","To raise the host CPU clock speed","To replace the InfiniBand fabric"],
+   ans:1,exp:"A DPU (BlueField) is a programmable processor on the NIC that offloads infrastructure services — virtual switching, storage, security — from the host CPU. That frees host cores to feed the GPUs and adds a security-isolation boundary. Adding GPUs would not fix a CPU-bound infrastructure problem."},
+
+  // AI Infrastructure — Domain 2: cloud vs on-prem
+  {q:"GPUs will run at high sustained utilization for several years with strict data-residency requirements. Which deployment model is favored?",
+   opts:["Cloud, because it is always cheaper","On-premises, because sustained high utilization and data gravity favor owned infrastructure","Cloud, because on-prem cannot run GPUs at scale","The choice never matters"],
+   ans:1,exp:"Sustained high utilization makes owned infrastructure win on TCO over time, and strict data-residency (data gravity) reinforces on-prem. Cloud wins for bursty or uncertain demand and low upfront cost. There is no universal winner; utilization and control drive the choice."},
+
+  // AI Operations — NCA-AIIO Domain 3: virtualization
+  {q:"Six time-shared vGPU guests on one GPU all slow down under concurrent load, but DCGM shows no ECC or XID errors. What is happening?",
+   opts:["The GPU has failed and needs an RMA","Oversubscription contention on time-shared compute — reduce the guest count or use MIG for hard isolation","An NVLink cable is broken","A thermal throttling event"],
+   ans:1,exp:"Time-shared vGPU and time-slicing have no compute isolation, so too many concurrent guests raise scheduler wait time and each one slows down. The hardware is healthy (clean counters); the sharing ratio is the problem. MIG would provide spatial isolation if it is required."}
 ];
 
 const QUIZ_WRONG_CHOICE_FEEDBACK = {
@@ -485,6 +573,66 @@ const QUIZ_WRONG_CHOICE_FEEDBACK = {
     2: 'Your choice is not correct. Newer NVIDIA drivers are generally backward-compatible with older CUDA runtimes. The problem is not that the driver is too new; the container was built without the needed sm_90 support.',
     3: 'Your choice is not correct. Setting CUDA_VISIBLE_DEVICES empty hides GPUs from the application. That would avoid using the GPU instead of fixing the missing H100-compatible CUDA kernels.',
   },
+  20: {
+    0: 'Your choice is not correct. It cannot be ML but not AI, because machine learning is a subset of AI. Anything that is ML is also AI by definition.',
+    2: 'Your choice is not correct. A rule-based system that does not learn is AI but not machine learning. A neural network that learns from data is deep learning.',
+    3: 'Your choice is not correct. Deep learning uses statistical ideas but is a form of AI. A many-layer neural network is squarely deep learning, not something unrelated to AI.',
+  },
+  21: {
+    0: 'Your choice is not correct. Losing a parallel-throughput benchmark does not mean the CPU is broken. It is latency-optimized for different work, so this is a design trade-off, not a defect.',
+    2: 'Your choice is not correct. The gap is architectural, not a RAM shortage. Even with ample RAM, a few latency-optimized cores cannot match thousands of parallel GPU cores on dense matmul.',
+    3: 'Your choice is not correct. The benchmark measures on-device compute, not the network. The speedup comes from the GPU\'s parallel architecture and Tensor Cores.',
+  },
+  22: {
+    0: 'Your choice is not correct. Training, not inference, is the memory-heavy side because it holds gradients and optimizer state. Inference runs only the forward pass.',
+    2: 'Your choice is not correct. It is reversed: training is throughput-oriented while inference is latency-sensitive. Do not swap the two profiles.',
+    3: 'Your choice is not correct. They are not identical. Training sustains high utilization and memory for backprop; inference is request-driven and latency-bound.',
+  },
+  23: {
+    0: 'Your choice is not correct. NeMo builds and customizes models; it is not the scalable serving layer. Serving is Triton or NIM.',
+    1: 'Your choice is not correct. RAPIDS accelerates data science and data preparation, not model serving. Use NIM or Triton to serve inference.',
+    3: 'Your choice is not correct. DCGM monitors GPU health and metrics. It does not serve model inference requests.',
+  },
+  24: {
+    1: 'Your choice is not correct. Triton serves trained models as inference endpoints. Building and customizing LLMs is the job of NeMo.',
+    2: 'Your choice is not correct. cuBLAS is a CUDA-X linear-algebra library used under the hood, not a model-building framework. NeMo builds LLMs.',
+    3: 'Your choice is not correct. Base Command Manager handles cluster management. Building and customizing LLMs is NeMo\'s role.',
+  },
+  25: {
+    0: 'Your choice is not correct. cuDNN accelerates neural-network primitives like convolutions and attention, not multi-GPU collectives. AllReduce is NCCL.',
+    2: 'Your choice is not correct. cuFFT handles fast Fourier transforms. The collective communication library behind AllReduce is NCCL.',
+    3: 'Your choice is not correct. RAPIDS cuDF is a GPU dataframe library for data science. Multi-GPU AllReduce is provided by NCCL.',
+  },
+  26: {
+    0: 'Your choice is not correct. Data preparation (RAPIDS/DALI) comes before training, not between training and deployment. TensorRT owns optimization.',
+    2: 'Your choice is not correct. Monitoring (DCGM/Prometheus) comes after deployment. The stage TensorRT owns is model optimization.',
+    3: 'Your choice is not correct. Data labeling is part of the data stage before training. TensorRT owns the optimization stage between training and deployment.',
+  },
+  27: {
+    0: 'Your choice is not correct. Physical rack units rarely bind first for GPU nodes; the power (and cooling) budget does. A 40 kW feed caps you near three to four 10 kW nodes.',
+    2: 'Your choice is not correct. Cable length is not the limiter here. The rack power feed and matching cooling budget determine node count.',
+    3: 'Your choice is not correct. Kubernetes does not impose the ceiling here. The physical power feed and cooling envelope do.',
+  },
+  28: {
+    0: 'Your choice is not correct. Paperwork is not the reason. Scalable units keep compute, network, power, and cooling in a validated, balanced ratio as the cluster grows.',
+    2: 'Your choice is not correct. GPU counts are not required to be prime. Scalable units exist to keep the fabric and facility proportioned to the compute.',
+    3: 'Your choice is not correct. SuperPOD uses InfiniBand; it does not avoid it. Scalable units balance compute with fabric, power, and cooling.',
+  },
+  29: {
+    0: 'Your choice is not correct. A DPU does not add GPU memory. It offloads infrastructure work (networking, storage, security) from the host CPU.',
+    2: 'Your choice is not correct. A DPU does not raise the host CPU clock. It removes infrastructure overhead from host cores by running it on the DPU.',
+    3: 'Your choice is not correct. The DPU does not replace the InfiniBand fabric; it integrates a NIC and offloads services from the host CPU.',
+  },
+  30: {
+    0: 'Your choice is not correct. Cloud is not always cheaper. For sustained high utilization over years, owned infrastructure usually wins on TCO.',
+    2: 'Your choice is not correct. On-prem clusters run GPUs at large scale routinely (for example DGX SuperPOD). The deciding factors are utilization and data gravity.',
+    3: 'Your choice is not correct. The choice does matter. Utilization, data residency, and control all steer this decision.',
+  },
+  31: {
+    0: 'Your choice is not correct. Clean ECC and XID counters mean the hardware is healthy. This is contention from oversubscription, not a failed GPU.',
+    2: 'Your choice is not correct. A broken NVLink cable would show topology or CRC evidence. Here all guests slow together on shared compute, which is oversubscription.',
+    3: 'Your choice is not correct. Thermal throttling shows high temperature or thermal-slowdown evidence. This is scheduler contention among too many time-shared guests.',
+  },
 };
 
 const QUIZ_CORRECT_CHOICE_FEEDBACK = {
@@ -508,6 +656,18 @@ const QUIZ_CORRECT_CHOICE_FEEDBACK = {
   17: 'Correct. Low FairShare means Alice has consumed more than her share recently. Slurm is applying scheduling policy, not reporting a broken GPU or lost controller.',
   18: 'Correct. Gang scheduling is the all-or-nothing concept. Distributed training ranks often need to start together, or early ranks wait and NCCL initialization can hang.',
   19: 'Correct. "No kernel image is available" means the container lacks code for the GPU architecture. For H100, rebuild on a CUDA 12-era NGC base image with sm_90 support.',
+  20: 'Correct. AI, ML, and DL are nested. A learning multi-layer neural network is deep learning, which is inside machine learning, which is inside AI. GenAI and LLMs are deep learning.',
+  21: 'Correct. The GPU wins because dense matmul is massively parallel and fits its throughput-optimized cores and Tensor Cores. The CPU is a different tool, not a broken one.',
+  22: 'Correct. Training sustains high utilization and holds gradients and optimizer state (memory-heavy, throughput-first); inference runs the forward pass and is latency-sensitive and request-driven.',
+  23: 'Correct. NIM and Triton serve trained models as scalable inference endpoints. NeMo builds models, RAPIDS preps data, and DCGM monitors GPUs.',
+  24: 'Correct. NeMo is NVIDIA\'s framework for building and customizing LLMs and generative models. Triton serves, cuBLAS accelerates math, and Base Command manages clusters.',
+  25: 'Correct. NCCL is the CUDA-X collective communication library behind AllReduce across GPUs and nodes. A missing or slow NCCL path is a classic multi-GPU bottleneck.',
+  26: 'Correct. TensorRT owns the optimization stage between training and deployment, applying kernel fusion and reduced precision. Data prep is before training; monitoring is after deployment.',
+  27: 'Correct. GPU nodes are power-dense, so the rack power feed and cooling budget cap density before floor space. A 40 kW feed supports roughly three to four 10 kW nodes.',
+  28: 'Correct. Scalable units grow compute, network, power, and cooling together in a validated ratio, avoiding the imbalance you get from bolting GPUs onto an unchanged facility.',
+  29: 'Correct. A BlueField DPU offloads networking, storage, and security from the host CPU, freeing cores to feed the GPUs and isolating the infrastructure domain. Adding GPUs would not help.',
+  30: 'Correct. Sustained high utilization plus data-residency needs favor on-premises TCO and control. Cloud wins for bursty or uncertain demand; hybrid blends both.',
+  31: 'Correct. Clean ECC and XID counters plus a shared slowdown mean oversubscription contention on time-shared compute. Reduce the guest count or use MIG for hard isolation.',
 };
 
 function getQuizChoiceFeedback(qi, q, chosenIdx) {

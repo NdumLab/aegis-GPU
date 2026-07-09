@@ -15,6 +15,6 @@ jobs:
       - name: Install dependencies
         run: python3 -m pip install -r backend/requirements.txt
       - name: Run backend syntax check
-        run: python3 -m py_compile backend/log-analizer.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
+        run: python3 -m py_compile backend/aegis_api.py backend/node_scraper.py backend/tests/test_api.py backend/tests/test_api_unittest.py
       - name: Run backend unittest smoke
         run: python3 -m unittest discover -s backend/tests -p 'test_*unittest.py'

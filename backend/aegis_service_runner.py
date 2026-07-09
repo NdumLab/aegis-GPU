@@ -65,7 +65,7 @@ def main() -> int:
 
     cmd = [
         '/usr/local/bin/uvicorn',
-        'log-analizer:app',
+        'aegis_api:app',
         '--host', HOST,
         '--port', str(PORT),
         '--workers', str(WORKERS),
