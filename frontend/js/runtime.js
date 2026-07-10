@@ -364,6 +364,9 @@ function runStep(labId, stepIdx, options = {}) {
         ? `\n✓ Lab complete: ${lab.name}`
         : `\n! Lab reached the end, but the incident path stayed compromised: ${lab.name}`
     }]), out.length*60+500);
+    if (typeof maybePromptFeedback === 'function') {
+      setTimeout(() => maybePromptFeedback('lab_completed'), out.length*60+2500);
+    }
   }
 }
 

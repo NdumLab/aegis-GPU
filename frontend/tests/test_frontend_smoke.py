@@ -527,5 +527,6 @@ class FeedbackWidgetTest(unittest.TestCase):
 
     def test_quiz_submit_prompts_feedback_once(self):
         self.assertIn('maybePromptFeedback', STUDY_QUIZ_JS)
+        self.assertIn("maybePromptFeedback('lab_completed')", RUNTIME_JS)
         self.assertIn('gpusim_feedback_done', self.FEEDBACK_JS)
         self.assertIn('gpusim_feedback_prompted', self.FEEDBACK_JS)
