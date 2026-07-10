@@ -643,6 +643,56 @@ class BackendSmokeTest(unittest.TestCase):
                                json={'payload': '"' + 'x' * 300_000 + '"'})
         self.assertEqual(huge.status_code, 413)
 
+    def test_feedback_requires_auth(self):
+        self.assertIn(self.client.post('/api/v1/feedback',
+                                       json={'rating': 5, 'message': 'great'}).status_code, (401, 403))
+        self.assertIn(self.client.get('/api/v1/feedback').status_code, (401, 403))
+
+    def test_feedback_submit_and_admin_list(self):
+        reg = self.client.post('/api/v1/auth/register',
+                               json={'username': 'fbuser_a', 'password': 'longenough8'})
+        hdr = {'Authorization': f"Bearer {reg.json()['token']}"}
+        res = self.client.post('/api/v1/feedback', headers=hdr,
+                               json={'rating': 4, 'message': 'More NCCL labs please', 'context': 'quiz_submitted'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()['status'], 'received')
+
+        # non-admin cannot read the list
+        self.assertEqual(self.client.get('/api/v1/feedback', headers=hdr).status_code, 403)
+
+        listing = self.client.get('/api/v1/feedback', headers=self.auth_header())
+        self.assertEqual(listing.status_code, 200)
+        entries = listing.json()['feedback']
+        mine = [e for e in entries if e['username'] == 'fbuser_a']
+        self.assertTrue(mine, 'submitted feedback missing from admin list')
+        self.assertEqual(mine[0]['rating'], 4)
+        self.assertEqual(mine[0]['message'], 'More NCCL labs please')
+        self.assertEqual(mine[0]['context'], 'quiz_submitted')
+
+    def test_feedback_validates_rating_and_length(self):
+        reg = self.client.post('/api/v1/auth/register',
+                               json={'username': 'fbuser_b', 'password': 'longenough8'})
+        hdr = {'Authorization': f"Bearer {reg.json()['token']}"}
+        for bad_rating in (0, 6, -1):
+            res = self.client.post('/api/v1/feedback', headers=hdr,
+                                   json={'rating': bad_rating, 'message': 'x'})
+            self.assertEqual(res.status_code, 400, f'rating {bad_rating} accepted')
+        huge = self.client.post('/api/v1/feedback', headers=hdr,
+                                json={'rating': 3, 'message': 'x' * 3000})
+        self.assertEqual(huge.status_code, 413)
+
+    def test_feedback_daily_cap(self):
+        reg = self.client.post('/api/v1/auth/register',
+                               json={'username': 'fbuser_c', 'password': 'longenough8'})
+        hdr = {'Authorization': f"Bearer {reg.json()['token']}"}
+        for i in range(5):
+            res = self.client.post('/api/v1/feedback', headers=hdr,
+                                   json={'rating': 5, 'message': f'note {i}'})
+            self.assertEqual(res.status_code, 200)
+        capped = self.client.post('/api/v1/feedback', headers=hdr,
+                                  json={'rating': 5, 'message': 'one too many'})
+        self.assertEqual(capped.status_code, 429)
+
 
 if __name__ == '__main__':
     unittest.main()

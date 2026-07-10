@@ -1350,3 +1350,80 @@ body[data-workspace-mode="training"]:not(.lab-active) .metrics-sidebar { display
   .landing-auth-card { padding: 26px 20px; }
   .landing-stats { gap: 12px 24px; }
 }
+
+/* ============ Feedback widget ============ */
+
+.feedback-panel {
+  max-width: 460px;
+  padding: 28px;
+}
+
+.feedback-panel h2 {
+  font-family: var(--font-disp);
+  font-weight: 400;
+  font-size: 22px;
+  color: var(--white);
+  margin-bottom: 18px;
+  padding-right: 30px;
+}
+
+.feedback-stars {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.feedback-star {
+  background: none;
+  border: none;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--border);
+  cursor: pointer;
+  padding: 2px;
+  transition: color .15s, transform .1s;
+}
+
+.feedback-star:hover { transform: scale(1.15); }
+.feedback-star.active { color: #f4a261; }
+
+#feedback-message {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  resize: vertical;
+  outline: none;
+  margin-bottom: 12px;
+}
+
+#feedback-message:focus { border-color: #f4a261; }
+
+.feedback-error {
+  color: var(--red);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: rgba(224, 82, 82, 0.08);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+}
+
+.feedback-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.feedback-thanks-text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 16px;
+}

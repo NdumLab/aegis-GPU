@@ -8,6 +8,7 @@ import re
 import secrets
 import sqlite3
 import subprocess
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -198,6 +199,16 @@ def ensure_incidents_db() -> bool:
                     username   TEXT PRIMARY KEY,
                     payload    TEXT NOT NULL,
                     updated_ts INTEGER NOT NULL
+                )
+            ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts       INTEGER NOT NULL,
+                    username TEXT    NOT NULL,
+                    rating   INTEGER NOT NULL,
+                    message  TEXT    NOT NULL,
+                    context  TEXT
                 )
             ''')
             conn.commit()
@@ -1863,6 +1874,81 @@ def put_progress(body: ProgressUpdate, payload: dict = Depends(verify_token)):
         )
         conn.commit()
     return {'updated_ts': now}
+
+
+MAX_FEEDBACK_MESSAGE_CHARS = 2000
+MAX_FEEDBACK_PER_DAY = 5
+
+
+class FeedbackRequest(BaseModel):
+    rating: int
+    message: str = ''
+    context: str = ''
+
+
+def notify_feedback_received(username: str, rating: int, message: str) -> None:
+    """Best-effort push to the operator's ntfy topic; never blocks or fails the request."""
+    topic = os.getenv('AEGIS_NTFY_TOPIC', '').strip()
+    if not topic:
+        return
+
+    def _send():
+        try:
+            import urllib.request
+            excerpt = (message[:200] + '…') if len(message) > 200 else message
+            body = f'{rating}/5 from {username}: {excerpt}' if excerpt else f'{rating}/5 from {username}'
+            req = urllib.request.Request(
+                f'https://ntfy.sh/{topic}',
+                data=body.encode('utf-8'),
+                headers={'Title': 'Aegis-GPU feedback', 'Tags': 'speech_balloon'},
+            )
+            urllib.request.urlopen(req, timeout=5)
+        except Exception:
+            pass
+
+    threading.Thread(target=_send, daemon=True).start()
+
+
+@app.post('/api/v1/feedback')
+def submit_feedback(body: FeedbackRequest, request: Request, payload: dict = Depends(verify_token)):
+    if not isinstance(body.rating, int) or not 1 <= body.rating <= 5:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Rating must be an integer from 1 to 5.')
+    message = body.message.strip()
+    if len(message) > MAX_FEEDBACK_MESSAGE_CHARS:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            detail=f'Feedback message is limited to {MAX_FEEDBACK_MESSAGE_CHARS} characters.')
+    context = body.context.strip()[:120]
+    if not ensure_incidents_db():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='Feedback store unavailable.')
+    now = int(time.time())
+    with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+        recent = conn.execute(
+            'SELECT COUNT(*) FROM feedback WHERE username = ? AND ts > ?',
+            (payload['sub'], now - 86400),
+        ).fetchone()[0]
+        if recent >= MAX_FEEDBACK_PER_DAY:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                                detail='Feedback limit reached for today — thank you, we have plenty from you already.')
+        conn.execute(
+            'INSERT INTO feedback (ts, username, rating, message, context) VALUES (?,?,?,?,?)',
+            (now, payload['sub'], body.rating, message, context),
+        )
+        conn.commit()
+    audit(request, 'feedback_submitted', f'rating={body.rating} context={context}', user=payload['sub'])
+    notify_feedback_received(payload['sub'], body.rating, message)
+    return {'status': 'received'}
+
+
+@app.get('/api/v1/feedback')
+def list_feedback(payload: dict = Depends(require_admin)):
+    if not ensure_incidents_db():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='Feedback store unavailable.')
+    with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            'SELECT ts, username, rating, message, context FROM feedback ORDER BY ts DESC LIMIT 100'
+        ).fetchall()
+    return {'feedback': [dict(row) for row in rows]}
 
 
 @app.get('/api/v1/hardware/metrics')

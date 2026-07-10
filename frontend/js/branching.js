@@ -431,6 +431,55 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'feedback_widget') {
+      localStorage.removeItem('gpusim_feedback_done');
+      localStorage.removeItem('gpusim_feedback_prompted');
+      const feedbackShown = () => document.getElementById('feedback-overlay')?.classList.contains('show');
+      const realFetch = window.fetch;
+      let posted = null;
+      window.fetch = async (url, opts) => {
+        if (String(url).includes('/feedback')) {
+          posted = JSON.parse(opts.body);
+          return new Response('{"status":"received"}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+        return realFetch(url, opts);
+      };
+      try {
+        document.getElementById('btn-feedback')?.click();
+        await browserSmokeWait(80);
+        if (!feedbackShown()) throw new Error('feedback overlay did not open from the header button');
+        details.push('feedback-opens');
+
+        document.getElementById('btn-feedback-submit')?.click();
+        await browserSmokeWait(80);
+        const err = document.getElementById('feedback-error');
+        if (!err || err.style.display === 'none') throw new Error('submitting without a rating did not warn');
+        details.push('feedback-requires-rating');
+
+        document.querySelector('#feedback-stars [data-star="4"]')?.click();
+        document.getElementById('feedback-message').value = 'smoke feedback note';
+        document.getElementById('btn-feedback-submit')?.click();
+        await browserSmokeWait(150);
+        if (!posted || posted.rating !== 4 || posted.message !== 'smoke feedback note' || posted.context !== 'manual') {
+          throw new Error('feedback payload wrong: ' + JSON.stringify(posted));
+        }
+        if (document.getElementById('feedback-thanks').style.display === 'none') {
+          throw new Error('thanks state did not show after submit');
+        }
+        details.push('feedback-submits');
+
+        closeFeedback();
+        maybePromptFeedback('quiz_submitted');
+        await browserSmokeWait(50);
+        if (feedbackShown()) throw new Error('auto-prompt reopened after a completed submission');
+        details.push('feedback-no-renag');
+      } finally {
+        window.fetch = realFetch;
+      }
+      setBrowserSmokeResult('pass', 'feedback widget verified', details);
+      return;
+    }
+
     if (scenario === 'landing_page') {
       showLoginOverlay();
       await browserSmokeWait(80);
