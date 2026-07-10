@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aegis-GPU | NCA-AIIO</title>
+<title>Aegis-GPU | NCA-AIIO Training Simulator</title>
+<meta name="description" content="Hands-on training simulator for the NVIDIA NCA-AIIO certification. Inject GPU faults — XID errors, NVLink degradation, NCCL fallbacks — into a virtual cluster and diagnose them with real commands. 22 guided labs, 101 practice questions.">
+
 <link rel="stylesheet" href="css/styles.css?v=20260507c">
 <script src="js/hardware.js" defer></script>
 <script src="js/render.js" defer></script>
@@ -18,7 +20,7 @@
 <script src="js/learning.js?v=20260421t" defer></script>
 <script src="js/explain.js?v=20260423d" defer></script>
 <script src="js/analytics.js?v=20260424ref1" defer></script>
-<script src="js/branching.js?v=20260710a" defer></script>
+<script src="js/branching.js?v=20260710b" defer></script>
 <script src="js/coach.js?v=20260507a" defer></script>
 <script src="js/quiz-bank.js?v=20260710a" defer></script>
 <script src="js/study-quiz.js?v=20260710a" defer></script>
@@ -32,14 +34,36 @@
 </head>
 <body data-workspace-mode="training">
 
-<!-- Sprint 16: Login Overlay — shown until JWT validated -->
-<div id="login-overlay" style="position:fixed;inset:0;background:#060d16;display:flex;align-items:center;justify-content:center;z-index:10001;">
-  <div style="width:360px;background:#0d1117;border:1px solid #1e2d40;border-radius:8px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.8);">
-    <div style="text-align:center;margin-bottom:32px;">
-      <h1 style="font-family:'DM Serif Display',serif;font-size:28px;color:#e8f0fe;margin:0">Aegis<span style="color:#f4a261">-GPU</span></h1>
-      <div style="font-size:10px;color:#4a5568;font-family:'JetBrains Mono',monospace;margin-top:8px;letter-spacing:0.12em">NCA-AIIO &nbsp;|&nbsp; ENTERPRISE AIOPS PLATFORM</div>
-      <div id="login-version" style="font-size:11px;color:#7f8ea3;font-family:'JetBrains Mono',monospace;margin-top:12px;letter-spacing:0.08em">RUNNING VERSION: DETECTING...</div>
-      <div style="font-size:9px;color:#4a5568;margin-top:10px;line-height:1.5;font-family:'JetBrains Mono',monospace;">Independent training simulator. Not affiliated with, sponsored by, or endorsed by NVIDIA Corporation.</div>
+<!-- Landing page + Login Overlay — shown until JWT validated -->
+<div id="login-overlay" class="landing" style="display:flex;">
+  <div class="landing-scroll">
+
+    <nav class="landing-nav">
+      <div class="landing-brand">Aegis<span>-GPU</span><span class="landing-badge">NCA-AIIO</span></div>
+      <a class="landing-nav-link" href="#landing-auth">Sign in</a>
+    </nav>
+
+    <section class="landing-hero">
+      <div class="landing-hero-copy">
+        <div class="landing-kicker">AI Infrastructure &amp; Operations · Exam Prep Simulator</div>
+        <h1>Learn GPU operations by breaking a cluster that can take it.</h1>
+        <p class="landing-sub">Aegis-GPU is a hands-on training simulator for NVIDIA's
+          <strong>NCA-AIIO</strong> certification. Inject real fault signatures — XID errors,
+          NVLink degradation, NCCL fallbacks, thermal throttling — into a virtual GPU fleet,
+          then diagnose and recover them with the same commands you'd run in production.</p>
+        <ul class="landing-stats">
+          <li><strong>22</strong><span>guided labs</span></li>
+          <li><strong>101</strong><span>practice questions</span></li>
+          <li><strong>3</strong><span>exam domains</span></li>
+          <li><strong>Full</strong><span>blueprint coverage</span></li>
+        </ul>
+      </div>
+
+      <div class="landing-auth" id="landing-auth">
+        <div class="landing-auth-card">
+    <div style="text-align:center;margin-bottom:26px;">
+      <h2 style="font-family:'DM Serif Display',serif;font-size:24px;color:#e8f0fe;margin:0;font-weight:400">Aegis<span style="color:#f4a261">-GPU</span></h2>
+      <div style="font-size:10px;color:#7f8ea3;font-family:'JetBrains Mono',monospace;margin-top:8px;letter-spacing:0.12em">SIGN IN OR CREATE A FREE ACCOUNT</div>
     </div>
     <div id="login-form-body">
     <div style="margin-bottom:14px;">
@@ -73,6 +97,56 @@
       <button id="btn-reveal-continue"
         style="width:100%;padding:12px;background:#f4a261;border:none;border-radius:4px;color:#060d16;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.08em;">I SAVED IT — CONTINUE</button>
     </div>
+        </div>
+        <div class="landing-auth-note">Free account · progress syncs across devices</div>
+        <div class="landing-disclaimer">Independent training simulator. Not affiliated with, sponsored by, or endorsed by NVIDIA Corporation.</div>
+      </div>
+    </section>
+
+    <section class="landing-features">
+      <h2>What's inside</h2>
+      <div class="landing-feature-grid">
+        <article class="landing-feature">
+          <h3>Fault-injection labs</h3>
+          <p>22 guided labs walk through healthy baselines, injected failures, and recovery:
+            ECC/XID triage, MIG partitioning, InfiniBand and RoCE fabrics, storage bottlenecks,
+            Slurm and Kubernetes scheduling.</p>
+        </article>
+        <article class="landing-feature">
+          <h3>A terminal that coaches back</h3>
+          <p>Type <code>nvidia-smi</code>, <code>dcgmi</code>, <code>kubectl</code>, and
+            <code>scontrol</code> against the simulated cluster. Correct diagnostics return
+            realistic output; weak ones get targeted coaching instead of a dead end.</p>
+        </article>
+        <article class="landing-feature">
+          <h3>Blueprint-weighted quiz</h3>
+          <p>101 practice questions across all three exam domains, weighted like the official
+            blueprint. Every choice — right or wrong — gets specific feedback explaining the
+            failure class behind it.</p>
+        </article>
+        <article class="landing-feature">
+          <h3>Cluster fleet simulator</h3>
+          <p>Provision a DGX-style fleet, watch live metrics respond to what you do, and work
+            incidents across nodes, fabrics, and running jobs from a single operations view.</p>
+        </article>
+        <article class="landing-feature">
+          <h3>Readiness analytics</h3>
+          <p>Scorecards track your reasoning per domain and tell you when your troubleshooting
+            judgment is exam-ready — not just what percent you scored.</p>
+        </article>
+        <article class="landing-feature">
+          <h3>Study guide &amp; coverage matrix</h3>
+          <p>A built-in study guide maps every lab and quiz item to the official NCA-AIIO
+            blueprint, so you can see exactly which objectives you still owe attention.</p>
+        </article>
+      </div>
+    </section>
+
+    <footer class="landing-footer">
+      <div id="login-version">RUNNING VERSION: DETECTING...</div>
+      <div>Independent training simulator. Not affiliated with, sponsored by, or endorsed by NVIDIA Corporation.</div>
+    </footer>
+
   </div>
 </div>
 

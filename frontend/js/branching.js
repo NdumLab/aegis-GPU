@@ -431,6 +431,37 @@ async function runBrowserSmokeScenario() {
       return;
     }
 
+    if (scenario === 'landing_page') {
+      showLoginOverlay();
+      await browserSmokeWait(80);
+      const overlay = document.getElementById('login-overlay');
+      if (!overlay || overlay.style.display === 'none') throw new Error('landing overlay not visible');
+      const heroTitle = String(document.querySelector('.landing-hero-copy h1')?.textContent || '');
+      if (heroTitle.length < 10) throw new Error('landing hero headline missing');
+      details.push('landing-hero-visible');
+      const statsText = String(document.querySelector('.landing-stats')?.textContent || '');
+      const labCount = String(Object.keys(LABS).length);
+      const quizCount = String(QUIZ.length);
+      if (!statsText.includes(labCount)) throw new Error(`landing stats out of date: expected ${labCount} labs`);
+      if (!statsText.includes(quizCount)) throw new Error(`landing stats out of date: expected ${quizCount} quiz questions`);
+      details.push('landing-stats-accurate');
+      const features = document.querySelectorAll('.landing-feature');
+      if (features.length < 6) throw new Error('landing feature cards missing: only ' + features.length);
+      details.push('landing-features-present');
+      if (!String(overlay.textContent || '').includes('Not affiliated with, sponsored by, or endorsed by NVIDIA')) {
+        throw new Error('NVIDIA disclaimer missing from landing');
+      }
+      details.push('landing-disclaimer-present');
+      ['login-user', 'login-pass', 'btn-login', 'login-toggle', 'login-forgot'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el || !el.offsetParent) throw new Error('auth control missing or hidden: ' + id);
+      });
+      details.push('landing-auth-card-usable');
+      hideLoginOverlay();
+      setBrowserSmokeResult('pass', 'landing page verified', details);
+      return;
+    }
+
     if (scenario === 'auth_register_reset') {
       const $ = id => document.getElementById(id);
       const overlayShown = () => $('login-overlay') && $('login-overlay').style.display !== 'none';

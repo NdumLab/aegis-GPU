@@ -102,6 +102,10 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 'expected_details': ['fleet-title-visible', 'fleet-kpi-rail-visible', 'fleet-side-rail-visible', 'fleet-grid-visible', 'legacy-rails-hidden'],
             },
             {
+                'name': 'landing_page',
+                'expected_details': ['landing-hero-visible', 'landing-stats-accurate', 'landing-features-present', 'landing-disclaimer-present', 'landing-auth-card-usable'],
+            },
+            {
                 'name': 'quiz_feedback',
                 'expected_details': ['quiz-q1-wrong-specific', 'quiz-q1-correct-teaches', 'quiz-q3-xid74-specific', 'quiz-q3-correct-teaches', 'quiz-bank-merged-with-feedback'],
             },
