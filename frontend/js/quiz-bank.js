@@ -424,4 +424,66 @@ window.AEGIS_QUIZ_BANK = [
  ans:1, exp:"scontrol update state=drain (or kubectl cordon+drain) removes the node from scheduling while respecting running work. Users lose nothing; the operator gets the node — the difference between maintenance and an incident.",
  correct:"Correct — stop the inflow, let current work land, then service the node.",
  wrong:{0:"The point is minimal drama.",2:"Killing is easy — and that's the problem.",3:"Drain affects scheduling, not node performance."}},
+
+// ---- Extended XID coverage: application faults, memory spectrum, GSP ----
+
+{domain:3, q:"dmesg shows 'Xid 13: Graphics Exception' every time one researcher's custom CUDA kernel runs. Other jobs on the same GPU complete cleanly. What is the correct first action?",
+ opts:["Drain the node and open an RMA for the GPU","Treat it as an application bug — have the researcher debug the kernel (illegal instruction or out-of-range address)","Reset the GPU with nvidia-smi --gpu-reset","Replace the NVLink cable"],
+ ans:1, exp:"XID 13 is a graphics engine exception, most often raised when the running application executes an illegal instruction or touches an out-of-range address. The strongest evidence here is correlation: it follows one specific job while everything else runs clean. That pattern says 'bug in the code', not 'broken silicon'.",
+ correct:"Right — one job triggers it, other jobs don't: that correlation points at the application, not the hardware.",
+ wrong:{0:"RMA is for hardware-integrity evidence like DBEs or failed page retirement. A fault that follows one specific application around is the application's bug.",2:"A reset clears state but the exception will return the next time the faulty kernel runs — the root cause is in the code.",3:"Nothing here implicates the interconnect; XID 13 is an engine/application exception, not a link error."}},
+
+{domain:3, q:"A training job dies with 'CUDA error: an illegal memory access was encountered' and dmesg logs XID 31 on that GPU. DCGM shows zero ECC errors. What happened?",
+ opts:["The GPU memory is failing and the node must be drained","The application performed an invalid GPU memory access (page fault) — debug it with compute-sanitizer","The GPU fell off the PCIe bus","The NVIDIA driver needs a downgrade"],
+ ans:1, exp:"XID 31 is a GPU memory page fault: the application asked the GPU to read or write an address it had no right to touch. It is overwhelmingly an application bug — the GPU-side equivalent of a segfault. Clean ECC counters confirm the memory hardware is fine. Tools like compute-sanitizer pinpoint the offending access.",
+ correct:"Correct — XID 31 with clean ECC counters is a software segfault on the GPU, not failing memory.",
+ wrong:{0:"Failing memory announces itself through ECC counters and XID 48/63/64/92-class events. Zero ECC errors plus a page fault points at the application's addressing, not the DRAM.",2:"A GPU that falls off the bus raises XID 79 and disappears from nvidia-smi entirely — this GPU is still present and reporting.",3:"Driver version is not implicated by a page fault that maps to an application's illegal access."}},
+
+{domain:3, q:"dmesg shows XID 43 on GPU 2. The job that was running there is gone, but nvidia-smi looks normal and other jobs on the node keep running. What does XID 43 tell the operator?",
+ opts:["The GPU is about to fall off the bus","A user application hit an error and was stopped, and the GPU recovered — no hardware action needed","Uncorrectable memory corruption occurred","The node's cooling has failed"],
+ ans:1, exp:"XID 43 means a user application error caused its GPU work to be stopped, while the GPU itself recovered and continued serving other contexts. It is an application-death notice, not a hardware alarm — the operational response is to let the job owner debug, not to touch the node.",
+ correct:"Right — XID 43 reports a job casualty, not a node casualty.",
+ wrong:{0:"Bus loss is XID 79 and takes the whole GPU with it — here the GPU is still healthy and serving other work.",2:"Uncorrectable memory events raise XID 48 (or 94/95 on containment-capable GPUs) and show in ECC counters.",3:"Thermal problems show as throttling and temperature evidence, not as a single application being stopped."}},
+
+{domain:3, q:"An operator kills a hung training job with SIGKILL. Seconds later dmesg logs XID 45 on its GPUs. How should this XID be read?",
+ opts:["As proof the GPUs were the reason the job hung","As preemptive cleanup: the driver tore down the killed job's channels — a context signal, not a root cause","As an uncorrectable ECC event requiring a drain","As an NVLink CRC failure"],
+ ans:1, exp:"XID 45 is the driver's cleanup record: a job's GPU channels were preempted/torn down, commonly because the process was killed or a preceding fault forced cleanup. Its diagnostic value is context — look at what happened immediately before it. Here the operator's own SIGKILL explains it completely.",
+ correct:"Correct — XID 45 documents the cleanup you caused, not a new fault.",
+ wrong:{0:"The XID followed the kill, it did not precede the hang — it is an effect of the operator's action, not evidence about the original cause.",2:"ECC trouble has its own codes (48, 63, 64, 92, 94, 95) and counter evidence; a teardown record is not a memory event.",3:"NVLink CRC problems raise XID 74 with link-counter evidence, unrelated to killing a process."}},
+
+{domain:3, q:"dmesg logs XID 63 ('row remapping event recorded') on an A100. Jobs are still running normally. What is the correct operational response?",
+ opts:["Nothing — the message is purely informational and can be ignored permanently","Schedule a drain and GPU reset at the next maintenance window so the recorded row remap takes effect","Open an RMA immediately — the GPU has failed","Kill all jobs on the node right now"],
+ ans:1, exp:"XID 63 means the GPU recorded a degraded memory row for remapping to spare cells — the card's self-healing mechanism. The remap only takes effect after a GPU reset, so the right move is planned: drain the node, reset the GPU, verify with nvidia-smi -q that the remap completed. It is maintenance to schedule, not an emergency.",
+ correct:"Right — self-healing was recorded but needs a reset to apply: plan it, don't panic.",
+ wrong:{0:"Ignoring it forever leaves the bad row in service; the remap never takes effect without a reset, and the row can escalate to uncorrectable errors.",2:"RMA is the XID 64 path — when remapping FAILS. A successful remap recording means the GPU is handling it as designed.",3:"Nothing is uncorrectable yet; killing live jobs turns a scheduled-maintenance signal into a self-inflicted incident."}},
+
+{domain:3, q:"A GPU logs XID 64 ('row remapping failure'). How does the response differ from XID 63?",
+ opts:["It doesn't — 63 and 64 mean the same thing","XID 64 means the self-healing path itself failed, so the GPU moves from 'schedule a reset' to the RMA/replacement path","XID 64 is less serious because the memory was already repaired","XID 64 only affects NVLink traffic"],
+ ans:1, exp:"XID 63 records a successful remap request (fixed by a reset). XID 64 means the GPU tried to retire/remap the degraded row and could not — its spare resources or the remap mechanism failed. When the self-healing machinery breaks, the hardware-replacement path is the safe conclusion: drain the node and open an RMA.",
+ correct:"Correct — 63 is healing scheduled, 64 is healing failed: that failure is what justifies the RMA.",
+ wrong:{0:"They are opposite outcomes of the same mechanism: one recorded a fix, the other failed to apply one.",2:"Nothing was repaired — the repair is exactly what failed, which is why it is MORE serious than 63.",3:"Row remapping is about GPU DRAM, not the interconnect; NVLink faults live in the XID 74 family."}},
+
+{domain:3, q:"DCGM alerts on XID 92 ('high single-bit ECC error rate') for GPU 5, but every error is corrected and no DBEs exist. What is the right posture?",
+ opts:["Drain the node this minute — data corruption is occurring","Treat it as an early-warning trend: tighten monitoring and plan maintenance per policy, since correction is still winning","Disable ECC to stop the alerts","Reflash the GPU firmware immediately"],
+ ans:1, exp:"XID 92 says the correction machinery is working overtime — an elevated rate of corrected single-bit errors. Nothing has been corrupted, but healthy memory doesn't need constant correction, so the trend is a leading indicator. The response is operational vigilance: watch SBE/DBE counters, check for row-remap events, and plan service according to the fleet's failure policy.",
+ correct:"Right — corrected means safe for now; the elevated rate is what earns the GPU a watch list spot.",
+ wrong:{0:"Corrected errors are exactly that — corrected. No data was harmed; an emergency drain answers a threat that hasn't materialized.",2:"Disabling ECC silences the smoke detector because it keeps beeping — you lose correction AND the early warning while the memory keeps degrading.",3:"Firmware isn't implicated by aging memory cells; reflashing adds risk without addressing the trend."}},
+
+{domain:3, q:"On an H100, dmesg shows XID 94 ('contained ECC error') and one inference service crashed. nvidia-smi shows the GPU healthy. What does 'contained' buy the operator?",
+ opts:["Nothing — the whole node must still be rebooted","The hardware isolated the uncorrectable error to the one process that touched the bad data: restart that workload, let the GPU keep serving the rest","It means the error was corrected and no process was affected","It converts the fault into a network problem"],
+ ans:1, exp:"Error containment on A100/H100-class GPUs walls off an uncorrectable ECC error so only the process consuming the poisoned data is terminated. XID 94 is the success report: the blast radius was one workload. Restart the affected service, note the event (a row remap often follows), and keep the GPU in service — that is the feature working as designed.",
+ correct:"Correct — containment shrank an incident to a single process restart.",
+ wrong:{0:"Rebooting the node discards the entire benefit of containment; the GPU and its other workloads are explicitly safe to continue.",2:"The error was UNcorrectable — that's why a process died. Contained means isolated, not repaired.",3:"ECC containment is a memory mechanism; nothing about it involves the network."}},
+
+{domain:3, q:"The same H100 later logs XID 95 ('uncontained ECC error'). How does the response change from XID 94?",
+ opts:["It doesn't — 94 and 95 are handled identically","Containment failed, so the GPU's wider state can't be trusted: drain the node and reset/reboot before it serves new work","XID 95 is milder because the error dissipated on its own","Only the network stack needs restarting"],
+ ans:1, exp:"XID 95 means the containment attempt failed — the uncorrectable error's reach could not be limited to one process, so every context on that GPU is suspect. The response escalates to the XID 48-style path: drain the node, reset the GPU or reboot, and verify (retired pages, remap status, recurrence) before returning it to service.",
+ correct:"Right — 94 is containment succeeding, 95 is containment failing: the failure is what forces the drain-and-reset.",
+ wrong:{0:"They are opposite outcomes: 94 limits the damage to one process; 95 means that limit failed and the whole GPU's state is in question.",2:"Uncontained is the worse outcome — the poisoned data's reach is unknown, which is precisely why the GPU can't be trusted.",3:"ECC containment concerns GPU memory state; restarting network services would address none of it."}},
+
+{domain:3, q:"A node's GPU stops responding; dmesg shows XID 119 ('GSP RPC timeout'). nvidia-smi hangs when queried. What fault family is this, and what is the recovery path?",
+ opts:["An application page fault — the job owner should debug their kernel","A GSP firmware hang: the GPU System Processor stopped answering the driver — recover with a GPU reset or node reboot, and treat repeats as a driver/firmware issue","A classic thermal throttle — improve airflow","An InfiniBand fabric failure"],
+ ans:1, exp:"Modern drivers offload work to the GSP (GPU System Processor) firmware on the card. XID 119 means an RPC to that firmware timed out — the GPU can look completely frozen even though the compute silicon is fine. Recovery is a GPU reset or node reboot; recurring GSP timeouts point at driver/firmware versions (updating, or in some fleets disabling GSP mode) rather than failed hardware.",
+ correct:"Correct — a firmware-hang family of its own: reset to recover, and chase driver/firmware versions if it repeats.",
+ wrong:{0:"Application page faults are XID 31 and kill one job; they don't make nvidia-smi itself hang.",2:"Thermal problems show as temperature and clock evidence with the GPU still responsive; a GSP timeout is unresponsiveness, not slowdown.",3:"The fabric moves data between nodes; a GPU that won't answer its own driver is faulting well below the network layer."}},
 ];
