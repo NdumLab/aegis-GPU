@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NVIDIA XID Error Codes Explained — GPU Operator Reference | Aegis-GPU</title>
+<meta name="description" content="What each common NVIDIA XID error means and what to do: XID 13, 31, 43, 45, 48, 63, 64, 74, 79, 92, 94, 95, 119, 149, 154 — fault families, first actions, and when to reset, drain, or RMA.">
+<link rel="canonical" href="https://aegis.yerikasystems.com/xid-reference.html">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Aegis-GPU">
+<meta property="og:title" content="NVIDIA XID Error Codes Explained — GPU Operator Reference">
+<meta property="og:description" content="What each common XID means and what to do about it: application faults, the ECC memory spectrum, NVLink, bus loss, GSP timeouts — with first actions for each.">
+<meta property="og:url" content="https://aegis.yerikasystems.com/xid-reference.html">
+<meta property="og:image" content="https://aegis.yerikasystems.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "NVIDIA XID Error Codes Explained — GPU Operator Reference",
+  "description": "What each common NVIDIA XID error means and what to do: fault families, first actions, and when to reset, drain, or RMA.",
+  "url": "https://aegis.yerikasystems.com/xid-reference.html",
+  "dateModified": "2026-07-10",
+  "author": { "@type": "Organization", "name": "Yerika Systems" },
+  "publisher": { "@type": "Organization", "name": "Yerika Systems" }
+}
+</script>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  html, body { height: auto; display: block; overflow: auto; }
+  .xidref {
+    background:
+      radial-gradient(ellipse 900px 500px at 75% -10%, rgba(244, 162, 97, 0.07), transparent),
+      radial-gradient(ellipse 700px 450px at 10% 30%, rgba(74, 158, 255, 0.05), transparent),
+      #060d16;
+    min-height: 100vh;
+  }
+  .xidref-main { max-width: 880px; margin: 0 auto; padding: 24px 28px 72px; }
+  .xidref-main h1 {
+    font-family: var(--font-disp); font-weight: 400;
+    font-size: clamp(28px, 4vw, 40px); line-height: 1.18;
+    color: #e8f0fe; margin-bottom: 18px;
+  }
+  .xidref-main p { font-size: 15px; line-height: 1.75; color: #9db0cc; margin-bottom: 16px; }
+  .xidref-main p strong, .xidref-main li strong { color: #e8f0fe; }
+  .xidref-main code {
+    font-family: var(--font-mono); font-size: 12px; color: #f4a261;
+    background: rgba(244, 162, 97, 0.08); border-radius: 3px; padding: 1px 5px;
+  }
+  .xidref-main h2 {
+    font-family: var(--font-disp); font-weight: 400; font-size: 26px;
+    color: #e8f0fe; margin: 44px 0 8px;
+  }
+  .xidref-family-sub { font-size: 14px; color: #7f8ea3; margin-bottom: 20px; }
+  .xidref-table-wrap { overflow-x: auto; margin: 26px 0 10px; border: 1px solid #1e2d40; border-radius: 8px; }
+  table.xidref-table { width: 100%; border-collapse: collapse; font-size: 13px; background: rgba(13,17,23,0.7); }
+  .xidref-table th {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--dim); text-align: left; padding: 12px 14px; border-bottom: 1px solid #1e2d40;
+  }
+  .xidref-table td { padding: 11px 14px; border-bottom: 1px solid #14202f; color: #9db0cc; line-height: 1.5; vertical-align: top; }
+  .xidref-table tr:last-child td { border-bottom: none; }
+  .xidref-table td:first-child a { font-family: var(--font-mono); font-weight: 700; color: #f4a261; text-decoration: none; white-space: nowrap; }
+  .xidref-table td:first-child a:hover { text-decoration: underline; }
+  .xid-card {
+    background: rgba(13, 17, 23, 0.7); border: 1px solid #1e2d40; border-radius: 8px;
+    padding: 22px 24px; margin-bottom: 14px; scroll-margin-top: 20px;
+  }
+  .xid-card h3 { font-size: 16px; font-weight: 600; color: #e8f0fe; margin-bottom: 10px; }
+  .xid-card h3 .xid-num { font-family: var(--font-mono); color: #f4a261; }
+  .xid-card p { font-size: 13.5px; margin-bottom: 10px; }
+  .xid-card p:last-child { margin-bottom: 0; }
+  .xid-card .xid-action { color: #c8d4e8; }
+  .xid-card .xid-action strong { color: #f4a261; font-weight: 600; }
+  .xidref-cta {
+    background: rgba(244, 162, 97, 0.06); border: 1px solid rgba(244, 162, 97, 0.35);
+    border-radius: 8px; padding: 24px; margin: 40px 0 10px; text-align: center;
+  }
+  .xidref-cta p { color: #c8d4e8; margin-bottom: 16px; }
+  .xidref-cta a.xidref-btn {
+    display: inline-block; background: #f4a261; color: #060d16; border-radius: 4px;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+    text-decoration: none; padding: 12px 26px;
+  }
+  .xidref-note { font-size: 12px; color: #5a6a85; }
+  .xidref-note a { color: #7f8ea3; }
+</style>
+</head>
+<body class="xidref">
+
+<nav class="landing-nav">
+  <div class="landing-brand">Aegis<span>-GPU</span><span class="landing-badge">NCA-AIIO</span></div>
+  <a class="landing-nav-link" href="/">Open the simulator</a>
+</nav>
+
+<main class="xidref-main">
+  <h1>NVIDIA XID Error Codes Explained: a Reference for GPU Operators</h1>
+
+  <p>When something goes wrong on an NVIDIA GPU, the driver writes a short numeric event code — an
+    <strong>XID</strong> — to the kernel log. You'll meet them in <code>dmesg | grep -i xid</code>, in DCGM alerts,
+    and in support tickets, usually before any human explanation arrives. The number is not the diagnosis:
+    it is a signpost telling you which <strong>fault family</strong> to investigate — the application's own code,
+    GPU memory, the interconnect, the bus, or the driver/firmware stack.</p>
+
+  <p>The operator workflow is the same every time: <strong>identify</strong> the code, <strong>classify</strong> the
+    fault family, <strong>confirm</strong> with evidence (ECC counters, link telemetry, temperature, scheduler state),
+    <strong>contain</strong> the blast radius, and only then decide how far recovery must go. This page maps the codes
+    you are most likely to meet onto that workflow.</p>
+
+  <div class="xidref-table-wrap">
+    <table class="xidref-table">
+      <thead><tr><th>Code</th><th>Fault family</th><th>Meaning</th><th>First action</th></tr></thead>
+      <tbody>
+        <tr><td><a href="#xid-13">XID 13</a></td><td>Application</td><td>Graphics engine exception — illegal instruction or out-of-range address</td><td>Debug the job's code, not the GPU</td></tr>
+        <tr><td><a href="#xid-31">XID 31</a></td><td>Application</td><td>GPU memory page fault — invalid address access</td><td>Debug with compute-sanitizer</td></tr>
+        <tr><td><a href="#xid-43">XID 43</a></td><td>Application</td><td>App hit an error and was stopped; GPU recovered</td><td>Notify the job owner; no hardware action</td></tr>
+        <tr><td><a href="#xid-45">XID 45</a></td><td>Context</td><td>Preemptive cleanup of a job's channels</td><td>Look at what happened just before it</td></tr>
+        <tr><td><a href="#xid-48">XID 48</a></td><td>Memory</td><td>Double-bit ECC error — uncorrectable</td><td>Drain the node, preserve evidence, RMA path</td></tr>
+        <tr><td><a href="#xid-63">XID 63</a></td><td>Memory</td><td>Row remapping recorded (self-healing pending)</td><td>Schedule a drain + GPU reset</td></tr>
+        <tr><td><a href="#xid-64">XID 64</a></td><td>Memory</td><td>Row remapping failed</td><td>Drain and open an RMA</td></tr>
+        <tr><td><a href="#xid-74">XID 74</a></td><td>Interconnect</td><td>NVLink error (CRC/flit) — link, connector, or NVSwitch port</td><td>Check link counters and physical path</td></tr>
+        <tr><td><a href="#xid-79">XID 79</a></td><td>Bus</td><td>GPU has fallen off the bus</td><td>GPU reset; if it fails, reboot the node</td></tr>
+        <tr><td><a href="#xid-92">XID 92</a></td><td>Memory</td><td>High single-bit (corrected) ECC error rate</td><td>Watch the trend; plan maintenance</td></tr>
+        <tr><td><a href="#xid-94">XID 94</a></td><td>Memory</td><td>Contained ECC error — one process affected</td><td>Restart the affected workload only</td></tr>
+        <tr><td><a href="#xid-95">XID 95</a></td><td>Memory</td><td>Uncontained ECC error — GPU state untrusted</td><td>Drain and reset/reboot</td></tr>
+        <tr><td><a href="#xid-119">XID 119</a></td><td>Firmware</td><td>GSP RPC timeout — GPU System Processor hung</td><td>GPU reset/reboot; chase driver versions if it repeats</td></tr>
+        <tr><td><a href="#xid-149">XID 149</a></td><td>Interconnect</td><td>NVLink5 fatal error on Blackwell (NETIR subcodes)</td><td>Same family as 74: telemetry, cables, peer device</td></tr>
+        <tr><td><a href="#xid-154">XID 154</a></td><td>Meta</td><td>Recovery action for a preceding XID</td><td>Take the action the message names</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Application faults — the job's bug, not the hardware</h2>
+  <p class="xidref-family-sub">The most common operator mistake: RMA-ing a healthy GPU because an application misbehaved on it. These codes follow the <em>job</em>, not the silicon.</p>
+
+  <article class="xid-card" id="xid-13">
+    <h3><span class="xid-num">XID 13</span> — Graphics engine exception</h3>
+    <p>Raised most often when the running application executes an illegal instruction or touches an out-of-range
+      address. The telltale evidence is correlation: it appears whenever one specific job runs, while everything
+      else on the same GPU completes cleanly.</p>
+    <p class="xid-action"><strong>First action:</strong> treat it as an application bug — have the job owner debug the kernel. RMA is for hardware-integrity evidence, and this isn't that.</p>
+  </article>
+
+  <article class="xid-card" id="xid-31">
+    <h3><span class="xid-num">XID 31</span> — GPU memory page fault</h3>
+    <p>The application asked the GPU to read or write an address it had no right to touch — the GPU-side
+      equivalent of a segfault, usually surfacing as <code>CUDA error: an illegal memory access was encountered</code>.
+      Clean ECC counters alongside it confirm the memory hardware is fine.</p>
+    <p class="xid-action"><strong>First action:</strong> hand it back to the developer with <code>compute-sanitizer</code>. The fix lives in code, not in a parts order.</p>
+  </article>
+
+  <article class="xid-card" id="xid-43">
+    <h3><span class="xid-num">XID 43</span> — Application stopped, GPU recovered</h3>
+    <p>A user application hit an error and its GPU work was halted, while the GPU itself recovered and kept
+      serving other contexts. It is an application-death notice, not a hardware alarm.</p>
+    <p class="xid-action"><strong>First action:</strong> let the job owner debug; the node needs nothing.</p>
+  </article>
+
+  <article class="xid-card" id="xid-45">
+    <h3><span class="xid-num">XID 45</span> — Preemptive cleanup</h3>
+    <p>The driver tore down a job's channels — commonly because the process was killed (your own
+      <code>SIGKILL</code> included) or a preceding fault forced cleanup. Its value is context, not cause.</p>
+    <p class="xid-action"><strong>First action:</strong> read the log lines <em>before</em> it. If you just killed the job, this is the receipt.</p>
+  </article>
+
+  <h2>Memory integrity — a spectrum, not a single alarm</h2>
+  <p class="xidref-family-sub">GPU memory failures escalate through stages: correction working overtime → self-healing → containment → uncorrectable. Each stage has its own code and its own proportionate response.</p>
+
+  <article class="xid-card" id="xid-92">
+    <h3><span class="xid-num">XID 92</span> — High single-bit ECC error rate</h3>
+    <p>ECC is correcting an elevated rate of single-bit errors. Nothing is corrupted, but healthy memory
+      doesn't need constant correction — this is the leading indicator on the memory spectrum.</p>
+    <p class="xid-action"><strong>First action:</strong> tighten monitoring on SBE/DBE counters (DCGM fields 156/157), check for remap events, and plan service per your fleet policy. Do not panic-drain, and never disable ECC to silence it.</p>
+  </article>
+
+  <article class="xid-card" id="xid-63">
+    <h3><span class="xid-num">XID 63</span> — Row remapping event recorded</h3>
+    <p>The GPU recorded a degraded memory row for remapping to spare cells — self-healing working as designed.
+      The remap only takes effect after a GPU reset.</p>
+    <p class="xid-action"><strong>First action:</strong> schedule a drain and GPU reset at the next maintenance window, then verify the remap completed with <code>nvidia-smi -q</code>. Maintenance to plan, not an emergency.</p>
+  </article>
+
+  <article class="xid-card" id="xid-64">
+    <h3><span class="xid-num">XID 64</span> — Row remapping failure</h3>
+    <p>The GPU tried to retire/remap the degraded row and could not — the self-healing machinery itself failed.
+      That failure is what separates it from XID 63.</p>
+    <p class="xid-action"><strong>First action:</strong> drain the node and open an RMA. When the repair path breaks, replacement is the safe conclusion.</p>
+  </article>
+
+  <article class="xid-card" id="xid-94">
+    <h3><span class="xid-num">XID 94</span> — Contained ECC error</h3>
+    <p>On A100/H100-class GPUs, error containment isolated an uncorrectable error to the one process that
+      touched the poisoned data. The blast radius was a single workload — the feature succeeded.</p>
+    <p class="xid-action"><strong>First action:</strong> restart the affected workload, note the event (a row remap often follows), and keep the GPU in service.</p>
+  </article>
+
+  <article class="xid-card" id="xid-95">
+    <h3><span class="xid-num">XID 95</span> — Uncontained ECC error</h3>
+    <p>Containment failed: the error's reach could not be limited to one process, so every context on the GPU
+      is suspect. Severity-wise this sits beside XID 48.</p>
+    <p class="xid-action"><strong>First action:</strong> drain the node, reset the GPU or reboot, and verify retired-page/remap state before returning it to service.</p>
+  </article>
+
+  <article class="xid-card" id="xid-48">
+    <h3><span class="xid-num">XID 48</span> — Double-bit ECC error</h3>
+    <p>An uncorrectable memory error: ECC can repair single flipped bits, but a double-bit error means the data
+      can no longer be trusted. Confirm with the DBE counter (DCGM field 157).</p>
+    <p class="xid-action"><strong>First action:</strong> stop new work, preserve the evidence, drain or isolate the node, and follow the hardware support / RMA path.</p>
+  </article>
+
+  <h2>Interconnect — the link between GPUs</h2>
+  <p class="xidref-family-sub">The same fault family wears different numbers across hardware generations. Know the family, not just the code.</p>
+
+  <article class="xid-card" id="xid-74">
+    <h3><span class="xid-num">XID 74</span> — NVLink error</h3>
+    <p>Signal-integrity trouble on an NVLink connection — rising CRC/flit error counts point at a cable,
+      connector, or NVSwitch port. Confirm with <code>nvidia-smi nvlink -e</code>; a degraded path also shows up as
+      <code>PHB</code> where <code>NV#</code> should be in <code>nvidia-smi topo -m</code>.</p>
+    <p class="xid-action"><strong>First action:</strong> isolate the link, inspect the physical path, and check the peer device. AllReduce collapsing from ~180 GB/s to PCIe speeds is the workload-level symptom.</p>
+  </article>
+
+  <article class="xid-card" id="xid-149">
+    <h3><span class="xid-num">XID 149</span> — NVLink5 fatal error (Blackwell)</h3>
+    <p>On B100/GB200-class systems, the NVLink fault family reports as XID 149 with <code>NETIR</code> subcodes
+      (link-down, bit-error-rate, data errors) instead of XID 74. Same family, new generation: an operator who
+      only knows 74 can miss it on a Blackwell fleet.</p>
+    <p class="xid-action"><strong>First action:</strong> the familiar link playbook — telemetry, cable/connector signal integrity, the peer GPU or switch — while the exact recovery (reset vs. ignore) depends on the reported subcode.</p>
+  </article>
+
+  <h2>Bus, firmware, and the driver's own guidance</h2>
+  <p class="xidref-family-sub">When the GPU stops answering entirely, the question becomes how far recovery must go — and sometimes the driver tells you outright.</p>
+
+  <article class="xid-card" id="xid-79">
+    <h3><span class="xid-num">XID 79</span> — GPU has fallen off the bus</h3>
+    <p>The system lost contact with the GPU — it stops appearing in <code>nvidia-smi</code>. This is a
+      reachability failure, not a memory event.</p>
+    <p class="xid-action"><strong>First action:</strong> try <code>nvidia-smi --gpu-reset</code>. If the reset fails (for example, "GPU is still in use"), a hard node reboot is required — don't keep poking a GPU the system can no longer control.</p>
+  </article>
+
+  <article class="xid-card" id="xid-119">
+    <h3><span class="xid-num">XID 119</span> — GSP RPC timeout</h3>
+    <p>Modern drivers delegate work to the GSP (GPU System Processor) firmware on the card; XID 119 means an
+      RPC to that firmware timed out. The GPU can look completely frozen — <code>nvidia-smi</code> itself hangs —
+      even though the compute silicon is fine.</p>
+    <p class="xid-action"><strong>First action:</strong> GPU reset or node reboot to recover. Recurring GSP timeouts point at driver/firmware versions, not failed hardware.</p>
+  </article>
+
+  <article class="xid-card" id="xid-154">
+    <h3><span class="xid-num">XID 154</span> — GPU recovery action changed</h3>
+    <p>Not a fault: an informational companion where the driver states what recovery the <em>preceding</em> XID
+      requires — for example <code>GPU Reset Required</code> or <code>Node Reboot Required</code>. It removes the
+      guesswork about how far recovery must go.</p>
+    <p class="xid-action"><strong>First action:</strong> pair it with the primary code for root cause, and take exactly the action it names.</p>
+  </article>
+
+  <div class="xidref-cta">
+    <p><strong>Reading about XIDs is the easy half.</strong> Aegis-GPU injects these exact faults — XID 48 ECC
+      failures, XID 79 bus drops, XID 74 link errors — into a simulated GPU cluster so you can practice the
+      diagnosis and recovery with real commands, free.</p>
+    <a class="xidref-btn" href="/">PRACTICE THESE FAULTS LIVE</a>
+  </div>
+
+  <p class="xidref-note">Summarized from NVIDIA's public
+    <a href="https://docs.nvidia.com/deploy/xid-errors/" rel="noopener">XID error documentation</a> and field
+    experience; always confirm against the current docs for your driver version. Independent training simulator —
+    not affiliated with, sponsored by, or endorsed by NVIDIA Corporation.</p>
+</main>
+
+<footer class="landing-footer">
+  <div>Aegis-GPU — hands-on NCA-AIIO training simulator by Yerika Systems.</div>
+  <div>Independent training simulator. Not affiliated with, sponsored by, or endorsed by NVIDIA Corporation.</div>
+</footer>
+
+</body>
+</html>

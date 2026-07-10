@@ -462,3 +462,52 @@ class FrontendSmokeTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SeoBaselineTest(unittest.TestCase):
+    """robots/sitemap/social metadata exist and the public XID reference stays in
+    sync with the XID codes the app actually teaches."""
+
+    XID_REFERENCE = (ROOT / 'xid-reference.html').read_text(encoding='utf-8')
+
+    def test_robots_points_at_sitemap(self):
+        robots = (ROOT / 'robots.txt').read_text(encoding='utf-8')
+        self.assertIn('Sitemap: https://aegis.yerikasystems.com/sitemap.xml', robots)
+
+    def test_sitemap_lists_public_pages(self):
+        import xml.etree.ElementTree as ET
+        sitemap = (ROOT / 'sitemap.xml').read_text(encoding='utf-8')
+        root = ET.fromstring(sitemap)
+        locs = [el.text for el in root.iter('{http://www.sitemaps.org/schemas/sitemap/0.9}loc')]
+        self.assertIn('https://aegis.yerikasystems.com/', locs)
+        self.assertIn('https://aegis.yerikasystems.com/xid-reference.html', locs)
+
+    def test_social_and_structured_metadata(self):
+        import json
+        for page, canonical in ((INDEX, 'https://aegis.yerikasystems.com/'),
+                                (self.XID_REFERENCE, 'https://aegis.yerikasystems.com/xid-reference.html')):
+            self.assertIn(f'<link rel="canonical" href="{canonical}">', page)
+            self.assertIn('og:title', page)
+            self.assertIn('og:image', page)
+            self.assertIn('twitter:card', page)
+            for block in re.findall(r'<script type="application/ld\+json">(.*?)</script>', page, re.S):
+                json.loads(block)
+
+    def test_share_and_icon_assets_exist(self):
+        self.assertTrue((ROOT / 'og-image.png').stat().st_size > 10000)
+        self.assertIn('<svg', (ROOT / 'favicon.svg').read_text(encoding='utf-8'))
+        self.assertIn('favicon.svg', INDEX)
+
+    def test_xid_reference_covers_every_taught_code(self):
+        taught = set(re.findall(r'term: "XID (\d+)"', LEARNING_PART1_JS))
+        self.assertGreaterEqual(len(taught), 14)
+        for code in sorted(taught, key=int):
+            self.assertIn(f'id="xid-{code}"', self.XID_REFERENCE,
+                          f'XID {code} is taught in the app but missing from xid-reference.html')
+            self.assertIn(f'#xid-{code}', self.XID_REFERENCE,
+                          f'XID {code} has no summary-table link in xid-reference.html')
+
+    def test_xid_reference_funnels_and_disclaims(self):
+        self.assertIn('Not affiliated with, sponsored by, or endorsed by NVIDIA', self.XID_REFERENCE)
+        self.assertIn('class="xidref-btn" href="/"', self.XID_REFERENCE)
+        self.assertIn('xid-reference.html', INDEX)
