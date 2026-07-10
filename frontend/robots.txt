@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://aegis.yerikasystems.com/sitemap.xml
+Sitemap: https://aegisgpu.com/sitemap.xml
