@@ -102,6 +102,10 @@ class FrontendBrowserProofTest(unittest.TestCase):
                 'expected_details': ['fleet-title-visible', 'fleet-kpi-rail-visible', 'fleet-side-rail-visible', 'fleet-grid-visible', 'legacy-rails-hidden'],
             },
             {
+                'name': 'feedback_widget',
+                'expected_details': ['feedback-opens', 'feedback-requires-rating', 'feedback-submits', 'feedback-no-renag'],
+            },
+            {
                 'name': 'landing_page',
                 'expected_details': ['landing-hero-visible', 'landing-stats-accurate', 'landing-features-present', 'landing-disclaimer-present', 'landing-auth-card-usable'],
             },

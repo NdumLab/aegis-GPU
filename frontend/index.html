@@ -46,10 +46,10 @@
 <script src="js/learning.js?v=20260421t" defer></script>
 <script src="js/explain.js?v=20260423d" defer></script>
 <script src="js/analytics.js?v=20260424ref1" defer></script>
-<script src="js/branching.js?v=20260710b" defer></script>
+<script src="js/branching.js?v=20260711a" defer></script>
 <script src="js/coach.js?v=20260507a" defer></script>
 <script src="js/quiz-bank.js?v=20260710c" defer></script>
-<script src="js/study-quiz.js?v=20260710c" defer></script>
+<script src="js/study-quiz.js?v=20260711a" defer></script>
 <script src="js/cluster-sim.js?v=20260507b" defer></script>
 <script src="js/cluster-dashboard.js?v=20260507b" defer></script>
 <script src="js/cluster-terminal.js?v=20260507b" defer></script>
@@ -57,6 +57,7 @@
 <script src="js/history.js?v=20260709a" defer></script>
 <script src="js/runtime.js?v=20260709a" defer></script>
 <script src="js/app.js?v=20260507g" defer></script>
+<script src="js/feedback.js?v=20260711a" defer></script>
 </head>
 <body data-workspace-mode="training">
 
@@ -230,9 +231,39 @@
         <button class="btn-sm" id="btn-reset">Reset</button>
       </div>
     </details>
+    <button class="btn-sm" id="btn-feedback" title="Tell us what to improve">💬 Feedback</button>
     <button class="btn-sm logout-btn" id="btn-logout">Logout</button>
   </div>
 </header>
+
+<div class="overlay" id="feedback-overlay">
+  <div class="panel feedback-panel">
+    <div class="panel-tools">
+      <button class="close-btn" id="btn-feedback-close">✕</button>
+    </div>
+    <h2>How is Aegis-GPU working for you?</h2>
+    <div id="feedback-form-body">
+      <div class="feedback-stars" id="feedback-stars" role="radiogroup" aria-label="Rating from 1 to 5 stars">
+        <button class="feedback-star" type="button" data-star="1" role="radio" aria-checked="false" aria-label="1 star">★</button>
+        <button class="feedback-star" type="button" data-star="2" role="radio" aria-checked="false" aria-label="2 stars">★</button>
+        <button class="feedback-star" type="button" data-star="3" role="radio" aria-checked="false" aria-label="3 stars">★</button>
+        <button class="feedback-star" type="button" data-star="4" role="radio" aria-checked="false" aria-label="4 stars">★</button>
+        <button class="feedback-star" type="button" data-star="5" role="radio" aria-checked="false" aria-label="5 stars">★</button>
+      </div>
+      <textarea id="feedback-message" maxlength="2000" rows="5"
+        placeholder="What should we improve? A confusing lab, a missing topic, a bug — anything helps. (optional)"></textarea>
+      <div id="feedback-error" class="feedback-error" style="display:none"></div>
+      <div class="feedback-actions">
+        <button class="btn-sm primary" id="btn-feedback-submit">Send feedback</button>
+        <button class="btn-sm" id="btn-feedback-later">Maybe later</button>
+      </div>
+    </div>
+    <div id="feedback-thanks" style="display:none">
+      <p class="feedback-thanks-text">Thank you — every note directly shapes what gets built next.</p>
+      <button class="btn-sm primary" id="btn-feedback-thanks-close">Close</button>
+    </div>
+  </div>
+</div>
 
 <div id="recon-overlay" class="modal-overlay" style="display:none">
   <div class="recon-box">

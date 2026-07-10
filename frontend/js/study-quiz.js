@@ -876,6 +876,9 @@ function submitQuiz() {
   localStorage.setItem('gpusim_score', pct);
   if (typeof window.scheduleProgressSync === 'function') window.scheduleProgressSync();
   renderDetachedPanel('quizOverlay');
+  if (typeof maybePromptFeedback === 'function') {
+    setTimeout(() => maybePromptFeedback('quiz_submitted'), 1500);
+  }
 }
 
 function resetQuiz() { quizState = {}; openQuiz(); }

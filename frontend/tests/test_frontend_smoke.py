@@ -511,3 +511,21 @@ class SeoBaselineTest(unittest.TestCase):
         self.assertIn('Not affiliated with, sponsored by, or endorsed by NVIDIA', self.XID_REFERENCE)
         self.assertIn('class="xidref-btn" href="/"', self.XID_REFERENCE)
         self.assertIn('xid-reference.html', INDEX)
+
+
+class FeedbackWidgetTest(unittest.TestCase):
+    FEEDBACK_JS = (ROOT / 'js' / 'feedback.js').read_text(encoding='utf-8')
+
+    def test_feedback_surface_is_available(self):
+        self.assertIn('id="btn-feedback"', INDEX)
+        self.assertIn('id="feedback-overlay"', INDEX)
+        self.assertIn('id="feedback-stars"', INDEX)
+        self.assertIn('js/feedback.js', INDEX)
+        self.assertIn('function openFeedback', self.FEEDBACK_JS)
+        self.assertIn('function maybePromptFeedback', self.FEEDBACK_JS)
+        self.assertIn("fetch(`${API_BASE}/feedback`", self.FEEDBACK_JS)
+
+    def test_quiz_submit_prompts_feedback_once(self):
+        self.assertIn('maybePromptFeedback', STUDY_QUIZ_JS)
+        self.assertIn('gpusim_feedback_done', self.FEEDBACK_JS)
+        self.assertIn('gpusim_feedback_prompted', self.FEEDBACK_JS)
