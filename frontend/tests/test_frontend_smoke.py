@@ -498,6 +498,11 @@ class SeoBaselineTest(unittest.TestCase):
         self.assertIn('<svg', (ROOT / 'favicon.svg').read_text(encoding='utf-8'))
         self.assertIn('favicon.svg', INDEX)
 
+    def test_brand_logo_exists_and_is_used(self):
+        self.assertIn('<svg', (ROOT / 'brand' / 'logo.svg').read_text(encoding='utf-8'))
+        self.assertIn('brand/logo.svg', INDEX)
+        self.assertIn('brand/logo.svg', self.XID_REFERENCE)
+
     def test_xid_reference_covers_every_taught_code(self):
         taught = set(re.findall(r'term: "XID (\d+)"', LEARNING_PART1_JS))
         self.assertGreaterEqual(len(taught), 14)

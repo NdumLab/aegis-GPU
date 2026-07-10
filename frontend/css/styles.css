@@ -1427,3 +1427,16 @@ body[data-workspace-mode="training"]:not(.lab-active) .metrics-sidebar { display
   color: var(--text);
   margin-bottom: 16px;
 }
+
+/* ============ Brand logo ============ */
+
+.landing-logo {
+  height: 30px;
+  align-self: center;
+  margin-right: 10px;
+}
+
+.hdr-logo {
+  height: 24px;
+  align-self: center;
+}
