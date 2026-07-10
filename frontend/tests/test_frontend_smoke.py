@@ -472,20 +472,20 @@ class SeoBaselineTest(unittest.TestCase):
 
     def test_robots_points_at_sitemap(self):
         robots = (ROOT / 'robots.txt').read_text(encoding='utf-8')
-        self.assertIn('Sitemap: https://aegis.yerikasystems.com/sitemap.xml', robots)
+        self.assertIn('Sitemap: https://aegisgpu.com/sitemap.xml', robots)
 
     def test_sitemap_lists_public_pages(self):
         import xml.etree.ElementTree as ET
         sitemap = (ROOT / 'sitemap.xml').read_text(encoding='utf-8')
         root = ET.fromstring(sitemap)
         locs = [el.text for el in root.iter('{http://www.sitemaps.org/schemas/sitemap/0.9}loc')]
-        self.assertIn('https://aegis.yerikasystems.com/', locs)
-        self.assertIn('https://aegis.yerikasystems.com/xid-reference.html', locs)
+        self.assertIn('https://aegisgpu.com/', locs)
+        self.assertIn('https://aegisgpu.com/xid-reference.html', locs)
 
     def test_social_and_structured_metadata(self):
         import json
-        for page, canonical in ((INDEX, 'https://aegis.yerikasystems.com/'),
-                                (self.XID_REFERENCE, 'https://aegis.yerikasystems.com/xid-reference.html')):
+        for page, canonical in ((INDEX, 'https://aegisgpu.com/'),
+                                (self.XID_REFERENCE, 'https://aegisgpu.com/xid-reference.html')):
             self.assertIn(f'<link rel="canonical" href="{canonical}">', page)
             self.assertIn('og:title', page)
             self.assertIn('og:image', page)
