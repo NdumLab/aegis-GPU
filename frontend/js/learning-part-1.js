@@ -73,7 +73,7 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
     objectiveText: "We are learning how to read NVIDIA XID fault codes as operator signals instead of treating them like mysterious numbers. The beginner goal is not to memorize every code. It is to look at a code, classify the fault family, and decide what evidence and containment step should come next.",
-    plainPicture: "Picture the NVIDIA driver as the control-room operator watching the GPU. When something breaks, it writes a short incident code in the log instead of a long story. That short code is the XID. XID 48 is like the operator saying memory integrity failed. XID 79 is like saying the GPU stopped answering the bus. XID 74 is like saying the GPU-to-GPU link is noisy or damaged. The number is not the whole diagnosis; it is the signpost that tells you which room to inspect next.",
+    plainPicture: "Picture the NVIDIA driver as the control-room operator watching the GPU. When something breaks, it writes a short incident code in the log instead of a long story. That short code is the XID. XID 48 is like the operator saying memory integrity failed. XID 79 is like saying the GPU stopped answering the bus. XID 74 is like saying the GPU-to-GPU link is noisy or damaged. And a whole family of codes — XID 13, 31, 43 — is the operator saying the running application misbehaved, not the hardware. The number is not the whole diagnosis; it is the signpost that tells you which room to inspect next: the memory room, the bus room, the fabric room, or the application's own code.",
     whyOperatorsCare: [
       "Operators often see the XID code before they see a human explanation. Logs, alerts, and support tickets may give you only a short number, so the operator has to turn that into a safe containment decision quickly.",
       "This matters because different XIDs imply different fault families. A memory-integrity problem, a bus or hang problem, and a fabric problem do not all deserve the same response or the same recovery path.",
@@ -106,14 +106,26 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
         why: "When people say 'the fabric is degraded,' they mean the cluster's internal highway system, not one server."
       },
       { term: "XID", plain: "An NVIDIA driver event code used to classify GPU faults.", why: "These are often the first hardware fault signals operators see in logs." },
-      { term: "XID 48", plain: "A fault code commonly associated with an uncorrectable ECC event.", why: "This usually points toward memory-integrity trouble and containment." },
+      { term: "XID 48", plain: "A fault code commonly associated with an uncorrectable ECC event — a double-bit memory error the hardware cannot repair.", why: "This usually points toward memory-integrity trouble and containment." },
       { term: "XID 79", plain: "A code associated with a GPU that has fallen off the bus or become unreachable.", why: "This often points toward reset-or-reboot style recovery, not memory-only reasoning." },
       { term: "XID 74", plain: "A fault often associated with NVLink problems such as link CRC errors.", why: "It connects log evidence to interconnect-path health instead of memory or bus failure." },
+      { term: "XID 13", plain: "Graphics engine exception — most often the running application executed an illegal instruction or touched an out-of-range address.", why: "It is usually the job's bug, not broken silicon. Check the application before blaming the GPU." },
+      { term: "XID 31", plain: "GPU memory page fault — the application asked the GPU to read or write an invalid memory address.", why: "Overwhelmingly an application bug (the CUDA 'illegal memory access'). The fix lives in code, not in an RMA." },
+      { term: "XID 43", plain: "A user application hit an error and was stopped, while the GPU itself recovered and kept serving other work.", why: "It tells you a job died, not that the node is unhealthy — no containment needed for the hardware." },
+      { term: "XID 45", plain: "Preemptive cleanup — the driver tore down a job's channels, often because the job was killed or a preceding fault forced cleanup.", why: "It is a context signal: look at what happened just before it, rather than treating it as the root cause." },
+      { term: "XID 63", plain: "The GPU recorded a degraded memory page or row for retirement/remapping; the fix takes effect on the next GPU reset.", why: "It is the card self-healing. Schedule a drain and reset rather than reacting like the GPU already failed." },
+      { term: "XID 64", plain: "A memory page/row could not be retired or remapped — the self-healing path itself failed.", why: "Unlike XID 63, this one points toward the RMA path instead of a scheduled reset." },
+      { term: "XID 92", plain: "The driver observed a high rate of corrected single-bit ECC errors on the GPU.", why: "Nothing is corrupted yet, but the correction machinery is working overtime — a monitoring and maintenance-planning signal." },
+      { term: "XID 94", plain: "Contained ECC error — on A100/H100-class GPUs the hardware isolated an uncorrectable error to the one application that touched the bad data.", why: "Only that job needs to restart; the GPU can keep serving the rest after cleanup." },
+      { term: "XID 95", plain: "Uncontained ECC error — the containment attempt failed, so the GPU's wider state can no longer be trusted.", why: "This is the drain-and-reset (or reboot) case, closer in severity to XID 48." },
+      { term: "XID 119", plain: "GSP RPC timeout — the GPU System Processor firmware that modern drivers delegate work to stopped responding.", why: "A growing share of real-world faults on current drivers; recovery is usually GPU reset or node reboot, and persistent cases are driver/firmware issues." },
+      { term: "GSP", plain: "GPU System Processor — a small controller on the GPU that runs firmware handling tasks the driver used to do on the CPU.", why: "When GSP hangs, the whole GPU can look frozen even though the silicon that does the math is fine." },
       { term: "Containment", plain: "The first phase of response where you stop the fault from hurting more jobs or more hardware paths.", why: "Beginners need to know the first goal is control, not perfect root cause." }
     ],
     commonMisreads: [
       "The number itself is the diagnosis. That is false. The code is the start of the hardware story, not the whole story.",
       "All XIDs deserve the same response. That is false. Memory faults, bus faults, and fabric faults often need different confirmation and recovery steps.",
+      "Every XID means broken hardware. That is false. XID 13, 31, and 43 usually mean the application misbehaved — the safe response is to check the job's code, not to open an RMA.",
       "If the job is still partly alive, the fault must be minor. That is false. Some severe faults still leave part of the system standing while the hardware underneath is no longer safe to trust."
     ],
     safeActions: [
