@@ -670,6 +670,16 @@ const QUIZ_CORRECT_CHOICE_FEEDBACK = {
   31: 'Correct. Clean ECC and XID counters plus a shared slowdown mean oversubscription contention on time-shared compute. Reduce the guest count or use MIG for hard isolation.',
 };
 
+// Fold the extended bank (js/quiz-bank.js, loaded before this file) into the
+// same QUIZ + per-choice feedback structures the renderer already uses.
+if (Array.isArray(window.AEGIS_QUIZ_BANK)) {
+  window.AEGIS_QUIZ_BANK.forEach((item) => {
+    const qi = QUIZ.push(item) - 1;
+    if (item.correct) QUIZ_CORRECT_CHOICE_FEEDBACK[qi] = item.correct;
+    if (item.wrong) QUIZ_WRONG_CHOICE_FEEDBACK[qi] = item.wrong;
+  });
+}
+
 function getQuizChoiceFeedback(qi, q, chosenIdx) {
   const questionIndex = Number.isInteger(qi) ? qi : QUIZ.indexOf(q);
   if (chosenIdx === q.ans) {

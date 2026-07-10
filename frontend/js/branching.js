@@ -695,6 +695,24 @@ async function runBrowserSmokeScenario() {
       }
       details.push('quiz-q3-correct-teaches');
 
+      const questionCount = document.querySelectorAll('#quiz-content .quiz-q').length;
+      if (questionCount < 100) {
+        throw new Error(`extended quiz bank not merged — only ${questionCount} questions rendered`);
+      }
+      const bankQi = questionCount - 1;
+      const lastQ = window.AEGIS_QUIZ_BANK[window.AEGIS_QUIZ_BANK.length - 1];
+      const wrongIdx = Object.keys(lastQ.wrong).map(Number)[0];
+      document.getElementById(`qo-${bankQi}-${wrongIdx}`)?.click();
+      await browserSmokeWait(80);
+      const bankWrongText = String(document.getElementById(`qe-${bankQi}`)?.textContent || '');
+      if (!bankWrongText.includes(lastQ.wrong[wrongIdx].slice(0, 30))) {
+        throw new Error('bank question wrong-answer feedback was not specific');
+      }
+      if (bankWrongText.includes('missing a specific explanation')) {
+        throw new Error('bank question wrong-answer feedback fell back to generic text');
+      }
+      details.push('quiz-bank-merged-with-feedback');
+
       setBrowserSmokeResult('pass', 'quiz feedback learning flow verified', details);
       return;
     }

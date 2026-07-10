@@ -103,7 +103,7 @@ class FrontendBrowserProofTest(unittest.TestCase):
             },
             {
                 'name': 'quiz_feedback',
-                'expected_details': ['quiz-q1-wrong-specific', 'quiz-q1-correct-teaches', 'quiz-q3-xid74-specific', 'quiz-q3-correct-teaches'],
+                'expected_details': ['quiz-q1-wrong-specific', 'quiz-q1-correct-teaches', 'quiz-q3-xid74-specific', 'quiz-q3-correct-teaches', 'quiz-bank-merged-with-feedback'],
             },
             {
                 'name': 'lab_terminal_nvlink',

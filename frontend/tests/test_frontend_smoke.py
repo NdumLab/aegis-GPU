@@ -122,8 +122,11 @@ class FrontendSmokeTest(unittest.TestCase):
     def test_quiz_wrong_answers_have_feedback(self):
         script = f"""
         const fs = require('fs');
+        globalThis.window = globalThis;
+        eval(fs.readFileSync({str(ROOT / 'js' / 'quiz-bank.js')!r}, 'utf8'));
         const source = fs.readFileSync({str(ROOT / 'js' / 'study-quiz.js')!r}, 'utf8');
         eval(source + `
+          if (QUIZ.length < 100) throw new Error('Extended quiz bank was not merged: ' + QUIZ.length);
           const missing = [];
           QUIZ.forEach((question, questionIndex) => {{
             if (!QUIZ_CORRECT_CHOICE_FEEDBACK[questionIndex]) {{
