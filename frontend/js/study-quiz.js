@@ -64,7 +64,8 @@ const EXAM_STUDY_GUIDES = {
           'XID 48, 74, and 79 point to different fault families, so they should not all trigger the same recovery path.',
           'XID 13, 31, and 43 usually mean the application misbehaved — check the job, not the hardware. XID 45 is cleanup context, not a root cause.',
           'The memory story is a spectrum: XID 92 is a corrected-error rate warning, 63 is a page/row queued for retirement (fixed by a reset), 64 is retirement failing (RMA path), 94 is a contained error (one job dies), 95 is uncontained (drain and reset).',
-          'XID 119 means the GSP firmware stopped answering — a driver/firmware fault family of its own on modern GPUs.'
+          'XID 119 means the GSP firmware stopped answering — a driver/firmware fault family of its own on modern GPUs.',
+          'On Blackwell-class systems the NVLink fault family reports as XID 149 instead of 74, and XID 154 is an informational companion naming the recovery the driver wants — GPU reset versus node reboot.'
         ],
         trap: 'The code is not the whole diagnosis. Use it to choose the next evidence source and the safe containment step.'
       },
