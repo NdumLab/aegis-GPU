@@ -1220,6 +1220,9 @@ function initApp() {
   const initialSvg = document.getElementById('diagram-canvas');
   if (initialSvg && typeof drawWelcome === 'function') drawWelcome(initialSvg);
 
+  const _labTotal = document.getElementById('h-total');
+  if (_labTotal && typeof LABS !== 'undefined') _labTotal.textContent = Object.keys(LABS).length;
+
   const _savedCompleted = localStorage.getItem('gpusim_completed');
   if (_savedCompleted) {
     try {

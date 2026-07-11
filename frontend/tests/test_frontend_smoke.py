@@ -530,6 +530,11 @@ class FeedbackWidgetTest(unittest.TestCase):
         self.assertIn('function maybePromptFeedback', self.FEEDBACK_JS)
         self.assertIn("fetch(`${API_BASE}/feedback`", self.FEEDBACK_JS)
 
+    def test_header_lab_total_is_dynamic(self):
+        self.assertIn('id="h-total"', INDEX)
+        self.assertNotIn('</span>/16<', INDEX)
+        self.assertIn("Object.keys(LABS).length", RUNTIME_JS)
+
     def test_quiz_submit_prompts_feedback_once(self):
         self.assertIn('maybePromptFeedback', STUDY_QUIZ_JS)
         self.assertIn("maybePromptFeedback('lab_completed')", RUNTIME_JS)

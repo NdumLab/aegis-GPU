@@ -118,6 +118,18 @@ run install -o root -g root -m 644 \
   "${REPO_ROOT}/deploy/systemd/aegis-watchdog.timer" \
   /etc/systemd/system/aegis-watchdog.timer
 
+run install -o root -g root -m 755 \
+  "${REPO_ROOT}/deploy/systemd/aegis-daily-digest.sh" \
+  /usr/local/bin/aegis-daily-digest.sh
+
+run install -o root -g root -m 644 \
+  "${REPO_ROOT}/deploy/systemd/aegis-daily-digest.service" \
+  /etc/systemd/system/aegis-daily-digest.service
+
+run install -o root -g root -m 644 \
+  "${REPO_ROOT}/deploy/systemd/aegis-daily-digest.timer" \
+  /etc/systemd/system/aegis-daily-digest.timer
+
 run install -o root -g root -m 644 \
   "${REPO_ROOT}/deploy/logrotate/aegis-gpu" \
   /etc/logrotate.d/aegis-gpu
@@ -125,6 +137,7 @@ run install -o root -g root -m 644 \
 run systemctl daemon-reload
 run systemctl enable --now aegis-smoke-ci.timer
 run systemctl enable --now aegis-watchdog.timer
+run systemctl enable --now aegis-daily-digest.timer
 run nginx -t
 run systemctl restart nginx aegis-gpu
 
