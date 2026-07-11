@@ -1,0 +1,7 @@
+[Unit]
+Description=Aegis-GPU daily traffic/signup/feedback digest
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/aegis-daily-digest.sh
