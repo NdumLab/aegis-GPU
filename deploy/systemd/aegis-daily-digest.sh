@@ -57,7 +57,8 @@ fi
 
 # --- Refresh the GoAccess deep-dive report (all data in the current log) ---
 if command -v goaccess >/dev/null 2>&1; then
-  cat "${ACCESS_LOG}" "${ACCESS_LOG}.1" 2>/dev/null | \
+  # ( … || true ) so a missing rotated log doesn't trip pipefail
+  (cat "${ACCESS_LOG}" "${ACCESS_LOG}.1" 2>/dev/null || true) | \
     goaccess - --log-format=COMBINED -o "${STATS_DIR}/report.html" >/dev/null 2>&1 \
     || log "goaccess report failed"
 fi
