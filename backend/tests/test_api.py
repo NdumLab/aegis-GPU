@@ -1,10 +1,15 @@
 import importlib.util
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 import bcrypt
-from fastapi.testclient import TestClient
+
+try:
+    from .asgi_client import ASGITestClient
+except ImportError:
+    from asgi_client import ASGITestClient
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,8 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def load_module(monkeypatch):
     admin_hash = bcrypt.hashpw(b'unit-test-pass', bcrypt.gensalt()).decode('utf-8')
     analyst_hash = bcrypt.hashpw(b'unit-test-analyst', bcrypt.gensalt()).decode('utf-8')
-    incidents_db = Path(tempfile.gettempdir()) / 'aegis-test-incidents-pytest.db'
-    incidents_db = incidents_db.with_name(f'{incidents_db.stem}-{id(monkeypatch)}{incidents_db.suffix}')
+    incidents_db = Path(tempfile.gettempdir()) / f'aegis-test-incidents-pytest-{id(monkeypatch)}-{uuid.uuid4().hex}.db'
 
     monkeypatch.setenv('ACTIVE_LLM', 'deterministic')
     monkeypatch.setenv('CLAUDE_API_KEY', 'your-anthropic-key-here')
@@ -47,7 +51,7 @@ def auth_header(client, username='admin', password='unit-test-pass'):
 
 def test_login_and_me(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post('/api/v1/auth/login', json={'username': 'admin', 'password': 'unit-test-pass'})
     assert res.status_code == 200
@@ -62,7 +66,7 @@ def test_login_and_me(monkeypatch):
 
 def test_metrics_requires_auth(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.get('/api/v1/hardware/metrics')
     assert res.status_code == 403 or res.status_code == 401
@@ -70,7 +74,7 @@ def test_metrics_requires_auth(monkeypatch):
 
 def test_status_reports_running_version(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.get('/api/v1/status')
     assert res.status_code == 200
@@ -82,7 +86,7 @@ def test_status_reports_running_version(monkeypatch):
 
 def test_diagnose_returns_grounded_plan(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post('/api/v1/diagnose/48', headers=auth_header(client))
     assert res.status_code == 200
@@ -94,7 +98,7 @@ def test_diagnose_returns_grounded_plan(monkeypatch):
 
 def test_ask_aegis_returns_grounded_answer_and_references(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -121,7 +125,7 @@ def test_ask_aegis_returns_grounded_answer_and_references(monkeypatch):
 
 def test_ask_aegis_nvlink_question_does_not_attach_irrelevant_sources(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -153,7 +157,7 @@ def test_ask_aegis_nvlink_question_does_not_attach_irrelevant_sources(monkeypatc
 
 def test_ask_aegis_nvlink_healthy_topology_explains_baseline(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -181,7 +185,7 @@ def test_ask_aegis_nvlink_healthy_topology_explains_baseline(monkeypatch):
 
 def test_ask_aegis_owning_layer_prompt_explains_layer(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -207,7 +211,7 @@ def test_ask_aegis_owning_layer_prompt_explains_layer(monkeypatch):
 
 def test_ask_aegis_next_check_prompt_returns_direct_check(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -232,7 +236,7 @@ def test_ask_aegis_next_check_prompt_returns_direct_check(monkeypatch):
 
 def test_ask_aegis_branch_reason_prompt_explains_scoring(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -261,7 +265,7 @@ def test_ask_aegis_branch_reason_prompt_explains_scoring(monkeypatch):
 
 def test_ask_aegis_container_runtime_prompt_explains_bridge(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -284,7 +288,7 @@ def test_ask_aegis_container_runtime_prompt_explains_bridge(monkeypatch):
 
 def test_ask_aegis_training_storage_prompt_explains_starvation(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -307,7 +311,7 @@ def test_ask_aegis_training_storage_prompt_explains_starvation(monkeypatch):
 
 def test_ask_aegis_roce_fault_prompt_explains_pause_storm(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -330,7 +334,7 @@ def test_ask_aegis_roce_fault_prompt_explains_pause_storm(monkeypatch):
 
 def test_ask_aegis_slurm_pending_prompt_explains_policy(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -354,7 +358,7 @@ def test_ask_aegis_slurm_pending_prompt_explains_policy(monkeypatch):
 
 def test_ask_aegis_cuda_mismatch_prompt_explains_contract(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -376,7 +380,7 @@ def test_ask_aegis_cuda_mismatch_prompt_explains_contract(monkeypatch):
 
 def test_ask_aegis_k8s_pending_prompt_explains_capacity(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -398,7 +402,7 @@ def test_ask_aegis_k8s_pending_prompt_explains_capacity(monkeypatch):
 
 def test_ask_aegis_storage_stripe_prompt_explains_layout(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -420,7 +424,7 @@ def test_ask_aegis_storage_stripe_prompt_explains_layout(monkeypatch):
 
 def test_ask_aegis_gds_new_path_prompt_explains_direct_dma(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -442,7 +446,7 @@ def test_ask_aegis_gds_new_path_prompt_explains_direct_dma(monkeypatch):
 
 def test_ask_aegis_allreduce_benchmark_prompt_explains_baseline(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -464,7 +468,7 @@ def test_ask_aegis_allreduce_benchmark_prompt_explains_baseline(monkeypatch):
 
 def test_ask_aegis_ib_fault_prompt_explains_link_failure(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -486,7 +490,7 @@ def test_ask_aegis_ib_fault_prompt_explains_link_failure(monkeypatch):
 
 def test_ask_aegis_monitoring_alert_prompt_explains_incident_path(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -508,7 +512,7 @@ def test_ask_aegis_monitoring_alert_prompt_explains_incident_path(monkeypatch):
 
 def test_ask_aegis_mig_create_prompt_explains_capacity_layout(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post(
         '/api/v1/ask-aegis',
@@ -530,7 +534,7 @@ def test_ask_aegis_mig_create_prompt_explains_capacity_layout(monkeypatch):
 
 def test_admin_role_required_for_remediation(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post('/api/v1/remediate/79', headers=auth_header(client, username='analyst', password='unit-test-analyst'))
     assert res.status_code == 403
@@ -538,7 +542,7 @@ def test_admin_role_required_for_remediation(monkeypatch):
 
 def test_remediation_defaults_to_manual_for_destructive_runbooks(monkeypatch):
     module = load_module(monkeypatch)
-    client = TestClient(module.app)
+    client = ASGITestClient(module.app)
 
     res = client.post('/api/v1/remediate/79', headers=auth_header(client))
     assert res.status_code == 200

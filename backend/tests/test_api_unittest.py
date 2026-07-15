@@ -2,10 +2,15 @@ import importlib.util
 import sys
 import tempfile
 import unittest
+import uuid
 from pathlib import Path
 
 import bcrypt
-from fastapi.testclient import TestClient
+
+try:
+    from .asgi_client import ASGITestClient
+except ImportError:  # unittest discovery from backend/tests
+    from asgi_client import ASGITestClient
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +21,7 @@ def load_module():
 
     admin_hash = bcrypt.hashpw(b'unit-test-pass', bcrypt.gensalt()).decode('utf-8')
     analyst_hash = bcrypt.hashpw(b'unit-test-analyst', bcrypt.gensalt()).decode('utf-8')
-    incidents_db = Path(tempfile.gettempdir()) / f'aegis-test-incidents-unittest-{os.getpid()}.db'
+    incidents_db = Path(tempfile.gettempdir()) / f'aegis-test-incidents-unittest-{os.getpid()}-{uuid.uuid4().hex}.db'
 
     os.environ['ACTIVE_LLM'] = 'deterministic'
     os.environ['CLAUDE_API_KEY'] = 'your-anthropic-key-here'
@@ -44,7 +49,7 @@ class BackendSmokeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.module = load_module()
-        cls.client = TestClient(cls.module.app)
+        cls.client = ASGITestClient(cls.module.app)
 
     def auth_header(self, username='admin', password='unit-test-pass'):
         res = self.client.post('/api/v1/auth/login', json={'username': username, 'password': password})

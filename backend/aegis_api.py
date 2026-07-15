@@ -24,9 +24,10 @@ from jose import JWTError, jwt
 from pydantic import BaseModel, Field
 
 try:
-    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
+    from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, Counter, Gauge, Histogram, generate_latest
 except ImportError:  # pragma: no cover - local fallback when prometheus_client is unavailable
     CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
+    REGISTRY = None
 
     class _MetricStub:
         def labels(self, **_kwargs):
@@ -98,8 +99,22 @@ OFFICIAL_SOURCES_PATH = APP_ROOT / 'nvidia_kb' / 'official_sources.json'
 AUDIT_LOG_PATH = os.getenv('AEGIS_AUDIT_LOG_PATH', '/var/log/aegis-gpu/audit.log')
 INCIDENTS_DB_PATH = Path(os.getenv('AEGIS_INCIDENTS_DB', '/var/lib/aegis-gpu/incidents.db'))
 FRONTEND_DIR = Path(os.getenv('AEGIS_FRONTEND_DIR', '/var/www/html'))
-DB_INIT_ERROR = Gauge('aegis_incidents_db_init_error', 'Whether the incidents DB failed to initialize (1=yes, 0=no).')
-DB_WRITE_FAILURES = Counter('aegis_incidents_db_write_failures_total', 'Incident DB write failures.')
+def metric(metric_cls, name: str, *args, **kwargs):
+    try:
+        return metric_cls(name, *args, **kwargs)
+    except ValueError:
+        if REGISTRY is None:
+            raise
+        collectors = getattr(REGISTRY, '_names_to_collectors', {})
+        for candidate in (name, f'{name}_total', f'{name}_created', f'{name}_bucket', f'{name}_sum', f'{name}_count'):
+            existing = collectors.get(candidate)
+            if existing is not None:
+                return existing
+        raise
+
+
+DB_INIT_ERROR = metric(Gauge, 'aegis_incidents_db_init_error', 'Whether the incidents DB failed to initialize (1=yes, 0=no).')
+DB_WRITE_FAILURES = metric(Counter, 'aegis_incidents_db_write_failures_total', 'Incident DB write failures.')
 _DB_READY = False
 _DB_ERROR = ''
 
@@ -258,19 +273,19 @@ USERS = {
 
 PLACEHOLDER_VALUES = {'', 'your-anthropic-key-here', 'your-openai-key-here', 'change-me', 'change-this-immediately'}
 
-HTTP_REQUESTS = Counter('aegis_http_requests_total', 'HTTP requests handled by Aegis-GPU.', ['method', 'path', 'status'])
-HTTP_LATENCY = Histogram('aegis_http_request_duration_seconds', 'HTTP request latency for Aegis-GPU.', ['method', 'path'])
-DIAGNOSE_REQUESTS = Counter('aegis_diagnose_requests_total', 'Diagnose requests handled by the API.', ['fault_code', 'source'])
-REMEDIATION_REQUESTS = Counter('aegis_remediation_requests_total', 'Remediation requests handled by the API.', ['fault_code', 'status'])
-GPU_UTILIZATION = Gauge('aegis_gpu_utilization_percent', 'Average GPU utilization reported by the backend.')
-GPU_MEMORY_USED = Gauge('aegis_gpu_memory_used_gib', 'Total GPU memory used reported by the backend.')
-GPU_MEMORY_TOTAL = Gauge('aegis_gpu_memory_total_gib', 'Total GPU memory capacity reported by the backend.')
-GPU_TEMPERATURE = Gauge('aegis_gpu_temperature_celsius', 'Average GPU temperature reported by the backend.')
-GPU_POWER = Gauge('aegis_gpu_power_watts', 'Average GPU power draw reported by the backend.')
-GPU_FAULT_COUNT = Gauge('aegis_gpu_active_faults', 'Number of active GPU faults currently reported by the backend.')
-GPU_DEGRADED = Gauge('aegis_gpu_metrics_degraded', 'Whether the backend is using degraded telemetry mode (1=yes, 0=no).')
-GPU_COUNT = Gauge('aegis_gpu_count', 'Number of GPUs visible to the backend telemetry collector.')
-APP_INFO = Gauge('aegis_build_info', 'Static Aegis-GPU build information.', ['version', 'active_llm'])
+HTTP_REQUESTS = metric(Counter, 'aegis_http_requests_total', 'HTTP requests handled by Aegis-GPU.', ['method', 'path', 'status'])
+HTTP_LATENCY = metric(Histogram, 'aegis_http_request_duration_seconds', 'HTTP request latency for Aegis-GPU.', ['method', 'path'])
+DIAGNOSE_REQUESTS = metric(Counter, 'aegis_diagnose_requests_total', 'Diagnose requests handled by the API.', ['fault_code', 'source'])
+REMEDIATION_REQUESTS = metric(Counter, 'aegis_remediation_requests_total', 'Remediation requests handled by the API.', ['fault_code', 'status'])
+GPU_UTILIZATION = metric(Gauge, 'aegis_gpu_utilization_percent', 'Average GPU utilization reported by the backend.')
+GPU_MEMORY_USED = metric(Gauge, 'aegis_gpu_memory_used_gib', 'Total GPU memory used reported by the backend.')
+GPU_MEMORY_TOTAL = metric(Gauge, 'aegis_gpu_memory_total_gib', 'Total GPU memory capacity reported by the backend.')
+GPU_TEMPERATURE = metric(Gauge, 'aegis_gpu_temperature_celsius', 'Average GPU temperature reported by the backend.')
+GPU_POWER = metric(Gauge, 'aegis_gpu_power_watts', 'Average GPU power draw reported by the backend.')
+GPU_FAULT_COUNT = metric(Gauge, 'aegis_gpu_active_faults', 'Number of active GPU faults currently reported by the backend.')
+GPU_DEGRADED = metric(Gauge, 'aegis_gpu_metrics_degraded', 'Whether the backend is using degraded telemetry mode (1=yes, 0=no).')
+GPU_COUNT = metric(Gauge, 'aegis_gpu_count', 'Number of GPUs visible to the backend telemetry collector.')
+APP_INFO = metric(Gauge, 'aegis_build_info', 'Static Aegis-GPU build information.', ['version', 'active_llm'])
 APP_INFO.labels(version=RUNTIME_VERSION, active_llm=ACTIVE_LLM).set(1)
 
 
@@ -298,7 +313,11 @@ try:
 except Exception:
     logging.basicConfig(level=logging.INFO)
 try:
-    _sh = logging.handlers.SysLogHandler(address='/dev/log')
+    class SafeSysLogHandler(logging.handlers.SysLogHandler):
+        def handleError(self, record):
+            return
+
+    _sh = SafeSysLogHandler(address='/dev/log')
     _sh.setFormatter(logging.Formatter('aegis-gpu[audit]: %(message)s'))
     audit_logger.addHandler(_sh)
 except Exception:
@@ -433,14 +452,14 @@ def create_token(username: str, role: str) -> str:
     return jwt.encode({'sub': username, 'role': role, 'exp': exp}, JWT_SECRET, algorithm=JWT_ALGO)
 
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     try:
         return jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGO])
     except JWTError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid or expired token.') from exc
 
 
-def require_admin(payload: dict = Depends(verify_token)) -> dict:
+async def require_admin(payload: dict = Depends(verify_token)) -> dict:
     if payload.get('role') != 'admin':
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Admin role required.')
     return payload
@@ -1735,7 +1754,7 @@ def update_live_metric_gauges(metrics: Dict[str, Any]) -> None:
 
 
 @app.get('/api/v1/status')
-def get_status():
+async def get_status():
     return {
         'status': 'online',
         'running_version': RUNTIME_VERSION,
@@ -1750,12 +1769,12 @@ def get_status():
 
 
 @app.get('/metrics')
-def metrics_endpoint():
+async def metrics_endpoint():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post('/api/v1/auth/register', status_code=status.HTTP_201_CREATED)
-def register(body: RegisterRequest, request: Request):
+async def register(body: RegisterRequest, request: Request):
     username = body.username.strip()
     if not USERNAME_RE.match(username):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -1782,7 +1801,7 @@ def register(body: RegisterRequest, request: Request):
 
 
 @app.post('/api/v1/auth/reset')
-def reset_password(body: ResetRequest, request: Request):
+async def reset_password(body: ResetRequest, request: Request):
     username = body.username.strip()
     if len(body.new_password) < MIN_PASSWORD_LENGTH:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -1809,7 +1828,7 @@ def reset_password(body: ResetRequest, request: Request):
 
 
 @app.post('/api/v1/auth/login')
-def login(body: LoginRequest, request: Request):
+async def login(body: LoginRequest, request: Request):
     user = USERS.get(body.username)
     if not (user and user['hash']):
         db_user = get_db_user(body.username)
@@ -1830,7 +1849,7 @@ def login(body: LoginRequest, request: Request):
 
 
 @app.get('/api/v1/auth/me')
-def me(payload: dict = Depends(verify_token)):
+async def me(payload: dict = Depends(verify_token)):
     return {'username': payload['sub'], 'role': payload['role']}
 
 
@@ -1842,7 +1861,7 @@ class ProgressUpdate(BaseModel):
 
 
 @app.get('/api/v1/progress')
-def get_progress(payload: dict = Depends(verify_token)):
+async def get_progress(payload: dict = Depends(verify_token)):
     if not ensure_incidents_db():
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='Progress store unavailable.')
     with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
@@ -1855,7 +1874,7 @@ def get_progress(payload: dict = Depends(verify_token)):
 
 
 @app.put('/api/v1/progress')
-def put_progress(body: ProgressUpdate, payload: dict = Depends(verify_token)):
+async def put_progress(body: ProgressUpdate, payload: dict = Depends(verify_token)):
     if len(body.payload.encode('utf-8')) > MAX_PROGRESS_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                             detail='Progress payload too large.')
@@ -1910,7 +1929,7 @@ def notify_feedback_received(username: str, rating: int, message: str) -> None:
 
 
 @app.post('/api/v1/feedback')
-def submit_feedback(body: FeedbackRequest, request: Request, payload: dict = Depends(verify_token)):
+async def submit_feedback(body: FeedbackRequest, request: Request, payload: dict = Depends(verify_token)):
     if not isinstance(body.rating, int) or not 1 <= body.rating <= 5:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Rating must be an integer from 1 to 5.')
     message = body.message.strip()
@@ -1940,7 +1959,7 @@ def submit_feedback(body: FeedbackRequest, request: Request, payload: dict = Dep
 
 
 @app.get('/api/v1/feedback')
-def list_feedback(payload: dict = Depends(require_admin)):
+async def list_feedback(payload: dict = Depends(require_admin)):
     if not ensure_incidents_db():
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='Feedback store unavailable.')
     with sqlite3.connect(INCIDENTS_DB_PATH) as conn:
@@ -1952,7 +1971,7 @@ def list_feedback(payload: dict = Depends(require_admin)):
 
 
 @app.get('/api/v1/hardware/metrics')
-def get_metrics(request: Request, payload: dict = Depends(verify_token)):
+async def get_metrics(request: Request, payload: dict = Depends(verify_token)):
     request.state.user = payload['sub']
     metrics = get_engine().collect_live_metrics()
     metrics['timestamp'] = int(time.time())
@@ -1961,7 +1980,7 @@ def get_metrics(request: Request, payload: dict = Depends(verify_token)):
 
 
 @app.post('/api/v1/diagnose/{fault_code}')
-def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(verify_token), body: DiagnoseRequest = None):
+async def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(verify_token), body: DiagnoseRequest = None):
     request.state.user = payload['sub']
     if not re.match(r'^\d{1,4}$', fault_code):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid fault code: must be 1-4 digits.')
@@ -1999,7 +2018,7 @@ def diagnose_fault(fault_code: str, request: Request, payload: dict = Depends(ve
 
 
 @app.post('/api/v1/ask-aegis')
-def ask_aegis(request: Request, body: AskAegisRequest, payload: dict = Depends(verify_token)):
+async def ask_aegis(request: Request, body: AskAegisRequest, payload: dict = Depends(verify_token)):
     request.state.user = payload['sub']
     question = (body.question or '').strip()
     if not question:
@@ -2052,7 +2071,7 @@ def ask_aegis(request: Request, body: AskAegisRequest, payload: dict = Depends(v
 
 
 @app.post('/api/v1/remediate/{fault_code}')
-def remediate_fault(fault_code: str, request: Request, payload: dict = Depends(require_admin), body: RemediateRequest = None):
+async def remediate_fault(fault_code: str, request: Request, payload: dict = Depends(require_admin), body: RemediateRequest = None):
     request.state.user = payload['sub']
     if not re.match(r'^\d{1,4}$', fault_code):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid fault code.')
@@ -2071,7 +2090,7 @@ def remediate_fault(fault_code: str, request: Request, payload: dict = Depends(r
 
 
 @app.get('/api/v1/incidents')
-def list_incidents(
+async def list_incidents(
     request: Request,
     payload: dict = Depends(verify_token),
     limit: int = 50,

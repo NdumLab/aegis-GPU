@@ -1,4 +1,5 @@
-fastapi
+anyio==4.7.0
+fastapi==0.115.6
 uvicorn
 python-dotenv
 bcrypt
@@ -8,5 +9,5 @@ pydantic
 anthropic
 openai
 pytest
-httpx
+httpx==0.27.2
 prometheus-client
