@@ -469,6 +469,7 @@ class SeoBaselineTest(unittest.TestCase):
     sync with the XID codes the app actually teaches."""
 
     XID_REFERENCE = (ROOT / 'xid-reference.html').read_text(encoding='utf-8')
+    HGX_GUIDE = (ROOT / 'hgx-server-hardware-guide.html').read_text(encoding='utf-8')
 
     def test_robots_points_at_sitemap(self):
         robots = (ROOT / 'robots.txt').read_text(encoding='utf-8')
@@ -481,11 +482,13 @@ class SeoBaselineTest(unittest.TestCase):
         locs = [el.text for el in root.iter('{http://www.sitemaps.org/schemas/sitemap/0.9}loc')]
         self.assertIn('https://aegisgpu.com/', locs)
         self.assertIn('https://aegisgpu.com/xid-reference.html', locs)
+        self.assertIn('https://aegisgpu.com/hgx-server-hardware-guide.html', locs)
 
     def test_social_and_structured_metadata(self):
         import json
         for page, canonical in ((INDEX, 'https://aegisgpu.com/'),
-                                (self.XID_REFERENCE, 'https://aegisgpu.com/xid-reference.html')):
+                                (self.XID_REFERENCE, 'https://aegisgpu.com/xid-reference.html'),
+                                (self.HGX_GUIDE, 'https://aegisgpu.com/hgx-server-hardware-guide.html')):
             self.assertIn(f'<link rel="canonical" href="{canonical}">', page)
             self.assertIn('og:title', page)
             self.assertIn('og:image', page)
@@ -502,6 +505,7 @@ class SeoBaselineTest(unittest.TestCase):
         self.assertIn('<svg', (ROOT / 'brand' / 'logo.svg').read_text(encoding='utf-8'))
         self.assertIn('brand/logo.svg', INDEX)
         self.assertIn('brand/logo.svg', self.XID_REFERENCE)
+        self.assertIn('brand/logo.svg', self.HGX_GUIDE)
 
     def test_xid_reference_covers_every_taught_code(self):
         taught = set(re.findall(r'term: "XID (\d+)"', LEARNING_PART1_JS))
@@ -516,6 +520,20 @@ class SeoBaselineTest(unittest.TestCase):
         self.assertIn('Not affiliated with, sponsored by, or endorsed by NVIDIA', self.XID_REFERENCE)
         self.assertIn('class="xidref-btn" href="/"', self.XID_REFERENCE)
         self.assertIn('xid-reference.html', INDEX)
+
+    def test_hgx_guide_funnels_and_disclaims(self):
+        self.assertIn('Not affiliated with, sponsored by, or endorsed by NVIDIA', self.HGX_GUIDE)
+        self.assertIn('class="hwguide-btn" href="/"', self.HGX_GUIDE)
+        self.assertIn('hgx-server-hardware-guide.html', INDEX)
+
+    def test_hgx_guide_has_no_vendor_branding(self):
+        """The guide must stay vendor-neutral: no manufacturer names or their
+        branded product/tool names, in any form, anywhere in the page."""
+        banned = ('dell', 'poweredge', 'idrac', ' perc', 'perc)', 'perc.',
+                  'xe9680', 'xe8640', 'xe9640', 'xe9860', 'domain engineer')
+        lowered = self.HGX_GUIDE.lower()
+        for term in banned:
+            self.assertNotIn(term, lowered, f'vendor-branded term "{term.strip()}" leaked into hgx-server-hardware-guide.html')
 
 
 class FeedbackWidgetTest(unittest.TestCase):

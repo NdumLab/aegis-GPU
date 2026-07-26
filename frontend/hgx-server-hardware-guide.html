@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inside an 8-GPU HGX Server: A Beginner's Hardware Guide | Aegis-GPU</title>
+<meta name="description" content="How an 8-GPU HGX-class rack server actually works, from first principles: power delivery, PCIe switching, storage cabling, cooling, and the Linux commands used to check GPU health.">
+<link rel="canonical" href="https://aegisgpu.com/hgx-server-hardware-guide.html">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Aegis-GPU">
+<meta property="og:title" content="Inside an 8-GPU HGX Server: A Beginner's Hardware Guide">
+<meta property="og:description" content="Power delivery, PCIe switching, storage cabling, cooling, and the Linux commands to check GPU health — an 8-GPU accelerator server explained from first principles.">
+<meta property="og:url" content="https://aegisgpu.com/hgx-server-hardware-guide.html">
+<meta property="og:image" content="https://aegisgpu.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Inside an 8-GPU HGX Server: A Beginner's Hardware Guide",
+  "description": "How an 8-GPU HGX-class rack server actually works: power delivery, PCIe switching, storage cabling, cooling, and the Linux commands used to check GPU health.",
+  "url": "https://aegisgpu.com/hgx-server-hardware-guide.html",
+  "dateModified": "2026-07-25",
+  "author": { "@type": "Organization", "name": "Yerika Systems" },
+  "publisher": { "@type": "Organization", "name": "Yerika Systems" }
+}
+</script>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  html, body { height: auto; display: block; overflow: auto; }
+  .hwguide {
+    background:
+      radial-gradient(ellipse 900px 500px at 75% -10%, rgba(244, 162, 97, 0.07), transparent),
+      radial-gradient(ellipse 700px 450px at 10% 30%, rgba(74, 158, 255, 0.05), transparent),
+      #060d16;
+    min-height: 100vh;
+  }
+  .hwguide-main { max-width: 880px; margin: 0 auto; padding: 24px 28px 72px; }
+  .hwguide-main h1 {
+    font-family: var(--font-disp); font-weight: 400;
+    font-size: clamp(28px, 4vw, 40px); line-height: 1.18;
+    color: #e8f0fe; margin-bottom: 10px;
+  }
+  .hwguide-kicker { font-size: 14px; color: #7f8ea3; font-style: italic; margin-bottom: 30px; }
+  .hwguide-main p { font-size: 15px; line-height: 1.75; color: #9db0cc; margin-bottom: 16px; }
+  .hwguide-main p strong, .hwguide-main li strong { color: #e8f0fe; }
+  .hwguide-main code {
+    font-family: var(--font-mono); font-size: 12px; color: #f4a261;
+    background: rgba(244, 162, 97, 0.08); border-radius: 3px; padding: 1px 5px;
+  }
+  .hwguide-main h2 {
+    font-family: var(--font-disp); font-weight: 400; font-size: 26px;
+    color: #e8f0fe; margin: 48px 0 6px; scroll-margin-top: 20px;
+  }
+  .hwguide-part-sub { font-size: 13px; color: #5a6a85; text-transform: uppercase; letter-spacing: .08em; font-family: var(--font-mono); margin-bottom: 18px; }
+  .hwguide-main h3 { font-size: 17px; font-weight: 600; color: #dbe6f7; margin: 26px 0 10px; }
+  .hwguide-main ul, .hwguide-main ol { margin: 0 0 16px 22px; }
+  .hwguide-main li { font-size: 14.5px; line-height: 1.7; color: #9db0cc; margin-bottom: 6px; }
+  .hwguide-main blockquote {
+    border-left: 3px solid #f4a261; background: rgba(244,162,97,0.06);
+    padding: 12px 18px; margin: 18px 0; border-radius: 0 6px 6px 0;
+    font-size: 14.5px; line-height: 1.7; color: #dbe6f7;
+  }
+  .hwguide-table-wrap { overflow-x: auto; margin: 18px 0 22px; border: 1px solid #1e2d40; border-radius: 8px; }
+  table.hwguide-table { width: 100%; border-collapse: collapse; font-size: 13px; background: rgba(13,17,23,0.7); }
+  .hwguide-table th {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--dim); text-align: left; padding: 12px 14px; border-bottom: 1px solid #1e2d40;
+  }
+  .hwguide-table td { padding: 11px 14px; border-bottom: 1px solid #14202f; color: #9db0cc; line-height: 1.5; vertical-align: top; }
+  .hwguide-table tr:last-child td { border-bottom: none; }
+  .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 9.5px; font-weight: 700;
+    letter-spacing: .06em; padding: 1px 7px; border-radius: 999px; vertical-align: 1px; white-space: nowrap;
+  }
+  .tag-part     { color: #7fb8ff; background: rgba(74,158,255,0.12); border: 1px solid rgba(74,158,255,0.32); }
+  .tag-standard { color: #c9a8ff; background: rgba(160,110,255,0.12); border: 1px solid rgba(160,110,255,0.32); }
+  .tag-software { color: #8fe0a8; background: rgba(76,196,120,0.12); border: 1px solid rgba(76,196,120,0.32); }
+  .tag-measure  { color: #f4a261; background: rgba(244,162,97,0.12); border: 1px solid rgba(244,162,97,0.32); }
+  .tag-role     { color: #ff9bb8; background: rgba(255,107,157,0.12); border: 1px solid rgba(255,107,157,0.32); }
+  .hwguide-legend { list-style: none; margin: 0 0 20px; padding: 0; }
+  .hwguide-legend li { font-size: 13.5px; color: #9db0cc; margin-bottom: 8px; }
+  .hwguide-code {
+    display: block; background: var(--bg4, #0d1117); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 6px; padding: 14px 16px; font-family: var(--font-mono); font-size: 12px;
+    color: #8fe0a8; margin: 0 0 18px; white-space: pre-wrap; word-break: break-word; overflow-x: auto; line-height: 1.6;
+  }
+  .hwguide-code .c-dim { color: #5a6a85; }
+  .hwguide-mem {
+    background: rgba(74,158,255,0.06); border: 1px solid rgba(74,158,255,0.28);
+    border-radius: 8px; padding: 14px 18px; margin: 16px 0; font-size: 14px; color: #dbe6f7; line-height: 1.65;
+  }
+  .hwguide-cta {
+    background: rgba(244, 162, 97, 0.06); border: 1px solid rgba(244, 162, 97, 0.35);
+    border-radius: 8px; padding: 24px; margin: 48px 0 10px; text-align: center;
+  }
+  .hwguide-cta p { color: #c8d4e8; margin-bottom: 16px; }
+  .hwguide-cta a.hwguide-btn {
+    display: inline-block; background: #f4a261; color: #060d16; border-radius: 4px;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+    text-decoration: none; padding: 12px 26px;
+  }
+  .hwguide-note { font-size: 12px; color: #5a6a85; }
+  .hwguide-note a { color: #7f8ea3; }
+  .hwguide-toc { border: 1px solid #1e2d40; border-radius: 8px; padding: 16px 22px; margin: 24px 0 40px; background: rgba(13,17,23,0.5); }
+  .hwguide-toc div { font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 10px; }
+  .hwguide-toc ol { columns: 2; column-gap: 24px; margin: 0; }
+  .hwguide-toc li { font-size: 13px; margin-bottom: 6px; }
+  .hwguide-toc a { color: #9db0cc; text-decoration: none; }
+  .hwguide-toc a:hover { color: #f4a261; }
+  @media (max-width: 640px) { .hwguide-toc ol { columns: 1; } }
+</style>
+</head>
+<body class="hwguide">
+
+<nav class="landing-nav">
+  <div class="landing-brand"><img class="landing-logo" src="brand/logo.svg" alt="">Aegis<span>-GPU</span><span class="landing-badge">NCA-AIIO</span></div>
+  <a class="landing-nav-link" href="/">Open the simulator</a>
+</nav>
+
+<main class="hwguide-main">
+  <h1>Inside an 8-GPU HGX Server: A Beginner's Hardware Guide</h1>
+  <p class="hwguide-kicker">Assumes you know nothing. Every term is explained before it's used — including what kind of thing it is.</p>
+
+  <h2 id="how-to-read">How to read this guide</h2>
+  <p>Technical documentation constantly mixes together four or five completely different categories of thing without ever telling you which is which. That's the main reason it feels impenetrable. So in this guide, every new term gets a tag:</p>
+  <ul class="hwguide-legend">
+    <li><span class="tag tag-part">PART</span> — a physical object you could hold in your hand</li>
+    <li><span class="tag tag-standard">STANDARD</span> — an agreement or set of rules. Not an object. You can't hold it. It's a specification everyone follows so equipment from different companies works together.</li>
+    <li><span class="tag tag-software">SOFTWARE</span> — instructions, stored as files, that run on a processor</li>
+    <li><span class="tag tag-measure">MEASURE</span> — a unit or number describing something</li>
+    <li><span class="tag tag-role">ROLE</span> — a job or a person, not a thing</li>
+  </ul>
+  <p>And every component gets answered in this order: <strong>why does it need to exist → what problem does it solve → what it actually is → the details.</strong></p>
+
+  <div class="hwguide-toc">
+    <div>Contents</div>
+    <ol>
+      <li><a href="#part0">Part 0 — What is this machine, and why?</a></li>
+      <li><a href="#part1">Part 1 — The floor plan</a></li>
+      <li><a href="#part2">Part 2 — Power</a></li>
+      <li><a href="#part3">Part 3 — Data</a></li>
+      <li><a href="#part4">Part 4 — Storage cabling</a></li>
+      <li><a href="#part5">Part 5 — Cooling</a></li>
+      <li><a href="#part6">Part 6 — Checking health from Linux</a></li>
+      <li><a href="#part7">Part 7 — When a GPU fails</a></li>
+      <li><a href="#part8">Part 8 — Cheat sheet</a></li>
+    </ol>
+  </div>
+
+  <h2 id="part0">Part 0: What is this machine, and why does it exist?</h2>
+
+  <h3>Start with the problem</h3>
+  <p>Someone wants to train an artificial intelligence model. Training means: show the computer billions of examples, and after each one, adjust billions of internal numbers slightly. The math is simple — mostly multiplication and addition — but there is a staggering amount of it.</p>
+  <p>An ordinary computer's processor does this arithmetic one small batch at a time, very quickly. Even so, "very quickly" times "an unimaginable amount" equals centuries. That's the problem.</p>
+
+  <h3>Why a different kind of processor solves it</h3>
+  <p>A <strong>CPU</strong> (Central Processing Unit) <span class="tag tag-part">PART</span> — a physical chip, roughly the size of a large postage stamp — is a general-purpose processor. It's designed to handle <em>any</em> instruction you throw at it, making complicated decisions, running the operating system, deciding what happens next. To do that flexibly, it dedicates most of its silicon to decision-making machinery, leaving relatively few arithmetic units. A modern server CPU might do a few dozen calculations at once.</p>
+  <p>A <strong>GPU</strong> (Graphics Processing Unit) <span class="tag tag-part">PART</span> — also a physical chip, but much larger and hotter — made the opposite trade. It was originally built for video games: to draw a screen you must compute the color of two million pixels, and each pixel's math is independent of every other pixel's. So GPU designers stripped out most of the decision-making machinery and filled the chip with thousands of simple arithmetic units instead.</p>
+  <p>That makes a GPU nearly useless for general computing and extraordinary at one specific thing: <strong>doing the same simple math on enormous numbers of values simultaneously.</strong></p>
+  <p>Which, it turned out, is exactly what AI training is.</p>
+  <p>Rough analogy: a CPU is one brilliant mathematician who can solve any problem you describe. A GPU is ten thousand schoolchildren who can only do multiplication tables — but do them all at once. For AI work, the schoolchildren win by a margin so large it changed the industry.</p>
+
+  <h3>So what is this class of server?</h3>
+  <p>An <strong>8-GPU HGX-class server</strong> is a computer built around a single design goal: <strong>hold eight of these enormous GPU chips, and keep all eight supplied with data, electricity, and cold air at all times.</strong></p>
+  <p>Every other component in this machine exists in service of those eight. It's a shape of server built by several different manufacturers around the same underlying NVIDIA GPU baseboard design, so the exact model names and firmware tool names differ from vendor to vendor — but the architecture underneath is close enough that this guide's structure carries over. Once you know the shape, translating it to your specific manufacturer's manual is mostly a vocabulary exercise.</p>
+  <p>Basic facts common to this class of machine:</p>
+  <ul>
+    <li>It's a <strong>rack server</strong> <span class="tag tag-part">PART</span> — a flat, wide metal box that slides into a tall metal frame called a rack, like a drawer in a filing cabinet. Data centers are rooms full of racks.</li>
+    <li>It's typically <strong>6U</strong> tall. <strong>U</strong> <span class="tag tag-measure">MEASURE</span> is the standard height unit for rack equipment: 1U = 1.75 inches. So 6U ≈ 10.5 inches. Most servers are 1U or 2U — 8-GPU machines are unusually tall because the GPUs and the cooling hardware they need don't fit in a thin box.</li>
+  </ul>
+  <p>Model naming and firmware-tool names vary by manufacturer, so treat any specific labels in your own server's documentation as the authority — this guide teaches the shared architecture underneath them.</p>
+
+  <h2 id="part1">Part 1: The floor plan — a three-story building</h2>
+  <p>Before any details, get this picture in your head. It makes everything afterward readable.</p>
+  <p>Service documentation for these machines constantly says "Layer 2" and "Layer 3." Those aren't abstract concepts — they mean <strong>physical height levels inside the box.</strong> Stacked floors.</p>
+
+  <div class="hwguide-table-wrap">
+    <table class="hwguide-table">
+      <thead><tr><th>Floor</th><th>What lives there</th><th>Plain meaning</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Layer 1</strong> (top)</td><td>GPUs and their heat sinks</td><td>The penthouse — the expensive stuff</td></tr>
+        <tr><td><strong>Layer 2</strong> (middle)</td><td>System board, CPUs, memory</td><td>The management offices</td></tr>
+        <tr><td><strong>Layer 3</strong> (bottom)</td><td>PCIe switch modules; drive cage sits just above</td><td>The basement wiring closet</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Cables travel between floors through <strong>cutouts</strong> — literally holes cut in the sheet metal so a cable can pass from one level to the next. When a manual says "route through the chassis cutout," it means "thread this cable through the hole to the floor below."</p>
+  <p>That's it. That's the whole model. Hold onto it.</p>
+
+  <h2 id="part2">Part 2: Power — following the electricity</h2>
+
+  <h3>Why this is a bigger deal here than in a normal computer</h3>
+  <p>A desktop computer draws maybe 300 watts. This machine draws <strong>thousands</strong>. Eight GPUs at up to 700 watts each is 5,600 watts from the GPUs alone, before you count CPUs, memory, drives, and fans.</p>
+  <p>At that scale, ordinary approaches stop working. Wires that would carry a desktop's power would glow red here. So the power system is built in deliberate stages, each solving a specific problem.</p>
+
+  <h3>Stage 1 — power supplies: converting wall power into chip power</h3>
+  <p><strong>Why needed:</strong> the electricity in the wall is <strong>AC</strong> (alternating current — it reverses direction 50 or 60 times per second). Computer chips need <strong>DC</strong> (direct current — steady, one direction). Something must convert one to the other.</p>
+  <p>A <strong>PSU</strong> (Power Supply Unit) <span class="tag tag-part">PART</span> is a metal brick that does exactly that conversion. Machines in this class typically carry <strong>six</strong> of them at the rear, each rated around <strong>2800W</strong> (some configurations use 3200W).</p>
+  <p><strong>Why six?</strong> Two reasons stacked together. First, raw capacity — one PSU couldn't supply this machine. Second, <strong>redundancy</strong>: if one fails, the others carry the load and the server keeps running. In a data center, unplanned downtime costs more than spare hardware.</p>
+
+  <h3>Stage 2 — PDB: the distribution point</h3>
+  <p><strong>Why needed:</strong> you now have six PSUs producing power and dozens of components needing it. Wiring every PSU directly to every component would be an unmanageable tangle.</p>
+  <p>A <strong>PDB</strong> (Power Distribution Board) <span class="tag tag-part">PART</span> is a circuit board that solves this: all PSUs feed into it, and it fans power out to everything else. It's the breaker panel of the house.</p>
+  <p>It also matters for repairs: <strong>the PDB is the hub that every cable disconnects from</strong> when you tear the machine down. If you're doing major service, the PDB is where the cable marathon happens.</p>
+
+  <h3>Stage 3 — PBB: the high-current stage</h3>
+  <p><strong>Why needed:</strong> GPUs need far more current than ordinary components, and current at that magnitude has to be handled differently.</p>
+  <p>The <strong>PBB</strong> (Power Baseboard) <span class="tag tag-part">PART</span> is a large board that takes power from the PDB and delivers it to the GPUs and switches:</p>
+  <ul>
+    <li><strong>100A at 12 volts</strong> → to slots and switches</li>
+    <li><strong>150A at 54 volts</strong> → to the GPU baseboard</li>
+  </ul>
+  <p><strong>Why 54 volts instead of 12?</strong> Basic electrical physics: for a given amount of power, higher voltage means lower current, and lower current means less heat lost in the wiring. Raising the voltage is how you deliver enormous power without melting the delivery path.</p>
+  <p><strong>150 amps is still enormous.</strong> This is why the machine uses <strong>bus bars</strong> <span class="tag tag-part">PART</span> — solid copper strips instead of wires. A wire thick enough to carry 150A safely would be too stiff and bulky to route; a flat copper bar handles it cleanly.</p>
+
+  <h3>Stage 4 — the GPUs</h3>
+  <p>Up to <strong>700W each</strong> for H100/H200/H800-class GPUs; <strong>500W</strong> for A100-class. Eight of them. Now the six power supplies make sense.</p>
+
+  <h3>Power-capping failover — why "just shut down" is the wrong answer</h3>
+  <p><strong>Why needed:</strong> imagine a PSU fails 40 hours into a training run. A normal server's response — shut down to protect itself — destroys 40 hours of work.</p>
+  <p>A smarter response is possible: instead of shutting down, the firmware <strong>deliberately slows the GPUs</strong> so total power draw fits within the surviving PSUs. The job continues, slower. Like a car dropping to a lower gear on a steep hill instead of stalling.</p>
+
+  <div class="hwguide-table-wrap">
+    <table class="hwguide-table">
+      <thead><tr><th>PSUs failed</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Nothing. Spare capacity absorbs it.</td></tr>
+        <tr><td>2–3</td><td>Power-capping throttles the GPUs. <strong>Without</strong> it: survives only if demand is low, otherwise shutdown.</td></tr>
+        <tr><td>4</td><td>Power-capping throttles. <strong>Without</strong> it: shutdown.</td></tr>
+        <tr><td>5</td><td>Shutdown regardless. Nothing saves you.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>The catch worth memorizing:</strong> this graceful-throttling behavior typically exists <strong>only on the NVIDIA-GPU version</strong> of this server class. AMD and Intel accelerator variants generally don't have it. This is a favorite exam question.</p>
+
+  <h2 id="part3">Part 3: Data — why the CPU talks to the GPUs at all</h2>
+
+  <h3>The relationship: GPUs can't act on their own</h3>
+  <p>This is the "why" that gets skipped everywhere, so let's do it properly.</p>
+  <p><strong>A GPU is not an independent computer.</strong> It has no operating system. It doesn't boot. It can't open a file, receive a network packet, or decide what to do next. It sits idle until something tells it: <em>here is a block of data, here is the calculation to perform on it, go.</em></p>
+  <p>That "something" is the <strong>CPU</strong>. The CPU runs the operating system and the actual program. It is the only component that can make decisions.</p>
+  <p>So a training job physically looks like this:</p>
+  <ol>
+    <li>The training data lives on <strong>storage drives</strong> (or arrives over the <strong>network</strong>).</li>
+    <li>The CPU reads that data in — it's the only part that can talk to drives and network cards.</li>
+    <li>The CPU pushes a chunk of that data across to a GPU's own memory.</li>
+    <li>The CPU tells the GPU which calculation to run.</li>
+    <li>The GPU runs it at massive parallel speed.</li>
+    <li>The CPU collects the results and pushes the next chunk.</li>
+    <li>Repeat, billions of times.</li>
+  </ol>
+  <p><strong>Therefore:</strong> the CPU must have a fast connection to every GPU (to feed them), to the storage drives (to read training data), and to the network cards (to receive data and coordinate with other servers). The CPU is the hub. Everything routes through it.</p>
+  <p>And now the real problem becomes visible: <strong>a CPU chip has a physically limited number of connection points.</strong> Only so many wires can leave a piece of silicon. But this machine has eight GPUs, multiple network cards, and up to sixteen drives all needing a fast path to that one CPU.</p>
+  <p>There aren't enough connections to go around. Something has to solve that.</p>
+
+  <h3>The solution: a switch</h3>
+  <p>A <strong>switch</strong> <span class="tag tag-part">PART</span> is a chip that takes one incoming connection and splits it among many devices, routing traffic to whichever destination needs it at that moment.</p>
+  <p>The logic is the same as an office with eight employees and two phone lines. You don't need eight lines, because all eight employees are rarely on the phone simultaneously. A switchboard shares the two lines among them, connecting whoever's actually talking. You trade a little peak capacity for a huge saving in wiring.</p>
+
+  <h3>PCIe — what it actually is (and isn't)</h3>
+  <p>Before the switch details: <strong>PCIe</strong> (Peripheral Component Interconnect Express) <span class="tag tag-standard">STANDARD</span>.</p>
+  <p><strong>This is the part that confuses everyone, so let's be precise: PCIe is not a device. It's not a chip or a card. It is a published rulebook</strong> — a specification document maintained by an industry group — that defines how components inside a computer send data to each other. It specifies the electrical signals, the connector shapes, the message format, the speeds.</p>
+  <p>Why does a rulebook matter? Because a GPU made by one company has to work in a server made by another using a switch chip made by a third. That only happens if all three companies build to the same agreed rules. PCIe is that agreement.</p>
+  <p>So when someone says "the GPU connects over PCIe," they mean: <em>there are physical copper traces and a physical connector between the GPU and the rest of the machine, and both ends send signals according to the PCIe rulebook.</em> The wires are physical. PCIe is the rules the wires obey.</p>
+  <p>You'll see the same word used three ways, and context tells you which:</p>
+  <ul>
+    <li>"a PCIe slot" → <span class="tag tag-part">PART</span> the physical connector on a board</li>
+    <li>"a PCIe device" → <span class="tag tag-part">PART</span> any card that follows the standard</li>
+    <li>"PCIe Gen4" → <span class="tag tag-standard">STANDARD</span> a specific version of the rulebook</li>
+  </ul>
+  <p>The standard defines two things you'll be checking constantly:</p>
+  <p><strong>Width</strong> — how many parallel lanes of wiring the connection uses: x1, x4, x8, <strong>x16</strong>. Think highway lanes. More lanes, more data at once. x16 is the maximum and what GPUs use.</p>
+  <p><strong>Generation</strong> — which version of the rulebook, each faster than the last. <strong>Gen4 runs at 16 GT/s</strong> — "gigatransfers per second" <span class="tag tag-measure">MEASURE</span>, roughly meaning 16 billion signal transitions per second per lane. Remember 16 GT/s and x16; you'll verify both with a command in Part 6.</p>
+
+  <h3>PSB — the PCIe Switch Board</h3>
+  <p>Now it assembles. A <strong>PSB</strong> (PCIe Switch Board) <span class="tag tag-part">PART</span> is a removable circuit board holding a PCIe switch chip. It's the switchboard solving the "not enough CPU connections" problem.</p>
+  <p>Machines in this class typically carry <strong>four PSBs</strong>, numbered <strong>PSB 1 through PSB 4, left to right</strong>.</p>
+  <p>Each PSB provides:</p>
+  <ul>
+    <li>2 × x16 <strong>uplinks to the CPU</strong> — the shared "phone lines" back to the decision-maker</li>
+    <li>2 × x16 <strong>to riser cards</strong> — where network cards plug in</li>
+    <li>2 × x16 <strong>to the GPUs</strong> (via the PBB)</li>
+    <li>2 × x16 <strong>fabric/neighbor links</strong> — so PSBs can pass traffic to each other directly</li>
+  </ul>
+  <p><strong>An asymmetry to memorize:</strong> PSB <strong>1</strong> and PSB <strong>4</strong> have <strong>one</strong> link to the system board CPU. PSB <strong>2</strong> and PSB <strong>3</strong> have <strong>two</strong>. They are not identical and not interchangeable — each PSB is a separately replaceable module <strong>with its own distinct part number</strong>. Ordering the wrong one is a wasted trip.</p>
+
+  <h3>Supporting cast</h3>
+  <ul>
+    <li><strong>Riser card</strong> <span class="tag tag-part">PART</span> — a small board that lets an expansion card mount sideways. <strong>Why needed:</strong> expansion cards are designed to stand upright, but this chassis is flat. A riser turns the connection 90 degrees so tall cards can lie down.</li>
+    <li><strong>OCP</strong> (Open Compute Project) <span class="tag tag-standard">STANDARD</span> — another rulebook, this one defining a standardized network-card slot format so cards from different vendors fit the same socket.</li>
+    <li><strong>DPU</strong> (Data Processing Unit) <span class="tag tag-part">PART</span> — a network card with its own processor. <strong>Why needed:</strong> handling network traffic consumes CPU time. A DPU does that work itself, freeing the CPU to keep feeding GPUs.</li>
+    <li><strong>NVMe</strong> <span class="tag tag-standard">STANDARD</span> — the rulebook for talking to flash storage drives over PCIe. <strong>Why needed:</strong> older storage rulebooks were designed around spinning mechanical disks and were far too slow to keep flash memory busy.</li>
+    <li><strong>BMC</strong> (Baseboard Management Controller) <span class="tag tag-part">PART</span> + <span class="tag tag-software">SOFTWARE</span> — a small, independent computer built into the server, with its own processor and its own network port. <strong>Why needed:</strong> if the main server crashes or is powered off, you still need to see what's wrong and restart it — possibly from a thousand miles away. The BMC stays alive independently, monitors temperatures and errors, logs events, and lets you power-cycle the machine remotely. Every server manufacturer brands its own BMC implementation under a different product name; the underlying job is always the same. You'll hear about it constantly.</li>
+  </ul>
+
+  <h2 id="part4">Part 4: Storage cabling — the confusing part, made simple</h2>
+
+  <h3>Why cabling exists here at all</h3>
+  <p>In a desktop, the drive plugs into a socket on the motherboard and you're done. Why does this machine need a documented cabling scheme?</p>
+  <p>Because of the three-floor layout. The drives are at the <strong>front</strong>. The PSBs are in the <strong>basement (Layer 3)</strong>. The system board is on the <strong>middle floor (Layer 2)</strong>. These are physically separated by inches of metal, and there's no way to make them touch. So the connections have to be made with cables threaded between floors — and with dozens of cables and four near-identical PSBs, they need systematic names or nobody could ever service the machine.</p>
+
+  <h3>What a backplane is</h3>
+  <p>Your storage drives slide into the front of the server. Behind them sits a board covered in sockets that the drives plug into. That board is the <strong>backplane</strong> <span class="tag tag-part">PART</span>.</p>
+  <p><strong>Why needed:</strong> you want to remove and replace drives from the front without opening the machine. So the sockets must be permanently mounted, facing forward, wired to the rest of the system from behind. That's all a backplane is — a fixed socket board. Drives in front, cables out the back.</p>
+  <p>Three possible configurations:</p>
+  <ol>
+    <li><strong>No backplane</strong> — no drives at all (storage lives elsewhere on the network)</li>
+    <li><strong>8x 2.5-inch</strong> — eight standard drives</li>
+    <li><strong>16x E3.S</strong> — sixteen E3.S drives (<strong>E3.S</strong> <span class="tag tag-standard">STANDARD</span> is a newer physical form-factor specification designed specifically for flash storage — slimmer, denser, better airflow than the older 2.5-inch shape)</li>
+  </ol>
+
+  <h3>The connector naming convention — crack this once</h3>
+  <p>Connector names on machines like this look like alphabet soup: <code>CTRL_SRC_PA1</code>, <code>CTRL_DST_PA2</code>, <code>BP_DST_PA1</code>. They're actually a strict system:</p>
+  <ul>
+    <li><strong>SRC</strong> = <strong>source</strong> — where the cable <em>starts</em></li>
+    <li><strong>DST</strong> = <strong>destination</strong> — where the cable <em>arrives</em></li>
+    <li><strong>CTRL</strong> = controller — the PSB end</li>
+    <li><strong>BP</strong> = backplane</li>
+    <li><strong>PA / PB</strong> = which port group</li>
+    <li><strong>1 / 2</strong> = which connector within that group</li>
+  </ul>
+  <p>So <code>CTRL_SRC_PA1</code> reads as: <em>on the controller/PSB, the source connector, port group A, number 1.</em></p>
+  <p><strong>Why bother?</strong> Because there are four visually identical PSBs and dozens of near-identical connectors. Without a naming system, a repair would be guesswork, and a single swapped cable produces a machine that looks fine and doesn't work. (Exact label spellings vary by manufacturer — check your own service manual for the specific strings, but this source/destination/group logic is what you're looking at.)</p>
+
+  <h3>Every PSB has two separate cabling jobs</h3>
+  <p>Keep these completely separate in your head. They serve different purposes and behave differently.</p>
+  <p><strong>Job 1 — connect to the storage backplane</strong> (uses <code>CTRL_SRC_...</code>)</p>
+  <p><em>Purpose: give the GPUs' host system a path to read training data off the drives.</em></p>
+  <p>This <strong>changes with configuration</strong>, because more drives need more bandwidth:</p>
+
+  <div class="hwguide-table-wrap">
+    <table class="hwguide-table">
+      <thead><tr><th>Configuration</th><th>Backplane connectors used</th></tr></thead>
+      <tbody>
+        <tr><td>No backplane</td><td>None. Both <code>CTRL_SRC_PA1</code> and <code>CTRL_SRC_PB1</code> sit unused.</td></tr>
+        <tr><td>8x 2.5-inch</td><td><code>CTRL_SRC_PA1</code> only — one cable per PSB. <code>PB1</code> unused.</td></tr>
+        <tr><td>16x E3.S</td><td><strong>Both</strong> <code>CTRL_SRC_PA1</code> and <code>CTRL_SRC_PB1</code> — two cables per PSB.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Simple rule: <strong>more drives, more cables.</strong></p>
+  <p><strong>Job 2 — connect to the system board</strong> (uses <code>CTRL_DST_...</code>)</p>
+  <p><em>Purpose: the uplink to the CPU — the switchboard's connection back to the decision-maker.</em></p>
+  <p>This <strong>never changes</strong>. In every configuration, every PSB always has two cables to the system board: <code>CTRL_DST_PA1</code> and <code>CTRL_DST_PA2</code>. It never changes because the CPU always needs the same path, regardless of how many drives are installed.</p>
+
+  <h3>Which backplane feeds which PSB</h3>
+  <ul>
+    <li><strong>Right</strong> backplane → PSB <strong>1 and 2</strong></li>
+    <li><strong>Left</strong> backplane → PSB <strong>3 and 4</strong></li>
+  </ul>
+
+  <h3>Where the cables land — and why this determines repair difficulty</h3>
+  <ul>
+    <li><strong>PSB 2 and PSB 3</strong> → route up through the gap in front of the system board → connect to the <strong>FRONT</strong> of the system board. Reachable.</li>
+    <li><strong>PSB 1 and PSB 4</strong> → route out into a <strong>side cable channel</strong>, then up through the <strong>bus bars</strong> → connect to the <strong>REAR</strong> of the system board. <strong>You must remove the system board to reach that channel.</strong></li>
+  </ul>
+  <p><strong>Why the difference?</strong> Geometry. PSBs 2 and 3 sit in the middle, directly below the front edge of the system board, so there's a straight shot upward. PSBs 1 and 4 sit at the outer edges, where there's no vertical path — so their cables run sideways along the chassis wall first, then up. That side channel is buried underneath the system board.</p>
+  <p>Practical consequence: a PSB 1 or PSB 4 cable job is major surgery; a PSB 2 or 3 job isn't. Knowing which you're facing before you start changes how you plan the repair.</p>
+  <div class="hwguide-mem">Memory hook: <strong>inner PSBs (2, 3) → easy → front. Outer PSBs (1, 4) → painful → rear.</strong></div>
+  <p>System board connectors are typically labeled something like <code>SL1_CPU2_PA1</code> — <strong>SL</strong> for SlimLine (the connector type <span class="tag tag-standard">STANDARD</span>), then which CPU, then which port group.</p>
+
+  <h3>Getting physical access</h3>
+  <ol>
+    <li>Slide the <strong>drive cage</strong> forward</li>
+    <li>Loosen the thumbscrews on both sides of the <strong>PSB cover</strong> and lift it off</li>
+    <li>The four PSB modules are now exposed underneath</li>
+  </ol>
+
+  <h3>The optional front RAID controller</h3>
+  <p><strong>Why it might exist:</strong> by default each drive is separate, and if one dies its data is gone. Many customers want drives combined so that data survives a failure, or so several drives work together for speed. That combining technique is called <strong>RAID</strong> (Redundant Array of Independent Disks) <span class="tag tag-standard">STANDARD/technique</span> — note it's a <em>method</em>, not an object.</p>
+  <p>Doing RAID takes computation. You can make the CPU do it (costing CPU time) or add a dedicated chip. That dedicated chip is a <strong>RAID controller card</strong> <span class="tag tag-part">PART</span>. Front-mounted variants are available on the <strong>8x 2.5-inch configuration only</strong>. It bolts to the PSB cover and sits <strong>below the drive cage</strong> — so slide the cage forward to see it.</p>
+  <p>Its connectors: <code>BP_DST_SA1</code>, <code>BP_DST_SA2</code>, <code>BP_PWR_CTRL</code>, a battery cable, and <code>CTRL_DST_PA1</code> / <code>CTRL_DST_PB1</code> going to the system board.</p>
+  <p><strong>Why a battery cable?</strong> RAID controllers hold data briefly in their own memory before writing it to disk. If power is lost in that instant, that data vanishes and the drive contents become inconsistent. The battery keeps that memory alive until power returns and the write completes.</p>
+
+  <h2 id="part5">Part 5: Cooling — why temperature <em>is</em> performance</h2>
+
+  <h3>Why this section matters more than it looks</h3>
+  <p>Electricity passing through a chip becomes heat — not as a defect, but as unavoidable physics. Eight GPUs at 700W produce heat like a bank of space heaters.</p>
+  <p>And chips have a built-in self-protection reflex: past a certain temperature, they <strong>throttle</strong> — deliberately slow themselves down to generate less heat and avoid permanent damage.</p>
+  <p>Follow that through: <strong>a hot GPU is a slow GPU.</strong> Cooling isn't a maintenance chore separate from performance. In this machine, cooling <em>is</em> performance. They're the same subject.</p>
+
+  <h3>The two numbers to know</h3>
+  <div class="hwguide-table-wrap">
+    <table class="hwguide-table">
+      <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><strong>35°C</strong></td><td>Ambient inlet temperature all configurations handle with <strong>zero</strong> performance loss</td></tr>
+        <tr><td><strong>38°C</strong></td><td>The BMC's warning threshold — a warning is logged and GPUs throttle</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Both apply to the 500W A100 and the 700W H100/H200/H800 configurations alike.</p>
+  <p><strong>"Inlet temperature"</strong> <span class="tag tag-measure">MEASURE</span> means the temperature of air <em>entering</em> the front of the server. Air flows front → back, picking up heat as it travels. So the inlet number is your starting point — if the room air is already warm, you've lost before the air even reaches a GPU. This is exactly why "check the ambient inlet temperature first" is the opening move in GPU troubleshooting.</p>
+
+  <h3>How heat actually leaves the box</h3>
+  <ul>
+    <li><strong>6 system board fans</strong> <span class="tag tag-part">PART</span> (60×60×56mm), mid-tray, cooling CPUs and memory</li>
+    <li><strong>10 GPU fans</strong> <span class="tag tag-part">PART</span> (80×80×105mm), rear</li>
+    <li>All <strong>hot-swappable</strong> — replaceable while the server runs, because you can't shut down a production machine to change a fan</li>
+    <li><strong>3 air shrouds</strong> <span class="tag tag-part">PART</span> (system board, OCP, DPU) — shaped plastic baffles</li>
+  </ul>
+  <p><strong>Why shrouds exist:</strong> air, like water, takes the path of least resistance. Given an open gap, it will flow straight through the empty space and out the back, touching nothing hot. A shroud blocks the easy paths so air is <em>forced</em> over the components that need cooling.</p>
+  <p><strong>Critical consequence:</strong> if no OCP card is installed, you <strong>must</strong> fit the OCP blank. An empty slot is an easy path — air escapes through it instead of cooling anything downstream. A sealed airflow path is the entire mechanism; one open hole defeats it.</p>
+
+  <h3>Heat sinks and why the removal procedure is fussy</h3>
+  <p>A <strong>heat sink</strong> <span class="tag tag-part">PART</span> is a finned metal block clamped onto a chip. <strong>Why needed:</strong> the chip's own surface is small, so it can't shed heat fast enough. The heat sink pulls heat out and spreads it across a large finned area for the fans to blow across.</p>
+  <p>Removing one is delicate:</p>
+  <ul>
+    <li><strong>CPU heat sinks:</strong> 2 × 2U HPR type, up to 350W. There are anti-tilt wires — <strong>lock them before loosening</strong> the screws, <strong>unlock them when lifting.</strong> <em>Why:</em> a CPU sits on hundreds of tiny spring pins. If the assembly lifts at an angle, it bends them, and a bent-pin socket means a new system board. The wires keep the lift straight.</li>
+    <li><strong>GPU heat sinks:</strong> 4 front + 4 rear, 4U HPR, up to 500W. Order matters: <strong>three rotations each on screws 1-2-3-4, then back to screw 1 and fully loosen.</strong> <em>Why:</em> fully undoing one screw first tilts the block and puts uneven stress on the chip. Backing them off evenly keeps pressure balanced.</li>
+    <li><strong>NVLink heat sinks:</strong> 6 of them, up to 70W, final torque <strong>6 ±4% lbf-in (0.68 N·m)</strong>. <em>Why torque is specified:</em> too loose and there's an air gap that ruins heat transfer; too tight and you crack the chip. (<strong>NVLink</strong> <span class="tag tag-standard">STANDARD</span> is NVIDIA's own rulebook for GPU-to-GPU communication — it lets GPUs exchange data directly with each other instead of routing everything through the CPU.)</li>
+    <li>On <strong>newer GPU generations</strong>, GPU and heat sink ship as <strong>one module</strong> — you never separate them, which removes most of this risk.</li>
+  </ul>
+
+  <h3>Liquid cooling</h3>
+  <p>This class of server is commonly <strong>air-cooled only</strong> in its base configuration — no liquid cooling option. But other machines in the same broader product family use liquid, and two rules carry over:</p>
+  <ul>
+    <li>Near <strong>leak sensor cables</strong>, wear <strong>vinyl gloves</strong>. <em>Why:</em> those sensors detect the presence of moisture. The natural moisture on your fingers registers as moisture. You'd trigger a false leak alarm or damage the sensor.</li>
+    <li>At boot the system may ask you to select a cooling mode. <strong>Choose "No"</strong> on an air-cooled unit, since it has no liquid cooling module. <em>Why it matters:</em> choosing "Yes" configures the system to expect liquid-cooling temperature ranges, and it then floods the System Event Log with inlet temperature errors that aren't real.</li>
+  </ul>
+
+  <h2 id="part6">Part 6: Checking the machine's health from Linux</h2>
+  <p>Everything here is typed at a terminal as <strong>root</strong> — the administrator account with unrestricted permissions. <strong>Why root:</strong> these commands read low-level hardware information that ordinary user accounts are blocked from seeing.</p>
+
+  <h3>The command pattern used throughout</h3>
+  <ul>
+    <li><strong><code>lspci</code></strong> <span class="tag tag-software">SOFTWARE</span> = "list PCI." It asks the system to enumerate every device attached to the internal PCIe bus and prints them. The raw output is long and messy.</li>
+    <li><strong><code>grep</code></strong> <span class="tag tag-software">SOFTWARE</span> = a text filter. It reads lines of text and prints only those matching a pattern.</li>
+    <li><strong><code>|</code></strong> = a <strong>pipe</strong>. It takes the output of the command on the left and feeds it as input to the command on the right.</li>
+  </ul>
+  <p>So <code>lspci | grep -i "nvidia"</code> means: <em>list every device, then show me only the lines containing "nvidia."</em> (<code>-i</code> = ignore capitalization.)</p>
+  <p>That one pattern — generate everything, then filter — is the basis of nearly every diagnostic command below.</p>
+
+  <h3>Check 1 — Are all eight GPUs present?</h3>
+  <p><strong>Why first:</strong> it's the cheapest possible check and it separates "the GPU is broken" from "the system can't see the GPU at all," which are very different problems.</p>
+  <div class="hwguide-code">lspci | grep -i "nvidia"</div>
+  <div class="hwguide-code"><span class="c-dim">01:00.0 3D controller: NVIDIA Corporation Device 20b0 (rev a1)
+41:00.0 3D controller: NVIDIA Corporation Device 20b0 (rev a1)
+81:00.0 3D controller: NVIDIA Corporation Device 20b0 (rev a1)
+c1:00.0 3D controller: NVIDIA Corporation Device 20b0 (rev a1)</span></div>
+  <p>Those leading codes (<code>01:00.0</code>, <code>41:00.0</code>) are <strong>bus addresses</strong> <span class="tag tag-measure">MEASURE</span> — the machine's internal street addresses for each device.</p>
+  <p><strong>Count the lines.</strong> If you expect eight and count seven, you've located the problem in one command.</p>
+
+  <h3>Check 2 — Are they running at full speed?</h3>
+  <p><strong>Why this check exists:</strong> a GPU can be present and <em>appear</em> fine while connected at reduced speed or on half its lanes — from a poorly seated connector, a damaged cable, or a link that failed to negotiate properly at boot. The machine still works. It's just quietly much slower, and nothing obviously alerts you.</p>
+  <div class="hwguide-code">lspci -vvv | grep -e "NVIDIA" -A100 | grep -e "LnkSta" -e "Slot #"</div>
+  <p>Piece by piece: <code>-vvv</code> = very verbose, print all detail. <code>-A100</code> = also show the 100 lines <em>after</em> each match (the link details sit below the device name). Then filter for <code>LnkSta</code> (link status) and slot number.</p>
+  <p>Healthy output:</p>
+  <div class="hwguide-code">LnkSta: Speed 16GT/s, Width x16</div>
+  <p><strong>16GT/s = full Gen4 speed. x16 = all sixteen lanes.</strong> Anything less — 8GT/s, or x8 — means a degraded link. Reseat and investigate the physical connection.</p>
+
+  <h3>Check 3 — Network card drivers</h3>
+  <p>First, the distinction people mix up constantly:</p>
+  <ul>
+    <li><strong>Firmware</strong> <span class="tag tag-software">SOFTWARE</span> — software stored <em>inside the hardware device itself</em>, on a small memory chip on the card. It runs on the device's own processor and controls how the device behaves internally. It's there even with no operating system installed.</li>
+    <li><strong>Driver</strong> <span class="tag tag-software">SOFTWARE</span> — software that runs on the <em>main CPU</em>, as part of the operating system. It's the translator that lets the OS issue commands the device understands.</li>
+  </ul>
+  <p><strong>Why the update order matters:</strong> new drivers are written and tested against current firmware. Install a new driver on old firmware and you get mismatched expectations — which is why the rule is always <strong>firmware first, driver second.</strong></p>
+  <div class="hwguide-code">lspci | grep Ethernet          <span class="c-dim"># which network cards exist?</span>
+ip link                        <span class="c-dim"># what are they named, and their MAC addresses?</span>
+ethtool -i eno4                <span class="c-dim"># which driver and version is one using?</span></div>
+  <p>Linux names network ports things like <code>eno3</code>, <code>eno4</code>, <code>eno1np0</code>, <code>ens3f0</code>. <strong>Why the odd names:</strong> they're generated from the port's physical location on the machine, so the same physical port always gets the same name even if cards are added or removed. Predictability beats readability.</p>
+  <p><code>ethtool -i</code> prints the driver name (e.g. <code>tg3</code>), its version, and the firmware version.</p>
+  <p><strong>Full update workflow:</strong></p>
+  <ol>
+    <li><strong>Update the server firmware first</strong> — always, for the reason above</li>
+    <li><code>lspci | grep Ethernet</code> — locate the cards</li>
+    <li><code>ip link</code> — identify device names</li>
+    <li><code>ethtool -i eno4</code> — <strong>record the current version</strong></li>
+    <li>…install the new driver…</li>
+    <li><code>reboot</code> — <em>why:</em> a driver is loaded into the operating system at startup; the old one stays resident in memory until a restart clears it</li>
+    <li><code>ethtool -i eno4</code> again — <strong>confirm the version actually changed</strong> (example: 3.137 → 3.139b)</li>
+  </ol>
+  <p><strong>Step 7 is the one people skip.</strong> Never skip it. A silently failed install looks identical to a successful one until you check the version number.</p>
+
+  <h2 id="part7">Part 7: When a GPU fails — the six-step procedure</h2>
+
+  <h3>The rule that comes before everything else</h3>
+  <blockquote>On this class of server: do not replace hardware, do not dispatch labor, and do not have the customer troubleshoot internally — without a field engineer engaged.</blockquote>
+  <p>A <strong>field engineer</strong> <span class="tag tag-role">ROLE</span> is a hardware-vendor specialist certified on this equipment.</p>
+  <p><strong>Why such a strict rule?</strong> Two reasons. The parts cost enormous sums, so a wrong guess is expensive. And the components are deeply interdependent — a symptom that looks like a dead GPU is frequently a failed CPU, a mis-flashed switch firmware, or a hot room. Swapping the obvious part often fixes nothing and destroys the evidence needed to find the real fault.</p>
+  <p>This is the most likely thing you'll be tested on and the most important thing in practice.</p>
+
+  <h3>The shape of the procedure</h3>
+  <p>Notice the logic: <strong>gather evidence → verify configuration → update software → try the simple physical fix → run deep diagnostics → escalate.</strong> Cheapest, least invasive, and least destructive first. Every step preserves your ability to do the next one.</p>
+
+  <p><strong>Step 1 — Gather Reports</strong></p>
+  <p>Collect a debug support-report bundle — logs and configuration data. If it looks GPU-related, also run:</p>
+  <ul>
+    <li><code>nvidia-bug-report.sh</code> <span class="tag tag-software">SOFTWARE</span> — NVIDIA's log collector</li>
+    <li><code>sosreport</code> <span class="tag tag-software">SOFTWARE</span> — the Linux system log collector</li>
+  </ul>
+  <p><strong>Do this while the server is still in the faulted state.</strong> <em>Why:</em> rebooting clears the volatile logs and resets the hardware state. The evidence exists only while the fault is live. Resist the instinct to restart first — that instinct destroys the only information that can identify the cause.</p>
+
+  <p><strong>Step 2 — Verification</strong></p>
+  <p>Confirm the system configuration is correct — above all, that the correct <strong>PCIe switch firmware</strong> is applied.</p>
+  <p><em>Why this rates its own step:</em> the PCIe switch is the traffic controller between the CPU and every GPU. Wrong or outdated switch firmware produces symptoms — missing GPUs, degraded links, random errors — that are indistinguishable from dead hardware. Verifying it here prevents replacing a perfectly good GPU.</p>
+
+  <p><strong>Step 3 — Update Firmware</strong></p>
+  <p>Bring firmware current, noting these quirks:</p>
+  <ul>
+    <li><strong>The PSBs are not reported in the BMC or in support-report bundles.</strong> <em>Why it matters:</em> they're invisible to your normal tooling, so nothing will remind you they exist. You must update them deliberately. This catches people out constantly.</li>
+    <li><strong>CPLD updates must be applied by themselves.</strong> A <strong>CPLD</strong> <span class="tag tag-part">PART</span> is a small programmable logic chip handling low-level board control; updating one alters fundamental board behavior mid-process, so it's isolated from other updates.</li>
+    <li>Firmware bundles are <strong>only executable from within the OS</strong>.</li>
+    <li>An update can take <strong>ten minutes or more</strong> and needs a <strong>power cycle</strong> to take effect.</li>
+    <li>Separate firmware packages exist per hardware configuration (backplane type, chassis variant) — always match your exact configuration before applying one.</li>
+  </ul>
+
+  <p><strong>Step 4 — Power Cycle</strong></p>
+  <p>Not a reboot. A real power removal:</p>
+  <ul>
+    <li>Power down and <strong>physically remove the AC cords</strong> for <strong>more than ten minutes</strong></li>
+    <li>If you can't physically pull them, run a full AC power cycle from the BIOS setup menus</li>
+  </ul>
+  <p><em>Why ten minutes, and why pull the cords?</em> Even "off," a server keeps parts of itself powered — the BMC stays alive, capacitors hold charge, and chips retain internal state. A reboot doesn't clear any of that. Removing AC entirely and waiting lets residual charge drain so components genuinely reinitialize from scratch rather than resuming from a stuck state. It sounds superstitious. It isn't.</p>
+
+  <p><strong>Step 5 — dcgmi diag</strong></p>
+  <p><strong>DCGM</strong> (Data Center GPU Manager) <span class="tag tag-software">SOFTWARE</span> is NVIDIA's health-testing tool. Where <code>lspci</code> only asks "are you there and how are you connected," DCGM actively <em>exercises</em> the GPUs — running real calculations and checking the answers — and reports pass/fail.</p>
+  <div class="hwguide-code">dcgmi diag -r 1     <span class="c-dim"># quick report</span>
+dcgmi diag -r 4     <span class="c-dim"># full report — much longer, much deeper</span></div>
+  <p>Start with <code>-r 1</code>. Escalate to <code>-r 4</code> when you need the complete picture and can spare the time.</p>
+
+  <p><strong>Step 6 — Additional Diagnostics</strong></p>
+  <p>The field engineer may pull in deeper factory-level diagnostics that go beyond what's exposed in the field, and beyond what this guide covers.</p>
+
+  <h3>Troubleshooting habits that save trips</h3>
+  <ul>
+    <li><strong>Check ambient inlet temperature first</strong> for any GPU issue on this class of hardware. Cheapest possible check, surprisingly common root cause — and it explains "the GPU is slow" without any hardware being broken at all.</li>
+    <li>If the <strong>BMC reports a failed GPU</strong>, reboot the BMC and see whether the entry persists. <em>Why:</em> the BMC is itself a small computer that can glitch. Sometimes the report is wrong, not the GPU.</li>
+    <li><strong>Each GPU has an affinity to one of the CPUs</strong> — it's reached <em>through</em> a specific CPU. If that CPU is dead, every GPU behind it disappears from the system, and the server reports a <strong>missing GPU</strong> error. So verify both CPUs are functional before condemning a GPU. This misdirection is a classic: the error names the wrong component.</li>
+    <li>For software issues, check whether the NVIDIA driver is compatible with both the OS and the hardware, and whether the management/software engine versions are current and compatible.</li>
+  </ul>
+
+  <h2 id="part8">Part 8: Cheat sheet</h2>
+
+  <h3>Numbers</h3>
+  <div class="hwguide-table-wrap">
+    <table class="hwguide-table">
+      <tbody>
+        <tr><td>Chassis height</td><td>6U (≈10.5 in)</td></tr>
+        <tr><td>GPUs</td><td>8</td></tr>
+        <tr><td>PSUs</td><td>6 × 2800W (or 3200W)</td></tr>
+        <tr><td>PSBs</td><td>4 (numbered 1–4, left to right)</td></tr>
+        <tr><td>PBB output</td><td>100A @ 12V; 150A @ 54V</td></tr>
+        <tr><td>System board fans</td><td>6</td></tr>
+        <tr><td>GPU fans</td><td>10</td></tr>
+        <tr><td>Air shrouds</td><td>3</td></tr>
+        <tr><td>Safe ambient inlet</td><td>35°C</td></tr>
+        <tr><td>Warning threshold</td><td>38°C</td></tr>
+        <tr><td>CPU heat sink TDP</td><td>≤350W</td></tr>
+        <tr><td>GPU heat sink TDP</td><td>≤500W</td></tr>
+        <tr><td>NVLink heat sink torque</td><td>6 ±4% lbf-in (0.68 N·m)</td></tr>
+        <tr><td>Healthy PCIe Gen4 link</td><td>16GT/s, x16</td></tr>
+        <tr><td>AC drain time</td><td>&gt;10 minutes</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Commands</h3>
+  <div class="hwguide-code">lspci | grep -i "nvidia"                                             <span class="c-dim"># list GPUs</span>
+lspci -vvv | grep -e "NVIDIA" -A100 | grep -e "LnkSta" -e "Slot #"   <span class="c-dim"># link speed/width</span>
+lspci | grep Ethernet                                                <span class="c-dim"># list NICs</span>
+ip link                                                              <span class="c-dim"># device names + MACs</span>
+ethtool -i eno4                                                      <span class="c-dim"># driver + version</span>
+nvidia-bug-report.sh                                                 <span class="c-dim"># NVIDIA log bundle</span>
+sosreport                                                            <span class="c-dim"># Linux log bundle</span>
+dcgmi diag -r 1                                                      <span class="c-dim"># quick GPU health</span>
+dcgmi diag -r 4                                                      <span class="c-dim"># full GPU health</span>
+reboot</div>
+
+  <h3>Glossary — with what kind of thing each one is</h3>
+  <div class="hwguide-table-wrap">
+    <table class="hwguide-table">
+      <thead><tr><th>Term</th><th>Type</th><th>Plain meaning</th></tr></thead>
+      <tbody>
+        <tr><td><strong>U</strong></td><td>MEASURE</td><td>Rack height unit, 1.75 in</td></tr>
+        <tr><td><strong>CPU</strong></td><td>PART</td><td>General-purpose processor; the decision-maker</td></tr>
+        <tr><td><strong>GPU</strong></td><td>PART</td><td>Massively parallel processor; can't act alone, must be fed by the CPU</td></tr>
+        <tr><td><strong>PCIe</strong></td><td>STANDARD</td><td>The rulebook for how components talk inside a computer</td></tr>
+        <tr><td><strong>x16 / 16GT/s</strong></td><td>MEASURE</td><td>Full lane width / full Gen4 speed</td></tr>
+        <tr><td><strong>PSB</strong></td><td>PART</td><td>PCIe Switch Board — shares limited CPU connections among many devices</td></tr>
+        <tr><td><strong>PBB</strong></td><td>PART</td><td>Power Baseboard — high-current power to GPUs</td></tr>
+        <tr><td><strong>PDB</strong></td><td>PART</td><td>Power Distribution Board — the breaker panel; teardown hub</td></tr>
+        <tr><td><strong>PSU</strong></td><td>PART</td><td>Power Supply Unit — converts wall AC to DC</td></tr>
+        <tr><td><strong>Bus bar</strong></td><td>PART</td><td>Solid copper strip for currents too high for wires</td></tr>
+        <tr><td><strong>Backplane</strong></td><td>PART</td><td>Fixed socket board the drives plug into from the front</td></tr>
+        <tr><td><strong>E3.S</strong></td><td>STANDARD</td><td>Modern slim drive form-factor specification</td></tr>
+        <tr><td><strong>NVMe</strong></td><td>STANDARD</td><td>Rulebook for talking to flash storage over PCIe</td></tr>
+        <tr><td><strong>RAID</strong></td><td>STANDARD/technique</td><td>Combining drives for speed or fault tolerance</td></tr>
+        <tr><td><strong>Riser card</strong></td><td>PART</td><td>Mounts expansion cards sideways in a flat chassis</td></tr>
+        <tr><td><strong>OCP</strong></td><td>STANDARD</td><td>Standardized network card slot format</td></tr>
+        <tr><td><strong>DPU</strong></td><td>PART</td><td>Smart NIC with its own processor; offloads the CPU</td></tr>
+        <tr><td><strong>NVLink</strong></td><td>STANDARD</td><td>NVIDIA's rulebook for direct GPU-to-GPU communication</td></tr>
+        <tr><td><strong>BMC</strong></td><td>PART + SOFTWARE</td><td>Independent onboard computer for remote management</td></tr>
+        <tr><td><strong>Air shroud</strong></td><td>PART</td><td>Baffle forcing air over hot components</td></tr>
+        <tr><td><strong>Heat sink</strong></td><td>PART</td><td>Finned metal block spreading heat off a chip</td></tr>
+        <tr><td><strong>Throttle</strong></td><td>behavior</td><td>A chip slowing itself to avoid overheating</td></tr>
+        <tr><td><strong>Firmware</strong></td><td>SOFTWARE</td><td>Software living inside the hardware device itself</td></tr>
+        <tr><td><strong>Driver</strong></td><td>SOFTWARE</td><td>Software on the main CPU that lets the OS talk to a device</td></tr>
+        <tr><td><strong>CPLD</strong></td><td>PART</td><td>Small programmable logic chip; updated alone</td></tr>
+        <tr><td><strong>DCGM</strong></td><td>SOFTWARE</td><td>NVIDIA's GPU health-testing tool</td></tr>
+        <tr><td><strong>Field engineer</strong></td><td>ROLE</td><td>Hardware-vendor specialist who must be engaged before major hardware actions</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>The five things most likely to be tested</h3>
+  <ol>
+    <li><strong>Engage a field engineer before any hardware action</strong> on this class of server.</li>
+    <li><strong>Graceful power-capping under PSU loss is typically NVIDIA-only</strong> — AMD and Intel variants often don't have it.</li>
+    <li><strong>PSBs aren't reported in the BMC or support bundles</strong> — update their firmware deliberately.</li>
+    <li><strong>PSB 1 and 4 → rear of the system board</strong> (system board removal required); <strong>PSB 2 and 3 → front.</strong></li>
+    <li><strong>35°C is safe; 38°C is the warning threshold.</strong></li>
+  </ol>
+
+  <h2 id="next">Where to go next</h2>
+  <p>Natural follow-ons: <strong>PSU and slot population rules</strong> (which cards go in which slots and in what priority order — driven by cooling), the <strong>teardown cable part-number mapping</strong> (matching every cable off the PDB to its replacement part), and the <strong>AMD GPU variant</strong> of this server class (OAM modules instead of the NVIDIA baseboard, GPU numbering starting at 0 instead of 1, <code>rocm-smi</code> instead of <code>nvidia-smi</code>, and AMD's own field health-check tooling).</p>
+  <p>Each of those is detail layered onto the structure you now have. The structure was the hard part.</p>
+
+  <div class="hwguide-cta">
+    <p><strong>Reading the architecture is the easy half.</strong> Aegis-GPU turns commands like the ones in Part 6 and Part 7 — <code>lspci</code>, <code>dcgmi diag</code>, ECC and NVLink fault triage — into hands-on labs against a simulated GPU cluster, free.</p>
+    <a class="hwguide-btn" href="/">PRACTICE THESE DIAGNOSTICS LIVE</a>
+  </div>
+
+  <p class="hwguide-note">Architecture and procedures generalized from field experience with 8-GPU HGX-class servers across multiple manufacturers; always confirm exact model numbers, connector labels, and firmware tool names against your own hardware's official documentation. See also: <a href="xid-reference.html">NVIDIA XID error codes explained</a>. Independent training resource — not affiliated with, sponsored by, or endorsed by NVIDIA Corporation or any server manufacturer.</p>
+</main>
+
+<footer class="landing-footer">
+  <div>Aegis-GPU — hands-on NCA-AIIO training simulator by Yerika Systems.</div>
+  <div>Independent training simulator. Not affiliated with, sponsored by, or endorsed by NVIDIA Corporation.</div>
+</footer>
+
+</body>
+</html>
