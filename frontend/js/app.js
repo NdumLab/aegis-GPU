@@ -1727,7 +1727,7 @@ function renderOperatorStoryGuide(guide) {
         <h4>Plain-Language Picture</h4>
         <p>${escHtml(tightenDisplayCopy(plainPicture))}</p>
         ${guide.stackHandoffs && guide.stackHandoffs.length ? `
-          <p class="stack-handoff-intro">Each layer depends on the one below it for a reason.</p>
+          <p class="stack-handoff-intro">${escHtml(guide.stackHandoffIntro || 'Each layer depends on the one below it for a reason.')}</p>
           <div class="stack-handoff-list">
             ${guide.stackHandoffs.map((item, index) => `
               <article class="stack-handoff-card stack-handoff-${escHtml(item.tone || 'blue')}">
@@ -2108,10 +2108,12 @@ function renderStepScreenshots(step, variant = 'coach') {
     ? 'guided-step-title'
     : 'lab-step-coach-section-title';
   const snapshots = step.screenshots.map(renderTerminalSnapshot).join('');
+  const gridClass = step.pairedScreenshots ? 'lab-step-shot-grid is-comparison' : 'lab-step-shot-grid';
+  const titleText = step.pairedScreenshots ? 'Before / After' : 'Output Snapshot';
   return `
     <div class="${shellClass}">
-      <div class="${titleClass}">Output Snapshot</div>
-      <div class="lab-step-shot-grid">
+      <div class="${titleClass}">${titleText}</div>
+      <div class="${gridClass}">
         ${snapshots}
       </div>
     </div>

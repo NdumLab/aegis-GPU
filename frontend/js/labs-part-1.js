@@ -185,11 +185,27 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
           success:"Fault injection accepted. Replaying the authored degraded evidence for this checkpoint."
         },
         explainerMode:"beginner_story",
-        screenshotReference:"Compare this degraded snapshot against the first topology screenshot. The important move is noticing that NV4 gave way to PHB, because that visual shift explains why the workload is about to slow down.",
+        pairedScreenshots:true,
+        screenshotReference:"Read these as three before/after pairs, not six separate screenshots: topology, then link counters, then AllReduce bandwidth. The important move is noticing that all three tell the same story at once — NV4 gave way to PHB, clean counters turned dirty, and bandwidth collapsed — because that agreement is what explains the workload slowdown before you touch a single log line.",
         screenshots:[
           {
-            title:"Degraded topology after PHB fallback",
-            caption:"This screenshot is bad because the communication contract changed. Once PHB appears where NV4 used to dominate, the node is no longer on the intended fast path.",
+            title:"Before: healthy baseline (same GPUs, same matrix)",
+            caption:"This is the same topology capture from the first step, repeated here so you can compare it directly against the fault below instead of relying on memory. Every neighbor pair reads NV4.",
+            lines:[
+              "GPU0  GPU1  GPU2  GPU3  GPU4  GPU5  GPU6  GPU7  CPU Affinity",
+              "GPU0   X    NV4   NV4   NV4   NV4   NV4   NV4   NV4   0-95",
+              "GPU1  NV4    X    NV4   NV4   NV4   NV4   NV4   NV4   0-95",
+              "GPU2  NV4   NV4    X    NV4   NV4   NV4   NV4   NV4   0-95",
+              "GPU3  NV4   NV4   NV4    X    NV4   NV4   NV4   NV4   0-95",
+              "GPU4  NV4   NV4   NV4   NV4    X    NV4   NV4   NV4   96-191",
+              "GPU5  NV4   NV4   NV4   NV4   NV4    X    NV4   NV4   96-191",
+              "GPU6  NV4   NV4   NV4   NV4   NV4   NV4    X    NV4   96-191",
+              "GPU7  NV4   NV4   NV4   NV4   NV4   NV4   NV4    X    96-191"
+            ]
+          },
+          {
+            title:"After: degraded topology following PHB fallback",
+            caption:"Compare this against the healthy baseline on the left/above. Every NV4 entry became PHB. That is the topology signature of a fabric that dropped off the fast path — the communication contract changed even though nothing else about the node looks broken.",
             lines:[
               "GPU0  GPU1  GPU2  GPU3  GPU4  GPU5  GPU6  GPU7  CPU Affinity",
               "GPU0   X    PHB   PHB   PHB   PHB   PHB   PHB   PHB   0-95",
@@ -201,6 +217,58 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
               "GPU6  PHB   PHB   PHB   PHB   PHB   PHB    X    PHB   96-191",
               "GPU7  PHB   PHB   PHB   PHB   PHB   PHB   PHB    X    96-191"
             ]
+          },
+          {
+            title:"Before: healthy NVLink counters (clean baseline)",
+            caption:"This is the same clean counter capture from the second step, repeated here so it sits next to the dirty reading below instead of relying on memory.",
+            lines:[
+              "GPU 0, Link 0: CRC FLIT Error Count: 0",
+              "GPU 0, Link 0: Replay Error Count:   0",
+              "GPU 1, Link 2: CRC FLIT Error Count: 0",
+              "GPU 1, Link 2: Replay Error Count:   0",
+              "GPU 4, Link 1: CRC FLIT Error Count: 0",
+              "GPU 4, Link 1: Replay Error Count:   0",
+              "GPU 7, Link 3: CRC FLIT Error Count: 0",
+              "GPU 7, Link 3: Replay Error Count:   0"
+            ]
+          },
+          {
+            title:"After: NVLink counters after the fault (dirty)",
+            caption:"Compare these against the clean baseline above. Every link that was reporting zero errors now shows heavy CRC and replay counts — the fabric was already failing electrically before it fully dropped to PHB.",
+            lines:[
+              "GPU 0, Link 0: CRC FLIT Error Count: 148223",
+              "GPU 0, Link 0: Replay Error Count:   3120",
+              "GPU 1, Link 2: CRC FLIT Error Count: 97456",
+              "GPU 1, Link 2: Replay Error Count:   2884",
+              "GPU 4, Link 1: CRC FLIT Error Count: 110302",
+              "GPU 4, Link 1: Replay Error Count:   3007",
+              "GPU 7, Link 3: CRC FLIT Error Count: 89211",
+              "GPU 7, Link 3: Replay Error Count:   2650"
+            ]
+          },
+          {
+            title:"Before: healthy AllReduce benchmark (NVLink-backed)",
+            caption:"This is the same healthy benchmark capture from the third step, repeated here so you can measure the collapse directly instead of relying on memory.",
+            lines:[
+              "# nThread 1 nGpus 8 minBytes 1073741824 maxBytes 4294967296 step: 2(factor) warmup iters: 5 iters: 20",
+              "     size         count    type   redop    root      time   algbw   busbw  #wrong",
+              "1073741824   268435456   float    sum      -1    11.82 ms  181.7   181.7    0",
+              "2147483648   536870912   float    sum      -1    23.45 ms  183.1   183.1    0",
+              "4294967296  1073741824   float    sum      -1    46.91 ms  182.7   182.7    0",
+              "# Avg bus bandwidth : 182.5 GB/s"
+            ]
+          },
+          {
+            title:"After: AllReduce benchmark after PHB fallback (collapsed)",
+            caption:"Compare this against the 182.5 GB/s baseline above. The same collective operation now moves roughly 7x less data per second — this is the throughput cost of the PHB fallback made concrete, not just a topology label.",
+            lines:[
+              "# nThread 1 nGpus 8 minBytes 1073741824 maxBytes 4294967296 step: 2(factor) warmup iters: 5 iters: 20",
+              "     size         count    type   redop    root      time   algbw   busbw  #wrong",
+              "1073741824   268435456   float    sum      -1    88.41 ms   24.3    24.3    0",
+              "2147483648   536870912   float    sum      -1   176.90 ms   24.2    24.2    0",
+              "4294967296  1073741824   float    sum      -1   354.60 ms   24.2    24.2    0",
+              "# Avg bus bandwidth : 24.2 GB/s"
+            ]
           }
         ],
         whatsHappening:"You are simulating a path downgrade where direct NVLink communication is gone and traffic falls back to a slower PCIe host-bridge route.",
@@ -208,9 +276,11 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
         lookFor:[
           "NVLink path collapsing to PHB or another weaker traversal",
           "A topology story that no longer matches the earlier healthy baseline",
+          "CRC and replay error counters turning dirty on the same links that were clean before",
+          "AllReduce bandwidth collapsing from the healthy NVLink baseline toward a PCIe-limited number",
           "The kind of path downgrade that explains a future throughput cliff"
         ],
-        meaning:"The fast GPU fabric is no longer healthy. Communication now takes a slower route, which means collective workloads should be expected to degrade sharply.",
+        meaning:"The fast GPU fabric is no longer healthy. Communication now takes a slower route, which means collective workloads should be expected to degrade sharply. All three signals move together: the map changes to PHB, the link counters turn dirty, and the AllReduce number collapses.",
         commonMistake:"Thinking the node is mostly fine because the workload still launches. If the path has fallen back to PHB, the interconnect is already in a degraded state even before you read the next benchmark or log line.",
         operatorTakeaway:"Once PHB replaces the expected NVLink path, the node has crossed out of a healthy interconnect state. The question is no longer whether there is a problem, but how large the blast radius is.",
         takeAction:[
@@ -239,11 +309,24 @@ window.AEGIS_LABS_PARTS.fabric_and_partitioning = {
           success:"NCCL fallback probe accepted. Replaying the authored evidence for this checkpoint."
         },
         explainerMode:"beginner_story",
-        screenshotReference:"Use the NCCL snapshot to confirm what the degraded topology screenshot already suggested. When the log starts naming socket or fallback behavior, treat it as software evidence that matches the earlier hardware-path break.",
+        pairedScreenshots:true,
+        screenshotReference:"Read these two NCCL logs as one before/after pair. Same channel, same rings, same job — the only thing that changed is the transport, and that change is the software-layer echo of the topology break you already saw.",
         screenshots:[
           {
-            title:"NCCL fallback log capture",
-            caption:"This is the software-layer echo of the PHB downgrade. The important part is not the volume of logs, but the fact that the transport story now looks slower and less direct than the healthy baseline.",
+            title:"Before: healthy NCCL log (NVLink transport)",
+            caption:"This is what the same channel setup looks like when the fast path is intact: direct NVLink transport, no fallback warning, bandwidth confirmed at baseline.",
+            lines:[
+              "NCCL INFO Channel 00/08 : 0[0] -> 1[1] via NVLink/direct/direct",
+              "NCCL INFO Channel 01/08 : 0[0] -> 2[2] via NVLink/direct/direct",
+              "NCCL INFO NVLS multicast support is available",
+              "NCCL INFO Trees [0] -1/-1/-1->7->6",
+              "NCCL INFO Connected all rings via NVLink",
+              "NCCL INFO Avg bus bandwidth matches NVLink baseline"
+            ]
+          },
+          {
+            title:"After: NCCL fallback log capture",
+            caption:"Compare this against the healthy log on the left/above. This is the software-layer echo of the PHB downgrade. The important part is not the volume of logs, but the fact that the transport story now looks slower and less direct than the healthy baseline.",
             lines:[
               "NCCL INFO Channel 00/08 : 0[0] -> 1[1] via SHM/direct/direct",
               "NCCL INFO NET/IB : No device found for requested path, falling back",

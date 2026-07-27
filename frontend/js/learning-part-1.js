@@ -140,8 +140,36 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     beginnerTemplate: "operator_story",
     hideModeNote: true,
     objectiveTitle: "What We're Doing",
-    objectiveText: "NVLink is the high-speed GPU-to-GPU interconnect built to let GPUs within a server exchange data much faster than the PCIe host-bridge (PHB) path. We are checking whether 8 H100 GPUs are actually using that fast fabric. The beginner goal is not just to spot whether GPUs exist. It is to tell the difference between a healthy fast interconnect and a slower fallback path that can quietly waste the whole node.",
-    plainPicture: "Picture eight GPUs in one server as eight workers passing heavy crates to each other. NVLink is the private high-speed hallway between those workers. When the hallway is open, crates move directly and training stays fast. If that hallway is blocked, the workers may still pass crates through the building lobby, which is the slower PCIe host-bridge path shown as PHB. The job may still run, but the route is much worse. The topology screenshot is the floor plan that shows whether traffic is using the private hallway or the slow lobby route.",
+    objectiveText: "Modern AI training rarely runs on one GPU. A model gets split across many GPUs at once, and while they train, they must constantly exchange data with each other so every GPU ends up with the same updated picture of the model. If that exchange happens over the fast path, the job runs efficiently. If it quietly falls back to a slower path, the job can still finish, but it burns expensive GPU hours doing far less work than it should. NVLink is that fast path: the high-speed GPU-to-GPU interconnect built to let GPUs inside a server exchange data far faster than the PCIe host-bridge (PHB) fallback. As an operator, your job is not just to prove the 8 H100 GPUs exist. It is to prove they are connected, clean, fast, and safe to keep in service for real distributed training.",
+    plainPicture: "Picture a training job as a stack of crates too heavy for one worker to carry alone, so the work is split across eight workers, one per GPU, standing in the same room. Because the work is split, the workers cannot just work in silence. They constantly pass partial results back and forth so everyone stays in sync on the same answer. NVLink is the private high-speed hallway between those workers. When the hallway is open, crates move directly and training stays fast. If that hallway is blocked, the workers may still pass crates through the building lobby, which is the slower PCIe host-bridge path shown as PHB. The job may still run, but the route is much worse. The topology screenshot is the floor plan that shows whether traffic is using the private hallway or the slow lobby route.",
+    stackHandoffIntro: "This is the process, step by step. Each check only means something because of the one before it.",
+    stackHandoffs: [
+      {
+        title: "Check the map: is NVLink actually the path?",
+        tone: "green",
+        text: "Read the topology matrix to see how the 8 GPUs connect to each other, because a bandwidth number only means something once you know which links were supposed to exist."
+      },
+      {
+        title: "Check the health: is the fast path clean?",
+        tone: "blue",
+        text: "Read the NVLink error counters, because a link can exist on paper and still be too noisy to trust once real training traffic hits it."
+      },
+      {
+        title: "Check real performance: does AllReduce prove it?",
+        tone: "yellow",
+        text: "Run the AllReduce benchmark, because this is where the topology and error-counter story becomes an actual throughput number the platform can be judged on."
+      },
+      {
+        title: "Simulate or observe failure: did it fall back to PHB?",
+        tone: "purple",
+        text: "Watch for the topology collapsing from NV4 to PHB, because a node can stay online and keep launching jobs while quietly running on the slow PCIe host-bridge path."
+      },
+      {
+        title: "Connect hardware to software: do the NCCL logs agree?",
+        tone: "cyan",
+        text: "Read the NCCL debug log, because the software layer should echo the same degraded story the hardware path already told, and that agreement is what turns a hunch into evidence."
+      }
+    ],
     whyOperatorsCare: [
       "Operators care about NVLink because distributed training health is not just 'can I see eight GPUs?' The real question is whether those GPUs can exchange data over the fast path the node was designed to use.",
       "A node can stay online, launch jobs, and still be operationally degraded. That is why the first screenshot in this lab matters: uptime is not the same as healthy interconnect performance.",
@@ -150,13 +178,18 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
     wholePlatform: [
       "In the bigger platform, NVLink is part of the communication spine inside the server. If it is healthy, the node contributes the fast collective path the scheduler and workload owners think they are getting.",
       "If it degrades, the node may still look schedulable, but multi-GPU jobs can slow down sharply, consume expensive GPU hours inefficiently, and fall back to weaker communication paths without a hard outage.",
-      "So this is not just a low-level topology detail. It changes whether the server is still safe to keep in service for distributed work, how large the blast radius is, and whether the rack is actually delivering the performance it promised."
+      "So this is not just a low-level topology detail. It changes whether the server is still safe to keep in service for distributed work, how large the blast radius is, and whether the rack is actually delivering the performance it promised. Catching a silent PHB fallback here is what keeps a customer's rented 8-GPU rack from quietly billing full price for a fraction of the throughput."
     ],
     coreTerms: [
       {
         term: "GPU",
         plain: "Graphics processing unit — a chip with thousands of small cores that work on many pieces of data at the same time. The opposite of a CPU, which has a few fast cores that do one complicated thing at a time.",
         why: "Every lab here is ultimately about keeping these chips busy, healthy, and shared fairly."
+      },
+      {
+        term: "Distributed training",
+        plain: "Splitting one training job across multiple GPUs, or multiple servers, instead of running it on a single GPU.",
+        why: "This is why GPUs need to talk to each other at all. Without distributed training, NVLink and NCCL would not matter."
       },
       {
         term: "PCIe",
@@ -186,7 +219,9 @@ window.AEGIS_LEARNING_PARTS.hardware_foundations = {
       { term: "NVLink", plain: "A direct high-bandwidth GPU-to-GPU connection used for fast communication inside systems like DGX or HGX.", why: "This is the fast path that collective workloads expect to use." },
       { term: "Topology", plain: "The map of which GPUs connect directly to which other GPUs and what path traffic takes between them.", why: "The topology screenshot is your baseline for deciding whether later output is healthy or degraded." },
       { term: "PHB", plain: "PCIe Host Bridge, meaning traffic is taking a slower PCIe-and-host path instead of a direct NVLink path.", why: "Seeing PHB where the baseline screenshot showed NV4 is one of the clearest degradation signals in this lab." },
-      { term: "CRC error", plain: "A link-integrity error showing that data on the interconnect may be arriving damaged and needing retry or correction.", why: "CRC counters help you decide whether the path is only present on paper or actually healthy enough to trust." }
+      { term: "CRC error", plain: "A link-integrity error showing that data on the interconnect may be arriving damaged and needing retry or correction.", why: "CRC counters help you decide whether the path is only present on paper or actually healthy enough to trust." },
+      { term: "AllReduce", plain: "A collective operation where every GPU shares its partial results, the results get combined, and every GPU leaves with the same final answer.", why: "This is the operation that actually rides on NVLink. A bad path shows up here as a bandwidth number, not just a topology label." },
+      { term: "NCCL", plain: "NVIDIA's library for multi-GPU communication collectives, including AllReduce.", why: "NCCL sits between the training framework and the physical interconnect, so its logs are the software-side witness to a hardware-path problem." }
     ],
     commonMisreads: [
       "If the GPUs are visible, the fabric must be healthy. That is false. Visibility only proves the devices exist, not that the direct path is intact.",
